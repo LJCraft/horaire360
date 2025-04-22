@@ -73,7 +73,7 @@ class PresenceController extends Controller
      */
     public function create()
     {
-        $employes = Employe::where('actif', true)->orderBy('nom')->orderBy('prenom')->get();
+        $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         return view('presences.create', compact('employes'));
     }
     

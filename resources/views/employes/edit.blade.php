@@ -60,15 +60,13 @@
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="date_naissance" class="form-label">Date de naissance</label>
-                        <input type="date" class="form-control @error('date_naissance') is-invalid @enderror" id="date_naissance" name="date_naissance" value="{{ old('date_naissance', $employe->date_naissance ? $employe->date_naissance->format('Y-m-d') : '') }}">
-                        @error('date_naissance')
+                        <input type="date" class="form-control @error('date_naissance') is-invalid @enderror" id="date_naissance" name="date_naissance" value="{{ old('date_naissance', optional(\Carbon\Carbon::parse($employe->date_naissance))->format('Y-m-d')) }}">                        @error('date_naissance')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
                     <div class="col-md-6">
                         <label for="date_embauche" class="form-label">Date d'embauche <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control @error('date_embauche') is-invalid @enderror" id="date_embauche" name="date_embauche" value="{{ old('date_embauche', $employe->date_embauche->format('Y-m-d')) }}" required>
-                        @error('date_embauche')
+                        <input type="date" class="form-control @error('date_embauche') is-invalid @enderror" id="date_embauche" name="date_embauche" value="{{ old('date_embauche', optional(\Carbon\Carbon::parse($employe->date_embauche))->format('Y-m-d')) }}" required>                        @error('date_embauche')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
