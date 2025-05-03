@@ -361,10 +361,29 @@ class EmployesImport implements
                     ]);
                 }
                 
-                // Vérifier si l'email existe déjà
+                // Vérifier si l'email existe déjà dans la base de données
                 $existingEmploye = Employe::where('email', trim($row['email']))->first();
                 if ($existingEmploye) {
                     $errorMessage = "L'email {$row['email']} existe déjà pour un autre employé";
+                    $this->errors[] = $errorMessage;
+                    Log::warning($errorMessage);
+                    continue;
+                }
+                
+                // Vérifier si l'email existe déjà dans les lignes précédentes du fichier
+                $emailToCheck = strtolower(trim($row['email']));
+                $duplicateEmails = [];
+                for ($i = 0; $i < $rowIndex; $i++) {
+                    if (isset($rows[$i]['email'])) {
+                        $previousEmail = strtolower(trim($rows[$i]['email']));
+                        if ($previousEmail === $emailToCheck) {
+                            $duplicateEmails[] = $i + 1; // +1 pour obtenir le numéro de ligne réel
+                        }
+                    }
+                }
+                
+                if (!empty($duplicateEmails)) {
+                    $errorMessage = "L'email {$row['email']} est en doublon avec la/les ligne(s) " . implode(', ', $duplicateEmails) . " du fichier";
                     $this->errors[] = $errorMessage;
                     Log::warning($errorMessage);
                     continue;

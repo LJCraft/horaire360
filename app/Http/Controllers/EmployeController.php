@@ -270,8 +270,18 @@ class EmployeController extends Controller
                         // Uniquement des erreurs, pas d'imports réussis
                         session()->forget(['import_errors', 'import_success_count', 'import_header_row']);
                         
+                        // Analyser les erreurs pour un message plus précis
+                        $errorSummary = $this->categorizeImportErrors($errors);
+                        $errorMessage = 'Erreur : aucun employé n\'a pu être importé. ';
+                        
+                        if (!empty($errorSummary)) {
+                            $errorMessage .= 'Raison(s) : ' . $errorSummary;
+                        } else {
+                            $errorMessage .= 'Vérifiez le format du fichier et les entêtes de colonnes.';
+                        }
+                        
                         return redirect()->back()
-                            ->withErrors(['file' => 'Erreur : aucun employé n\'a pu être importé. Vérifiez le format du fichier et les entêtes de colonnes.'])
+                            ->withErrors(['file' => $errorMessage])
                             ->with('import_errors', $errors);
                     }
                 }
@@ -312,8 +322,24 @@ class EmployeController extends Controller
             
             session()->forget('import_header_row');
             
+            // Analyser le message d'erreur pour fournir des informations plus claires
+            $errorMessage = 'Erreur lors de l\'importation. ';
+            
+            if (strpos($e->getMessage(), 'Duplicata') !== false && strpos($e->getMessage(), 'matricule') !== false) {
+                $errorMessage .= 'Un ou plusieurs matricules existent déjà dans la base de données.';
+            } 
+            else if (strpos($e->getMessage(), 'Duplicata') !== false && strpos($e->getMessage(), 'email') !== false) {
+                $errorMessage .= 'Une ou plusieurs adresses email existent déjà dans la base de données.';
+            }
+            else if (strpos($e->getMessage(), 'Integrity constraint violation') !== false) {
+                $errorMessage .= 'Violation de contrainte d\'intégrité. Vérifiez les valeurs uniques comme le matricule ou l\'email.';
+            }
+            else {
+                $errorMessage .= $e->getMessage();
+            }
+            
             return redirect()->back()
-                ->withErrors(['file' => 'Erreur lors de l\'importation : ' . $e->getMessage()]);
+                ->withErrors(['file' => $errorMessage]);
         }
     }
 
@@ -628,6 +654,24 @@ class EmployeController extends Controller
                         continue;
                     }
                     
+                    // Vérifier si cet email existe déjà dans les lignes précédentes de ce même fichier
+                    $emailToCheck = strtolower(trim($rowData['email']));
+                    $duplicateEmailsInFile = [];
+                    for ($i = $headerRow + 1; $i < $rowIndex; $i++) {
+                        $previousCol = $columnIndexMap['email'];
+                        $previousEmail = strtolower(trim($worksheet->getCell($previousCol . $i)->getValue() ?? ''));
+                        if ($previousEmail && $previousEmail === $emailToCheck) {
+                            $duplicateEmailsInFile[] = $i;
+                        }
+                    }
+                    
+                    if (!empty($duplicateEmailsInFile)) {
+                        $errorMessage = "Ligne $rowIndex: L'email '{$rowData['email']}' est en doublon avec la/les ligne(s) " . implode(', ', $duplicateEmailsInFile) . " du fichier";
+                        $errors[] = $errorMessage;
+                        Log::warning($errorMessage);
+                        continue;
+                    }
+                    
                     // Générer matricule si nécessaire
                     $matricule = !empty($rowData['matricule']) 
                         ? trim($rowData['matricule']) 
@@ -686,15 +730,102 @@ class EmployeController extends Controller
                         ->with('success', "$importCount employé(s) importé(s) avec succès");
                 }
             } else {
+                // Analyser les erreurs pour donner un message plus précis
+                $errorSummary = $this->categorizeImportErrors($errors);
+                $errorMessage = 'Aucun employé n\'a pu être importé. ';
+                
+                if (!empty($errorSummary)) {
+                    $errorMessage .= 'Raison(s) : ' . $errorSummary;
+                }
+                
                 return redirect()->back()
-                    ->withErrors(['file' => 'Aucun employé n\'a pu être importé'])
+                    ->withErrors(['file' => $errorMessage])
                     ->with('import_errors', $errors);
             }
             
         } catch (\Exception $e) {
             Log::error("Erreur générale d'importation directe: " . $e->getMessage());
+            
+            // Analyser le message d'erreur pour fournir des informations plus claires
+            $errorMessage = 'Erreur lors de l\'importation. ';
+            
+            if (strpos($e->getMessage(), 'Duplicata') !== false && strpos($e->getMessage(), 'matricule') !== false) {
+                $errorMessage .= 'Un ou plusieurs matricules existent déjà dans la base de données.';
+            } 
+            else if (strpos($e->getMessage(), 'Duplicata') !== false && strpos($e->getMessage(), 'email') !== false) {
+                $errorMessage .= 'Une ou plusieurs adresses email existent déjà dans la base de données.';
+            }
+            else if (strpos($e->getMessage(), 'Integrity constraint violation') !== false) {
+                $errorMessage .= 'Violation de contrainte d\'intégrité. Vérifiez les valeurs uniques comme le matricule ou l\'email.';
+            }
+            else {
+                $errorMessage .= $e->getMessage();
+            }
+            
             return redirect()->back()
-                ->withErrors(['file' => 'Erreur: ' . $e->getMessage()]);
+                ->withErrors(['file' => $errorMessage]);
         }
+    }
+    
+    /**
+     * Analyser les erreurs d'importation pour fournir un résumé clair
+     * 
+     * @param array $errors Liste des erreurs
+     * @return string Résumé des causes principales d'erreur
+     */
+    private function categorizeImportErrors($errors)
+    {
+        $errorTypes = [
+            'doublon_email' => 0,
+            'doublon_matricule' => 0,
+            'champ_obligatoire' => 0,
+            'date_invalide' => 0,
+            'autre' => 0
+        ];
+        
+        foreach ($errors as $error) {
+            $errorLower = strtolower($error);
+            
+            if (strpos($errorLower, 'email') !== false && (strpos($errorLower, 'exist') !== false || strpos($errorLower, 'doublon') !== false)) {
+                $errorTypes['doublon_email']++;
+            } 
+            else if (strpos($errorLower, 'matricule') !== false && strpos($errorLower, 'dupl') !== false) {
+                $errorTypes['doublon_matricule']++;
+            }
+            else if (strpos($errorLower, 'obligatoire') !== false || strpos($errorLower, 'manquant') !== false) {
+                $errorTypes['champ_obligatoire']++;
+            }
+            else if (strpos($errorLower, 'date') !== false && (strpos($errorLower, 'inval') !== false || strpos($errorLower, 'format') !== false)) {
+                $errorTypes['date_invalide']++;
+            }
+            else {
+                $errorTypes['autre']++;
+            }
+        }
+        
+        // Construire le message de résumé
+        $summaryParts = [];
+        
+        if ($errorTypes['doublon_email'] > 0) {
+            $summaryParts[] = "adresses email en doublon (" . $errorTypes['doublon_email'] . ")";
+        }
+        
+        if ($errorTypes['doublon_matricule'] > 0) {
+            $summaryParts[] = "matricules déjà existants (" . $errorTypes['doublon_matricule'] . ")";
+        }
+        
+        if ($errorTypes['champ_obligatoire'] > 0) {
+            $summaryParts[] = "champs obligatoires manquants (" . $errorTypes['champ_obligatoire'] . ")";
+        }
+        
+        if ($errorTypes['date_invalide'] > 0) {
+            $summaryParts[] = "dates invalides (" . $errorTypes['date_invalide'] . ")";
+        }
+        
+        if ($errorTypes['autre'] > 0) {
+            $summaryParts[] = "autres erreurs (" . $errorTypes['autre'] . ")";
+        }
+        
+        return implode(', ', $summaryParts);
     }
 }

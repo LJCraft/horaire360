@@ -52,11 +52,139 @@
                 </button>
                 <div class="collapse mt-2" id="importErrorsCollapse">
                     <div class="card card-body">
-                        <ul class="mb-0">
-                            @foreach(session('import_errors') as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
+                        <div class="accordion accordion-flush" id="importErrorsAccordion">
+                            <!-- Regrouper les erreurs similaires -->
+                            @php
+                                $errors = session('import_errors');
+                                $errorCategories = [
+                                    'email' => [],
+                                    'matricule' => [],
+                                    'date' => [],
+                                    'champ' => [],
+                                    'autres' => []
+                                ];
+                                
+                                foreach ($errors as $error) {
+                                    $errorLower = strtolower($error);
+                                    if (strpos($errorLower, 'email') !== false) {
+                                        $errorCategories['email'][] = $error;
+                                    } elseif (strpos($errorLower, 'matricule') !== false) {
+                                        $errorCategories['matricule'][] = $error;
+                                    } elseif (strpos($errorLower, 'date') !== false) {
+                                        $errorCategories['date'][] = $error;
+                                    } elseif (strpos($errorLower, 'obligatoire') !== false || strpos($errorLower, 'manquant') !== false) {
+                                        $errorCategories['champ'][] = $error;
+                                    } else {
+                                        $errorCategories['autres'][] = $error;
+                                    }
+                                }
+                            @endphp
+                            
+                            <!-- Erreurs liées aux emails -->
+                            @if(count($errorCategories['email']) > 0)
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#emailErrors">
+                                        <i class="bi bi-envelope-exclamation me-2"></i> 
+                                        Erreurs d'emails ({{ count($errorCategories['email']) }})
+                                    </button>
+                                </h2>
+                                <div id="emailErrors" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <ul class="mb-0 small">
+                                            @foreach($errorCategories['email'] as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            <!-- Erreurs liées aux matricules -->
+                            @if(count($errorCategories['matricule']) > 0)
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#matriculeErrors">
+                                        <i class="bi bi-upc me-2"></i> 
+                                        Erreurs de matricules ({{ count($errorCategories['matricule']) }})
+                                    </button>
+                                </h2>
+                                <div id="matriculeErrors" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <ul class="mb-0 small">
+                                            @foreach($errorCategories['matricule'] as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            <!-- Erreurs liées aux dates -->
+                            @if(count($errorCategories['date']) > 0)
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dateErrors">
+                                        <i class="bi bi-calendar-x me-2"></i> 
+                                        Erreurs de dates ({{ count($errorCategories['date']) }})
+                                    </button>
+                                </h2>
+                                <div id="dateErrors" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <ul class="mb-0 small">
+                                            @foreach($errorCategories['date'] as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            <!-- Erreurs liées aux champs obligatoires -->
+                            @if(count($errorCategories['champ']) > 0)
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#champErrors">
+                                        <i class="bi bi-exclamation-diamond me-2"></i> 
+                                        Champs obligatoires manquants ({{ count($errorCategories['champ']) }})
+                                    </button>
+                                </h2>
+                                <div id="champErrors" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <ul class="mb-0 small">
+                                            @foreach($errorCategories['champ'] as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            <!-- Autres erreurs -->
+                            @if(count($errorCategories['autres']) > 0)
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#autresErrors">
+                                        <i class="bi bi-question-circle me-2"></i> 
+                                        Autres erreurs ({{ count($errorCategories['autres']) }})
+                                    </button>
+                                </h2>
+                                <div id="autresErrors" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <ul class="mb-0 small">
+                                            @foreach($errorCategories['autres'] as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                        </div>
                     </div>
                 </div>
             @endif
@@ -220,7 +348,7 @@
                 </div>
                 <form action="{{ route('employes.import') }}" method="POST" enctype="multipart/form-data">
                     @csrf
-                    <div class="modal-body">
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <div class="alert alert-info">
                             <h6><i class="bi bi-info-circle"></i> Instructions</h6>
                             <p class="mb-1">Pour une importation réussie, assurez-vous que :</p>
@@ -246,17 +374,6 @@
                             <div id="file-check-results" class="mt-3" style="display: none;">
                                 <!-- Résultats de la vérification seront affichés ici -->
                             </div>
-                            
-                            @if(session('import_errors'))
-                                <div class="text-danger mt-2">
-                                    <p class="mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Des erreurs se sont produites lors de la dernière importation :</p>
-                                    <ul class="mb-0 small">
-                                        @foreach(session('import_errors') as $error)
-                                            <li>{{ $error }}</li>
-                                        @endforeach
-                                    </ul>
-                                </div>
-                            @endif
                         </div>
                         
                         <div class="card">
@@ -272,6 +389,145 @@
                                 </a>
                             </div>
                         </div>
+                        
+                        @if(session('import_errors'))
+                            <div class="text-danger mt-2">
+                                <p class="mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Des erreurs se sont produites lors de la dernière importation :</p>
+                                <div class="accordion accordion-flush" id="importErrorsAccordionModal">
+                                    <!-- Regrouper les erreurs similaires -->
+                                    @php
+                                        $errors = session('import_errors');
+                                        $errorCategories = [
+                                            'email' => [],
+                                            'matricule' => [],
+                                            'date' => [],
+                                            'champ' => [],
+                                            'autres' => []
+                                        ];
+                                        
+                                        foreach ($errors as $error) {
+                                            $errorLower = strtolower($error);
+                                            if (strpos($errorLower, 'email') !== false) {
+                                                $errorCategories['email'][] = $error;
+                                            } elseif (strpos($errorLower, 'matricule') !== false) {
+                                                $errorCategories['matricule'][] = $error;
+                                            } elseif (strpos($errorLower, 'date') !== false) {
+                                                $errorCategories['date'][] = $error;
+                                            } elseif (strpos($errorLower, 'obligatoire') !== false || strpos($errorLower, 'manquant') !== false) {
+                                                $errorCategories['champ'][] = $error;
+                                            } else {
+                                                $errorCategories['autres'][] = $error;
+                                            }
+                                        }
+                                    @endphp
+                                    
+                                    <!-- Erreurs liées aux emails -->
+                                    @if(count($errorCategories['email']) > 0)
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#emailErrorsModal">
+                                                <i class="bi bi-envelope-exclamation me-2"></i> 
+                                                Erreurs d'emails ({{ count($errorCategories['email']) }})
+                                            </button>
+                                        </h2>
+                                        <div id="emailErrorsModal" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <ul class="mb-0 small">
+                                                    @foreach($errorCategories['email'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                    
+                                    <!-- Erreurs liées aux matricules -->
+                                    @if(count($errorCategories['matricule']) > 0)
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#matriculeErrorsModal">
+                                                <i class="bi bi-upc me-2"></i> 
+                                                Erreurs de matricules ({{ count($errorCategories['matricule']) }})
+                                            </button>
+                                        </h2>
+                                        <div id="matriculeErrorsModal" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <ul class="mb-0 small">
+                                                    @foreach($errorCategories['matricule'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                    
+                                    <!-- Erreurs liées aux dates -->
+                                    @if(count($errorCategories['date']) > 0)
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dateErrorsModal">
+                                                <i class="bi bi-calendar-x me-2"></i> 
+                                                Erreurs de dates ({{ count($errorCategories['date']) }})
+                                            </button>
+                                        </h2>
+                                        <div id="dateErrorsModal" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <ul class="mb-0 small">
+                                                    @foreach($errorCategories['date'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                    
+                                    <!-- Erreurs liées aux champs obligatoires -->
+                                    @if(count($errorCategories['champ']) > 0)
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#champErrorsModal">
+                                                <i class="bi bi-exclamation-diamond me-2"></i> 
+                                                Champs obligatoires manquants ({{ count($errorCategories['champ']) }})
+                                            </button>
+                                        </h2>
+                                        <div id="champErrorsModal" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <ul class="mb-0 small">
+                                                    @foreach($errorCategories['champ'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                    
+                                    <!-- Autres erreurs -->
+                                    @if(count($errorCategories['autres']) > 0)
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#autresErrorsModal">
+                                                <i class="bi bi-question-circle me-2"></i> 
+                                                Autres erreurs ({{ count($errorCategories['autres']) }})
+                                            </button>
+                                        </h2>
+                                        <div id="autresErrorsModal" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <ul class="mb-0 small">
+                                                    @foreach($errorCategories['autres'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
@@ -367,21 +623,52 @@ document.addEventListener('DOMContentLoaded', function() {
                     const fileInfo = data.file_info;
                     let html = `
                         <div class="card border-info">
-                            <div class="card-header bg-info text-white">
-                                <i class="bi bi-info-circle"></i> Résultat de l'analyse
+                            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-info-circle"></i> Résultat de l'analyse
+                                </div>
+                                <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#fileAnalysisDetails" aria-expanded="false">
+                                    <i class="bi bi-arrows-collapse"></i> Détails
+                                </button>
                             </div>
                             <div class="card-body">
                                 <div class="mb-3">
                                     <strong>Structure du fichier :</strong>
-                                    <ul>
+                                    <ul class="mb-1">
                                         <li>${fileInfo.rows} lignes détectées (dont une ligne d'en-tête)</li>
                                         <li>${fileInfo.columns} colonnes</li>
                                     </ul>
                                 </div>
                     `;
                     
-                    // En-têtes détectés
-                    html += `<div class="mb-3">
+                    // Colonnes requises - afficher en premier car c'est le plus important
+                    if (fileInfo.missing_columns && fileInfo.missing_columns.length > 0) {
+                        html += `
+                            <div class="alert alert-danger">
+                                <strong>Attention ! Colonnes obligatoires manquantes :</strong>
+                                <ul class="mb-0">
+                        `;
+                        
+                        fileInfo.missing_columns.forEach(col => {
+                            html += `<li>${col}</li>`;
+                        });
+                        
+                        html += `
+                                </ul>
+                                <p class="mt-2 mb-0">Votre fichier ne pourra pas être importé sans ces colonnes.</p>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i> Toutes les colonnes obligatoires sont présentes.
+                            </div>
+                        `;
+                    }
+                    
+                    // En-têtes détectés - dans une partie collapse pour ne pas prendre trop d'espace
+                    html += `<div class="collapse" id="fileAnalysisDetails">
+                        <div class="mb-3">
                         <strong>En-têtes détectés :</strong>
                         <table class="table table-sm table-bordered mt-2">
                             <thead>
@@ -415,32 +702,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         const displayValue = value || '<vide>';
                         html += `<td class="${colorClass}">${displayValue}</td>`;
                     }
-                    html += `</tr></tbody></table></div>`;
-                    
-                    // Colonnes requises
-                    if (fileInfo.missing_columns && fileInfo.missing_columns.length > 0) {
-                        html += `
-                            <div class="alert alert-danger">
-                                <strong>Attention ! Colonnes obligatoires manquantes :</strong>
-                                <ul class="mb-0">
-                        `;
-                        
-                        fileInfo.missing_columns.forEach(col => {
-                            html += `<li>${col}</li>`;
-                        });
-                        
-                        html += `
-                                </ul>
-                                <p class="mt-2 mb-0">Votre fichier ne pourra pas être importé sans ces colonnes.</p>
-                            </div>
-                        `;
-                    } else {
-                        html += `
-                            <div class="alert alert-success">
-                                <i class="bi bi-check-circle"></i> Toutes les colonnes obligatoires sont présentes.
-                            </div>
-                        `;
-                    }
+                    html += `</tr></tbody></table></div>
+                    </div>`; // Fin de la partie collapse
                     
                     html += `</div></div>`;
                     resultsContainer.innerHTML = html;
