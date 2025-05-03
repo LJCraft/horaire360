@@ -31,8 +31,11 @@ Route::middleware(['auth'])->group(function () {
     // Gestion des employés
     Route::resource('employes', EmployeController::class);
     Route::post('/employes/import', [EmployeController::class, 'import'])->name('employes.import');
+    Route::post('/employes/import-direct', [EmployeController::class, 'importDirect'])->name('employes.import-direct');
+    Route::post('/employes/check-file', [EmployeController::class, 'checkImportFile'])->name('employes.check-file');
     Route::get('/employes/export/template', [EmployeController::class, 'exportTemplate'])->name('employes.export-template');
     Route::get('/employes/export', [EmployeController::class, 'export'])->name('employes.export');
+    Route::get('/employes/export/pdf', [EmployeController::class, 'exportPdf'])->name('employes.export-pdf');
     
     // Gestion des postes
     Route::resource('postes', PosteController::class);
@@ -48,7 +51,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/plannings/calendrier', [PlanningController::class, 'calendrier'])->name('plannings.calendrier');
     
     // Routes pour les présences (itération 3)
-    Route::resource('presences', PresenceController::class);
     Route::resource('presences', PresenceController::class)->middleware(['auth']);
     Route::post('/presences/import', [PresenceController::class, 'import'])->name('presences.import');
     Route::get('/presences/export/template', [PresenceController::class, 'exportTemplate'])->name('presences.export-template');
@@ -59,6 +61,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/presences/export/excel', [PresenceController::class, 'exportExcel'])->name('presences.export-excel');
     Route::get('/presences/export/pdf', [PresenceController::class, 'exportPdf'])->name('presences.export-pdf');
     Route::get('/presences/export/template', [PresenceController::class, 'exportTemplate'])->name('presences.export-template');
+    Route::post('presences/import', [PresenceController::class, 'import'])->name('presences.import');
     
     
     // Routes pour les rapports (itération 4)

@@ -55,10 +55,10 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-    <a class="nav-link {{ request()->routeIs('presences.*') ? 'active' : '' }}" href="{{ route('presences.index') }}">
-        <i class="bi bi-fingerprint"></i> Présences
-    </a>
-</li>
+                            <a class="nav-link {{ request()->routeIs('presences.*') ? 'active' : '' }}" href="{{ route('presences.index') }}">
+                                <i class="bi bi-fingerprint"></i> Présences
+                            </a>
+                        </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('rapports.*') ? 'active' : '' }}" href="#">
                                     <i class="bi bi-file-earmark-bar-graph"></i> Rapports
@@ -71,12 +71,12 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#">
-                                    <i class="bi bi-calendar-check"></i> Mon planning
+                            <a class="nav-link {{ request()->routeIs('plannings.*') ? 'active' : '' }}" href="{{ route('plannings.show', auth()->user()->employe) }}">
+                            <i class="bi bi-calendar-check"></i> Mon planning
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#">
+                            <a class="nav-link {{ request()->routeIs('presences.*') ? 'active' : '' }}" href="{{ route('presences.show', auth()->user()->employe) }}">
                                     <i class="bi bi-clock-history"></i> Mes présences
                                 </a>
                             </li>

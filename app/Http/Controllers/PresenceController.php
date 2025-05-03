@@ -82,8 +82,55 @@ class PresenceController extends Controller
      */
     public function store(Request $request)
     {
+        try {
+            // Validation des données
+            $validatedData = $request->validate([
+                'employe_id' => 'required|exists:employes,id',
+                'date' => 'required|date',
+                'heure_arrivee' => 'required|date_format:H:i',
+                'heure_depart' => 'nullable|date_format:H:i',
+                'commentaire' => 'nullable|string',
+            ]);
+    
+            // Recherche du planning
+            $planning = Planning::where('employe_id', $validatedData['employe_id'])
+    ->whereRaw('DATE(created_at) = ?', [$validatedData['date']])
+    ->first();
+    
+            // Déterminer le retard
+            $retard = false;
+            if ($planning) {
+                // Créer les objets Carbon pour les heures
+                $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut);
+                $heureArrivee = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
+                
+                // Ajouter 10 minutes au début du planning
+                $heureDebutPlanning->addMinutes(10);
+                
+                // Comparer les heures
+                $retard = $heureArrivee->gt($heureDebutPlanning);
+            }
+    
+            // Ajout des champs de retard
+            $validatedData['retard'] = $retard;
+            $validatedData['depart_anticipe'] = false; // On peut ajouter la logique pour le départ anticipé plus tard
+    
+            // Création de la présence
+            $presence = Presence::create($validatedData);
+            
+            return redirect()->route('presences.index')
+                ->with('success', 'Présence créée avec succès.');
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la création de la présence : ' . $e->getMessage());
+            Log::error('Trace de la pile : ', $e->getTrace());
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Erreur technique : ' . $e->getMessage());
+        }
+
         // Validation des données
-        $validatedData = $request->validate([
+       /*$validatedData = $request->validate([
             'employe_id' => 'required|exists:employes,id',
             'date' => 'required|date',
             'heure_arrivee' => 'required|date_format:H:i',
@@ -140,6 +187,8 @@ class PresenceController extends Controller
                 ->withInput()
                 ->with('error', 'Une erreur est survenue lors de la création de la présence.');
         }
+        Log::info('Méthode store appelée');*/
+
     }
     
     /**

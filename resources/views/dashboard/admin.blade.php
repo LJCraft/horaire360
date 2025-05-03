@@ -79,7 +79,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <!-- <div class="col-md-3">
             <div class="card bg-warning text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -101,7 +101,7 @@
                     </span>
                 </div>
             </div>
-        </div>
+        </div> -->
         <div class="col-md-3">
             <div class="card bg-info text-white h-100">
                 <div class="card-body">

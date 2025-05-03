@@ -9,7 +9,7 @@
                     <div class="row g-0">
                         <div class="col-md-5 bg-primary text-white p-5 d-flex flex-column justify-content-center">
                             <div class="text-center mb-5">
-                                <img src="{{ asset('logo.svg') }}" alt="Horaire360" height="80" class="mb-4">
+                                <img src="{{ asset('assets/icons/logo.svg') }}" alt="Horaire360" height="80" class="mb-4">
                                 <h2 class="fs-4 fw-bold">Horaire360</h2>
                                 <p class="mb-0">Gestion intelligente des présences</p>
                             </div>
@@ -83,7 +83,7 @@
                                     <div class="input-group">
                                         <span class="input-group-text bg-light"><i class="bi bi-lock"></i></span>
                                         <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password">
-
+    
                                         @error('password')
                                             <span class="invalid-feedback" role="alert">
                                                 <strong>{{ $message }}</strong>

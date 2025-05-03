@@ -17,11 +17,12 @@ class Employe extends Model
         'utilisateur_id', 'statut'
     ];
 
-    // protected $casts = [
-    //     'date_embauche' => 'datetime',
-    // ];
+    protected $casts = [
+        'date_embauche' => 'datetime',
+        'date_naissance' => 'datetime',
+    ];
     
-    protected $dates = ['date_naissance', 'date_embauche'];
+    protected $dates = ['date_naissance', 'date_embauche', 'created_at', 'updated_at', 'deleted_at'];
     
     /**
      * Relation avec le poste

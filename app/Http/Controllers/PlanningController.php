@@ -72,6 +72,7 @@ class PlanningController extends Controller
         $employes = Employe::orderBy('nom')->get();
         
         return view('plannings.edit', compact('planning', 'employes'));//, 'detailsParJour'
+        
     }
 
     /**

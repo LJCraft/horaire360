@@ -1,9 +1,9 @@
 <?php
-
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\RegistersUsers;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -20,7 +20,6 @@ class RegisterController extends Controller
     | provide this functionality without requiring any additional code.
     |
     */
-
     use RegistersUsers;
 
     /**
@@ -28,7 +27,7 @@ class RegisterController extends Controller
      *
      * @var string
      */
-    protected $redirectTo = '/home';
+    protected $redirectTo = '/dashboard';
 
     /**
      * Create a new controller instance.
@@ -63,10 +62,42 @@ class RegisterController extends Controller
      */
     protected function create(array $data)
     {
+        $defaultPassword = '123456';
         return User::create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password']),
+            'password' => Hash::make($defaultPassword),
         ]);
     }
+
+    /**
+     * Create a new employee user by admin with default password.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function createEmployee(Request $request)
+{
+    // Validation des données
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|string|email|max:255|unique:users',
+        'role_id' => 'required|exists:roles,id'
+    ]);
+
+    // Mot de passe par défaut fixe
+    $defaultPassword = '123456';
+
+    // Créer l'utilisateur avec le mot de passe par défaut
+    $user = User::create([
+        'name' => $validated['name'],
+        'email' => $validated['email'],
+        'password' => Hash::make($defaultPassword), // Utiliser Hash::make pour le mot de passe
+        'role_id' => $validated['role_id']
+    ]);
+
+    return redirect()->route('users.index')
+        ->with('success', "Utilisateur créé avec succès. Mot de passe par défaut : {$defaultPassword}");
+}
+
 }
