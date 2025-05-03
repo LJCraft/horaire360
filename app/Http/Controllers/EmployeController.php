@@ -113,7 +113,7 @@ class EmployeController extends Controller
         
         // Création d'un compte utilisateur si demandé
         if ($request->create_user) {
-            $password = Str::random(10);
+            $password = 'password'; // Mot de passe par défaut
             $user = User::create([
                 'name' => $request->prenom . ' ' . $request->nom,
                 'email' => $request->email,
@@ -129,8 +129,13 @@ class EmployeController extends Controller
         
         $employe->save();
         
+        $message = 'Employé créé avec succès.';
+        if ($request->create_user) {
+            $message .= ' Un compte utilisateur a été créé avec l\'email "'.$request->email.'" et le mot de passe "'.$password.'".';
+        }
+        
         return redirect()->route('employes.index')
-            ->with('success', 'Employé créé avec succès.');
+            ->with('success', $message);
     }
 
     /**
@@ -698,14 +703,18 @@ class EmployeController extends Controller
                     // Créer un compte utilisateur si demandé
                     if (isset($rowData['compte_utilisateur']) && 
                         strtolower(trim($rowData['compte_utilisateur'])) === 'oui') {
+                        $password = 'password'; // Mot de passe par défaut
                         $user = User::create([
                             'name' => $employe->prenom . ' ' . $employe->nom,
                             'email' => $employe->email,
-                            'password' => Hash::make('password'), // Mot de passe par défaut
+                            'password' => Hash::make($password),
                             'role_id' => 2, // Rôle Employé
                         ]);
                         
                         $employe->update(['utilisateur_id' => $user->id]);
+                        
+                        // Ajouter un message indiquant que le mot de passe par défaut est 'password'
+                        Log::info("Compte utilisateur créé pour {$employe->prenom} {$employe->nom} avec mot de passe par défaut: 'password'");
                     }
                     
                     $importCount++;

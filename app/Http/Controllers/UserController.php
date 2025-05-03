@@ -52,11 +52,11 @@ class UserController extends Controller
             'role_id' => 'required|exists:roles,id',
             'employe_id' => 'nullable|exists:employes,id',
         ]);
-        $password = "password";
+        
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->$password),
+            'password' => Hash::make($request->password),
             'role_id' => $request->role_id,
         ]);
         
@@ -136,8 +136,8 @@ class UserController extends Controller
                 ->with('error', 'Cet employé a déjà un compte utilisateur.');
         }
         
-        // Générer un mot de passe aléatoire
-        $password = Str::random(10);
+        // Utiliser le mot de passe par défaut
+        $password = 'password';
         
         // Créer le compte utilisateur
         $user = User::create([
@@ -153,7 +153,9 @@ class UserController extends Controller
         // Ici, vous pourriez envoyer un email avec les identifiants
         // Mail::to($employe->email)->send(new NouveauCompte($user, $password));
         
+        $message = 'Compte utilisateur créé avec succès. Mot de passe par défaut: ' . $password;
+        
         return redirect()->route('employes.show', $employe)
-            ->with('success', 'Compte utilisateur créé avec succès. Mot de passe temporaire: ' . $password);
+            ->with('success', $message);
     }
 }

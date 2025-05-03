@@ -20,6 +20,9 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// Route de connexion directe pour le débogage
+// Ces routes ont été supprimées pour garantir la sécurité de l'authentification
+
 // Routes d'authentification (générées par Laravel UI)
 Auth::routes();
 
@@ -70,6 +73,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/rapports/presences', [RapportController::class, 'presences'])->name('rapports.presences');
     Route::get('/rapports/absences', [RapportController::class, 'absences'])->name('rapports.absences');
     Route::get('/rapports/retards', [RapportController::class, 'retards'])->name('rapports.retards');
-    Route::get('/rapports/export/pdf', [RapportController::class, 'exportPdf'])->name('rapports.export-pdf');
-    Route::get('/rapports/export/excel', [RapportController::class, 'exportExcel'])->name('rapports.export-excel');
+    Route::get('/rapports/export/pdf', [RapportController::class, 'exportPdf'])->name('rapports.export.pdf');
+    Route::get('/rapports/export/excel', [RapportController::class, 'exportExcel'])->name('rapports.export.excel');
 });
