@@ -138,7 +138,7 @@
                     &copy; {{ date('Y') }} Horaire360 - Gestion intelligente des présences
                 </p>
                 <p class="text-muted small">
-                    Version 1.0 - Itération 1
+                    Version 1.0 
                 </p>
             </div>
         </footer>
