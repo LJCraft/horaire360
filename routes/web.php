@@ -49,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/plannings/export/template', [PlanningController::class, 'exportTemplate'])->name('plannings.export-template');
     Route::get('/plannings/export', [PlanningController::class, 'export'])->name('plannings.export');
     Route::get('/plannings/calendrier', [PlanningController::class, 'calendrier'])->name('plannings.calendrier');
+    Route::get('/plannings/search-employes', [PlanningController::class, 'searchEmployes'])->name('plannings.search-employes');
     
     // Routes pour les présences (itération 3)
     Route::resource('presences', PresenceController::class)->middleware(['auth']);

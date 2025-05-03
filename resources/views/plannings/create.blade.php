@@ -24,6 +24,60 @@
     </div>
     @endif
 
+    @if(count($employesSansPlannings) > 0)
+    <div class="card mb-4">
+        <div class="card-header bg-warning-subtle">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Employés sans planning ({{ count($employesSansPlannings) }})
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                @foreach($employesSansPlannings->take(5) as $employe)
+                <div class="col-md-4 mb-2">
+                    <div class="d-flex align-items-center border rounded p-2">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ $employe->nom }} {{ $employe->prenom }}</div>
+                            <small class="text-muted">{{ $employe->matricule }}</small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary select-no-planning" data-id="{{ $employe->id }}">
+                            Sélectionner
+                        </button>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            
+            @if(count($employesSansPlannings) > 5)
+            <div class="text-center mt-3">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="show-all-no-planning">
+                    Voir tous ({{ count($employesSansPlannings) }})
+                </button>
+            </div>
+            
+            <div id="all-no-planning" class="mt-3" style="display: none;">
+                <div class="row">
+                    @foreach($employesSansPlannings->skip(5) as $employe)
+                    <div class="col-md-4 mb-2">
+                        <div class="d-flex align-items-center border rounded p-2">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ $employe->nom }} {{ $employe->prenom }}</div>
+                                <small class="text-muted">{{ $employe->matricule }}</small>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary select-no-planning" data-id="{{ $employe->id }}">
+                                Sélectionner
+                            </button>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+        </div>
+    </div>
+    @endif
+
     <div class="card">
         <div class="card-body">
             <form action="{{ route('plannings.store') }}" method="POST">
@@ -139,6 +193,95 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Vérifier que le token CSRF est présent
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const csrfInput = document.querySelector('input[name="_token"]');
+        
+        // Si le token CSRF manque dans le formulaire, l'ajouter
+        if (!csrfInput && csrfToken) {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = '_token';
+                input.value = csrfToken;
+                form.appendChild(input);
+            });
+        }
+        
+        const employeSelect = document.getElementById('employe_id');
+        
+        // Bouton pour afficher tous les employés sans planning
+        const showAllNoPlanning = document.getElementById('show-all-no-planning');
+        if (showAllNoPlanning) {
+            showAllNoPlanning.addEventListener('click', function() {
+                const allNoPlanning = document.getElementById('all-no-planning');
+                if (allNoPlanning.style.display === 'none') {
+                    allNoPlanning.style.display = 'block';
+                    showAllNoPlanning.textContent = 'Masquer';
+                } else {
+                    allNoPlanning.style.display = 'none';
+                    showAllNoPlanning.textContent = 'Voir tous ({{ count($employesSansPlannings) }})';
+                }
+            });
+        }
+        
+        // Gérer les boutons de sélection pour les employés sans planning
+        document.querySelectorAll('.select-no-planning').forEach(button => {
+            button.addEventListener('click', function() {
+                const employeId = this.dataset.id;
+                
+                // Sélectionner l'option dans le select
+                Array.from(employeSelect.options).forEach(option => {
+                    if (option.value === employeId) {
+                        option.selected = true;
+                    }
+                });
+
+                // Ajouter une date par défaut si non remplie
+                const dateDebut = document.getElementById('date_debut');
+                const dateFin = document.getElementById('date_fin');
+                
+                if (!dateDebut.value) {
+                    const today = new Date();
+                    const nextMonth = new Date(today);
+                    nextMonth.setMonth(today.getMonth() + 1);
+                    
+                    dateDebut.value = today.toISOString().split('T')[0];
+                    dateFin.value = nextMonth.toISOString().split('T')[0];
+                }
+                
+                // Focus sur le champ date_debut pour guider l'utilisateur vers la prochaine étape
+                dateDebut.focus();
+            });
+        });
+        
+        // S'assurer que le formulaire contient un token CSRF valide avant soumission
+        const planningForm = document.querySelector('form[action="{{ route('plannings.store') }}"]');
+        if (planningForm) {
+            planningForm.addEventListener('submit', function(e) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                let csrfInput = planningForm.querySelector('input[name="_token"]');
+                
+                if (!csrfInput) {
+                    e.preventDefault();
+                    
+                    // Créer et ajouter un input CSRF
+                    csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = '_token';
+                    csrfInput.value = csrfToken;
+                    planningForm.appendChild(csrfInput);
+                    
+                    // Soumettre à nouveau le formulaire
+                    setTimeout(() => planningForm.submit(), 100);
+                } else {
+                    // Mettre à jour la valeur du token
+                    csrfInput.value = csrfToken;
+                }
+            });
+        }
+        
         // Gestion des changements de type de jour pour activer/désactiver les champs d'horaire
         const jourTypes = document.querySelectorAll('.jour-type');
         

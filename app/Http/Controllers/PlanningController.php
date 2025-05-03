@@ -237,7 +237,41 @@ class PlanningController extends Controller
         return Excel::download(new PlanningsExport, 'plannings.xlsx');
     }
 
-    
+    /**
+     * Rechercher des employés pour la création de planning
+     */
+    public function searchEmployes(Request $request)
+    {
+        $search = $request->input('search');
+        $withoutPlanning = $request->input('without_planning', false);
+        
+        $query = Employe::where('statut', 'actif')
+            ->where(function($query) use ($search) {
+                $query->where('nom', 'like', "%$search%")
+                    ->orWhere('prenom', 'like', "%$search%")
+                    ->orWhere('matricule', 'like', "%$search%")
+                    ->orWhere('email', 'like', "%$search%");
+            });
+            
+        // Si on filtre par employés sans planning
+        if ($withoutPlanning) {
+            $query->whereNotIn('id', function($subquery) {
+                $subquery->select('employe_id')
+                    ->from('plannings');
+            });
+        }
+        
+        $employes = $query->orderBy('nom')
+            ->limit(10)
+            ->get(['id', 'matricule', 'nom', 'prenom', 'email']);
+            
+        // Ajouter un indicateur pour chaque employé indiquant s'il a déjà un planning
+        $employes->each(function($employe) {
+            $employe->has_planning = Planning::where('employe_id', $employe->id)->exists();
+        });
+        
+        return response()->json($employes);
+    }
 
     /**
      * Afficher le formulaire de création
@@ -248,7 +282,16 @@ class PlanningController extends Controller
         $employe_id = $request->input('employe_id');
         $employe = $employe_id ? Employe::find($employe_id) : null;
         
-        return view('plannings.create', compact('employes', 'employe_id', 'employe'));
+        // Trouver les employés qui n'ont pas de planning
+        $employesSansPlannings = Employe::where('statut', 'actif')
+            ->whereNotIn('id', function($query) {
+                $query->select('employe_id')
+                    ->from('plannings');
+            })
+            ->orderBy('nom')
+            ->get();
+        
+        return view('plannings.create', compact('employes', 'employe_id', 'employe', 'employesSansPlannings'));
     }
 
     /**
