@@ -390,111 +390,94 @@ use Carbon\Carbon;
 
 <!-- Modal d'importation de données biométriques -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="importModalLabel"><i class="bi bi-upload me-2"></i> Importer des données biométriques</h5>
+            <div class="modal-header bg-primary text-white py-2">
+                <h5 class="modal-title" id="importModalLabel"><i class="bi bi-upload me-1"></i> Importer données biométriques</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-3">
                 @if(session('error'))
-                    <div class="alert alert-danger">
+                    <div class="alert alert-danger py-2">
                         {{ session('error') }}
                     </div>
                 @endif
 
                 <form action="{{ route('presences.importBiometrique') }}" method="POST" enctype="multipart/form-data">
                     @csrf
-                    <div class="mb-3">
-                        <label for="file" class="form-label">Fichier à importer</label>
-                        <input type="file" class="form-control @error('file') is-invalid @enderror" id="file" name="file" required>
-                        @error('file')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                    <div class="row g-2">
+                        <div class="col-md-8">
+                            <div class="mb-2">
+                                <label for="file" class="form-label small mb-1">Fichier</label>
+                                <input type="file" class="form-control form-control-sm @error('file') is-invalid @enderror" id="file" name="file" required>
+                                @error('file')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-2">
+                                <label for="format" class="form-label small mb-1">Format</label>
+                                <select class="form-select form-select-sm @error('format') is-invalid @enderror" id="format" name="format" required>
+                                    <option value="">Sélectionner</option>
+                                    <option value="json">JSON</option>
+                                    <option value="csv">CSV</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="format" class="form-label">Format du fichier</label>
-                        <select class="form-select @error('format') is-invalid @enderror" id="format" name="format" required>
-                            <option value="">Sélectionner un format</option>
-                            <option value="json">JSON</option>
-                            <option value="csv">CSV</option>
-                        </select>
-                        @error('format')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    
-                    <div class="mb-3 form-check">
+                    <div class="mb-2 form-check">
                         <input type="checkbox" class="form-check-input" id="skip_existing" name="skip_existing">
-                        <label class="form-check-label" for="skip_existing">Ignorer les pointages existants</label>
-                        <div class="form-text">Si cette option est cochée, les pointages existants ne seront pas mis à jour.</div>
+                        <label class="form-check-label small" for="skip_existing">Ignorer les pointages existants</label>
                     </div>
 
                     <!-- Zone de résultats de vérification -->
-                    <div id="verificationResults" class="mb-3 d-none">
+                    <div id="verificationResults" class="mb-2 d-none">
                         <div class="card border-info">
-                            <div class="card-header bg-info text-white">
-                                <i class="bi bi-info-circle me-2"></i> Résultats de vérification
+                            <div class="card-header bg-info text-white py-1 small">
+                                <i class="bi bi-info-circle me-1"></i> Résultats de vérification
                             </div>
-                            <div class="card-body" id="verificationContent">
+                            <div class="card-body p-2 small" id="verificationContent">
                                 <!-- Les résultats de vérification seront insérés ici -->
                             </div>
                         </div>
                     </div>
 
-                    <div class="card bg-light mb-3">
-                        <div class="card-header">Formats acceptés</div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6>Format JSON</h6>
-                                    <pre class="small bg-white p-2 rounded">
-{
-  "employee_id": 1,
-  "timestamp": "2025-05-15T08:01:23",
-  "type": "check-in",
-  "location": {
-    "latitude": 45.5017,
-    "longitude": -73.5673
-  },
-  "biometric_score": 0.95
-}</pre>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Format CSV</h6>
-                                    <p class="small">Colonnes requises :</p>
-                                    <ul class="small">
-                                        <li>employee_id</li>
-                                        <li>timestamp</li>
-                                        <li>type (check-in/check-out)</li>
-                                        <li>latitude</li>
-                                        <li>longitude</li>
-                                        <li>biometric_score</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="downloadJsonTemplate()">
-                                        <i class="bi bi-file-earmark-code me-1"></i> Télécharger modèle JSON
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="downloadCsvTemplate()">
-                                        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Télécharger modèle CSV
-                                    </button>
-                                </div>
-                            </div>
+                    <div class="d-flex justify-content-between mt-3">
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleFormatHelp">
+                                <i class="bi bi-info-circle"></i> Formats
+                            </button>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-info me-1" id="verifyFileBtn" onclick="verifyFile()">
+                                <i class="bi bi-check2-circle"></i> Vérifier
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="bi bi-cloud-arrow-up"></i> Importer
+                            </button>
                         </div>
                     </div>
                     
-                    <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Annuler</button>
-                        <button type="button" class="btn btn-info me-2" id="verifyFileBtn" onclick="verifyFile()">
-                            <i class="bi bi-check2-circle me-2"></i> Vérifier le fichier
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-cloud-arrow-up me-2"></i> Importer
-                        </button>
+                    <!-- Aide sur les formats (caché par défaut) -->
+                    <div id="formatHelp" class="mt-2 p-2 bg-light rounded small d-none">
+                        <div class="d-flex">
+                            <div class="me-2">
+                                <strong>CSV:</strong> employee_id, timestamp, type, latitude, longitude, biometric_score
+                            </div>
+                            <div>
+                                <strong>JSON:</strong> Voir <a href="#" onclick="downloadJsonTemplate(); return false;">modèle</a>
+                            </div>
+                        </div>
+                        <div class="mt-1 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="downloadCsvTemplate()">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="downloadJsonTemplate()">
+                                <i class="bi bi-file-earmark-code"></i> JSON
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -575,6 +558,12 @@ use Carbon\Carbon;
             var importModal = new bootstrap.Modal(document.getElementById('importModal'));
             importModal.show();
         @endif
+
+        // Gérer l'affichage/masquage de l'aide sur les formats
+        document.getElementById('toggleFormatHelp').addEventListener('click', function() {
+            const formatHelp = document.getElementById('formatHelp');
+            formatHelp.classList.toggle('d-none');
+        });
     });
 
     /**
@@ -588,13 +577,13 @@ use Carbon\Carbon;
         const verifyBtn = document.getElementById('verifyFileBtn');
         
         // Réinitialiser et afficher la zone de résultats
-        contentDiv.innerHTML = '<div class="text-center"><i class="bi bi-hourglass-split fs-4 text-info"></i><p>Vérification en cours...</p></div>';
+        contentDiv.innerHTML = '<div class="text-center"><i class="bi bi-hourglass-split text-info"></i> Vérification...</div>';
         resultsDiv.classList.remove('d-none');
         verifyBtn.disabled = true;
         
         // Vérifier que les champs requis sont remplis
         if (!fileInput.files[0] || !formatSelect.value) {
-            contentDiv.innerHTML = '<div class="alert alert-danger mb-0">Veuillez sélectionner un fichier et un format.</div>';
+            contentDiv.innerHTML = '<div class="alert alert-danger py-1 mb-0">Veuillez sélectionner un fichier et un format.</div>';
             verifyBtn.disabled = false;
             return;
         }
@@ -615,46 +604,34 @@ use Carbon\Carbon;
             let html = '';
             
             if (data.success) {
-                html += `<div class="alert alert-success mb-3">Le fichier est valide et contient ${data.stats.total} enregistrements.</div>`;
+                const isAllValid = data.stats.invalid === 0;
+                const statusClass = isAllValid ? 'success' : 'warning';
+                const statusIcon = isAllValid ? 'check-circle' : 'exclamation-triangle';
                 
-                // Détails des enregistrements
-                html += '<div class="table-responsive"><table class="table table-sm table-striped">';
-                html += '<thead><tr><th>N°</th><th>Employé</th><th>Date/Heure</th><th>Type</th><th>Valide</th></tr></thead><tbody>';
-                
-                data.records.forEach((record, index) => {
-                    const badgeClass = record.valid ? 'bg-success' : 'bg-danger';
-                    const badgeIcon = record.valid ? 'check-circle' : 'exclamation-circle';
-                    const validText = record.valid ? 'Valide' : `Invalide: ${record.error}`;
-                    
-                    html += `<tr>
-                        <td>${index + 1}</td>
-                        <td>${record.employee_id}</td>
-                        <td>${record.timestamp}</td>
-                        <td>${record.type}</td>
-                        <td><span class="badge ${badgeClass}"><i class="bi bi-${badgeIcon}"></i> ${validText}</span></td>
-                    </tr>`;
-                });
-                
-                html += '</tbody></table></div>';
-                
-                // Résumé des statistiques
-                html += `<div class="alert alert-info">
-                    <strong>Résumé :</strong> ${data.stats.valid} valides, ${data.stats.invalid} invalides
+                html = `<div class="alert alert-${statusClass} py-1 mb-2">
+                    <i class="bi bi-${statusIcon}"></i> ${data.stats.valid} valides, ${data.stats.invalid} invalides sur ${data.stats.total}
                 </div>`;
                 
-                if (data.stats.invalid > 0) {
-                    html += '<div class="alert alert-warning">Corrigez les erreurs dans votre fichier avant de procéder à l\'importation.</div>';
-                } else {
-                    html += '<div class="alert alert-success">Vous pouvez procéder à l\'importation.</div>';
+                // Si des erreurs existent, afficher un échantillon
+                if (!isAllValid && data.records.length > 0) {
+                    html += '<div class="small text-muted mb-1">Exemples d\'erreurs :</div>';
+                    html += '<ul class="ps-3 mb-0">';
+                    
+                    // Afficher seulement les entrées invalides
+                    data.records.filter(r => !r.valid).slice(0, 3).forEach(record => {
+                        html += `<li>${record.error} (ID:${record.employee_id})</li>`;
+                    });
+                    
+                    html += '</ul>';
                 }
             } else {
-                html = `<div class="alert alert-danger">${data.message}</div>`;
+                html = `<div class="alert alert-danger py-1 mb-0">${data.message}</div>`;
             }
             
             contentDiv.innerHTML = html;
         })
         .catch(error => {
-            contentDiv.innerHTML = `<div class="alert alert-danger">Erreur lors de la vérification : ${error.message}</div>`;
+            contentDiv.innerHTML = `<div class="alert alert-danger py-1 mb-0">Erreur: ${error.message}</div>`;
         })
         .finally(() => {
             verifyBtn.disabled = false;
