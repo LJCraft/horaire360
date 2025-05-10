@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-@php use Illuminate\Support\Facades\Auth; @endphp
+@php 
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+@endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">

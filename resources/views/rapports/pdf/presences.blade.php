@@ -183,8 +183,20 @@
                 @forelse($presences as $presence)
                     <tr>
                         <td>{{ Carbon\Carbon::parse($presence->date)->format('d/m/Y') }}</td>
-                        <td>{{ $presence->employe->prenom }} {{ $presence->employe->nom }}</td>
-                        <td>{{ $presence->employe->poste->nom }}</td>
+                        <td>
+                            @if($presence->employe)
+                                {{ $presence->employe->prenom }} {{ $presence->employe->nom }}
+                            @else
+                                <span class="text-danger">Employé supprimé</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($presence->employe && $presence->employe->poste)
+                                {{ $presence->employe->poste->nom }}
+                            @else
+                                <span class="text-danger">-</span>
+                            @endif
+                        </td>
                         <td>{{ Carbon\Carbon::parse($presence->heure_arrivee)->format('H:i') }}</td>
                         <td>{{ $presence->heure_depart ? Carbon\Carbon::parse($presence->heure_depart)->format('H:i') : '-' }}</td>
                         <td class="text-center">
