@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\PosteController;
 use App\Http\Controllers\PlanningController;
@@ -55,24 +56,22 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/plannings/search-employes', [PlanningController::class, 'searchEmployes'])->name('plannings.search-employes');
     
     // Routes pour les présences (itération 3)
-    Route::resource('presences', PresenceController::class)->middleware(['auth']);
-    Route::post('/presences/import', [PresenceController::class, 'import'])->name('presences.import');
-    Route::get('/presences/export/template', [PresenceController::class, 'exportTemplate'])->name('presences.export-template');
+    Route::resource('presences', PresenceController::class);
+    // Import
     Route::get('/presences/import', [PresenceController::class, 'importForm'])->name('presences.importForm');
-    Route::post('/presences/import', [App\Http\Controllers\PresenceController::class, 'import'])->name('presences.import');
+    Route::post('/presences/import', [PresenceController::class, 'import'])->name('presences.import');
+    // Template et export
     Route::get('/presences/template', [PresenceController::class, 'template'])->name('presences.template');
     Route::get('/presences/export', [PresenceController::class, 'export'])->name('presences.export');
-    Route::get('/presences/export/excel', [PresenceController::class, 'exportExcel'])->name('presences.export-excel');
-    Route::get('/presences/export/pdf', [PresenceController::class, 'exportPdf'])->name('presences.export-pdf');
-    Route::get('/presences/export/template', [PresenceController::class, 'exportTemplate'])->name('presences.export-template');
-    Route::post('presences/import', [PresenceController::class, 'import'])->name('presences.import');
-    
+    Route::get('/presences/export/excel', [PresenceController::class, 'exportExcel'])->name('presences.export.excel');
+    Route::get('/presences/export/pdf', [PresenceController::class, 'exportPdf'])->name('presences.export.pdf');
     
     // Routes pour les rapports (itération 4)
     Route::get('/rapports', [RapportController::class, 'index'])->name('rapports.index');
     Route::get('/rapports/presences', [RapportController::class, 'presences'])->name('rapports.presences');
     Route::get('/rapports/absences', [RapportController::class, 'absences'])->name('rapports.absences');
     Route::get('/rapports/retards', [RapportController::class, 'retards'])->name('rapports.retards');
+    Route::get('/rapports/biometrique', [RapportController::class, 'biometrique'])->name('rapports.biometrique');
     Route::get('/rapports/export/pdf', [RapportController::class, 'exportPdf'])->name('rapports.export.pdf');
     Route::get('/rapports/export/excel', [RapportController::class, 'exportExcel'])->name('rapports.export.excel');
 });

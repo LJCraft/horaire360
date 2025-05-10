@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Horaire360'),
 
     /*
     |--------------------------------------------------------------------------
@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'asset_url' => env('ASSET_URL'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
@@ -78,11 +80,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => 'fr',
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => 'en',
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => 'fr_FR',
 
     /*
     |--------------------------------------------------------------------------
@@ -107,6 +109,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Mobile Application Configuration
+    |--------------------------------------------------------------------------
+    |
+    | These values are used to verify the mobile application making requests
+    | to the API. The mobile_app_key is a secret key that should be shared
+    | with the mobile application. The min_mobile_version is the minimum
+    | version of the mobile application that is supported.
+    |
+    */
+
+    'mobile_app_key' => env('MOBILE_APP_KEY', 'horaire360-mobile-app-key'),
+    'min_mobile_version' => env('MIN_MOBILE_VERSION', '1.0.0'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Maintenance Mode Driver
     |--------------------------------------------------------------------------
     |
@@ -119,8 +136,84 @@ return [
     */
 
     'maintenance' => [
-        'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
-        'store' => env('APP_MAINTENANCE_STORE', 'database'),
+        'driver' => 'file',
+        // 'store' => 'redis',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Autoloaded Service Providers
+    |--------------------------------------------------------------------------
+    |
+    | The service providers listed here will be automatically loaded on the
+    | request to your application. Feel free to add your own services to
+    | this array to grant expanded functionality to your applications.
+    |
+    */
+
+    'providers' => [
+        /*
+         * Laravel Framework Service Providers...
+         */
+        Illuminate\Auth\AuthServiceProvider::class,
+        Illuminate\Broadcasting\BroadcastServiceProvider::class,
+        Illuminate\Bus\BusServiceProvider::class,
+        Illuminate\Cache\CacheServiceProvider::class,
+        Illuminate\Foundation\Providers\ConsoleSupportServiceProvider::class,
+        Illuminate\Cookie\CookieServiceProvider::class,
+        Illuminate\Database\DatabaseServiceProvider::class,
+        Illuminate\Encryption\EncryptionServiceProvider::class,
+        Illuminate\Filesystem\FilesystemServiceProvider::class,
+        Illuminate\Foundation\Providers\FoundationServiceProvider::class,
+        Illuminate\Hashing\HashServiceProvider::class,
+        Illuminate\Mail\MailServiceProvider::class,
+        Illuminate\Notifications\NotificationServiceProvider::class,
+        Illuminate\Pagination\PaginationServiceProvider::class,
+        Illuminate\Pipeline\PipelineServiceProvider::class,
+        Illuminate\Queue\QueueServiceProvider::class,
+        Illuminate\Redis\RedisServiceProvider::class,
+        Illuminate\Auth\Passwords\PasswordResetServiceProvider::class,
+        Illuminate\Session\SessionServiceProvider::class,
+        Illuminate\Translation\TranslationServiceProvider::class,
+        Illuminate\Validation\ValidationServiceProvider::class,
+        Illuminate\View\ViewServiceProvider::class,
+
+        /*
+         * Package Service Providers...
+         */
+        Barryvdh\DomPDF\ServiceProvider::class,
+        Laravel\Pail\PailServiceProvider::class,
+        Laravel\Sail\SailServiceProvider::class,
+        Laravel\Sanctum\SanctumServiceProvider::class,
+        Laravel\Tinker\TinkerServiceProvider::class,
+        Laravel\Ui\UiServiceProvider::class,
+        Maatwebsite\Excel\ExcelServiceProvider::class,
+        Carbon\Laravel\ServiceProvider::class,
+        NunoMaduro\Collision\Adapters\Laravel\CollisionServiceProvider::class,
+        Termwind\Laravel\TermwindServiceProvider::class,
+        Yajra\DataTables\DataTablesServiceProvider::class,
+
+        /*
+         * Application Service Providers...
+         */
+        App\Providers\AppServiceProvider::class,
+        App\Providers\AuthServiceProvider::class,
+        App\Providers\EventServiceProvider::class,
+        App\Providers\RouteServiceProvider::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Class Aliases
+    |--------------------------------------------------------------------------
+    |
+    | This array of class aliases will be registered when this application
+    | is started. However, feel free to register as many as you wish as
+    | the aliases are "lazy" loaded so they don't hinder performance.
+    |
+    */
+
+    'aliases' => [
+        // ...
+    ],
 ];

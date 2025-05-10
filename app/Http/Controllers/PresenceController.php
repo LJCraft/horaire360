@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PresenceController extends Controller
 {
@@ -94,8 +95,9 @@ class PresenceController extends Controller
     
             // Recherche du planning
             $planning = Planning::where('employe_id', $validatedData['employe_id'])
-    ->whereRaw('DATE(created_at) = ?', [$validatedData['date']])
-    ->first();
+                ->where('date_debut', '<=', $validatedData['date'])
+                ->where('date_fin', '>=', $validatedData['date'])
+                ->first();
     
             // Déterminer le retard
             $retard = false;
@@ -152,7 +154,8 @@ class PresenceController extends Controller
             
             // Recherche du planning pour déterminer le retard
             $planning = Planning::where('employe_id', $validatedData['employe_id'])
-                ->where('date', $validatedData['date'])
+                ->where('date_debut', '<=', $validatedData['date'])
+                ->where('date_fin', '>=', $validatedData['date'])
                 ->first();
             
             // Déterminer si l'employé est en retard (tolérance de 10 minutes)
@@ -198,7 +201,8 @@ class PresenceController extends Controller
     {
         // Récupérer le planning associé s'il existe
         $planning = Planning::where('employe_id', $presence->employe_id)
-            ->where('date', $presence->date)
+            ->where('date_debut', '<=', $presence->date)
+            ->where('date_fin', '>=', $presence->date)
             ->first();
             
         return view('presences.show', compact('presence', 'planning'));
@@ -242,7 +246,8 @@ class PresenceController extends Controller
             
             // Recherche du planning pour déterminer le retard
             $planning = Planning::where('employe_id', $validatedData['employe_id'])
-                ->where('date', $validatedData['date'])
+                ->where('date_debut', '<=', $validatedData['date'])
+                ->where('date_fin', '>=', $validatedData['date'])
                 ->first();
             
             // Déterminer si l'employé est en retard (tolérance de 10 minutes)
@@ -301,7 +306,7 @@ class PresenceController extends Controller
     /**
      * Télécharger le modèle d'importation.
      */
-    public function downloadTemplate()
+    public function template()
     {
         return Excel::download(new PresencesTemplateExport, 'modele_presences.xlsx');
     }
@@ -348,5 +353,23 @@ class PresenceController extends Controller
     public function export()
     {
         return Excel::download(new PresencesExport, 'presences.xlsx');
+    }
+    
+    /**
+     * Exporter les présences en format Excel.
+     */
+    public function exportExcel()
+    {
+        return Excel::download(new PresencesExport, 'presences_export.xlsx');
+    }
+    
+    /**
+     * Exporter les présences en format PDF.
+     */
+    public function exportPdf()
+    {
+        $presences = Presence::with('employe.poste')->orderBy('date', 'desc')->get();
+        $pdf = Pdf::loadView('presences.pdf.export', compact('presences'));
+        return $pdf->download('presences_export.pdf');
     }
 }

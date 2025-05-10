@@ -5,6 +5,35 @@
     <div class="row mb-4">
         <div class="col-md-12">
             <h1>Tableau de bord administrateur</h1>
+            
+            @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            @endif
+            
+            @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            @endif
+            
+            @if ($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Erreurs de validation :</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            @endif
         </div>
     </div>
 
@@ -247,11 +276,10 @@
                             </a>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <a href="#" class="text-decoration-none">
+                            <a href="{{ route('rapports.index') }}" class="text-decoration-none">
                                 <div class="p-3 bg-light rounded">
                                     <i class="bi bi-file-earmark-text text-warning" style="font-size: 2rem;"></i>
                                     <h6 class="mt-3 mb-0">Rapports</h6>
-                                    <small class="text-muted">(Itération 4)</small>
                                 </div>
                             </a>
                         </div>

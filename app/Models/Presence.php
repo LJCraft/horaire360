@@ -22,6 +22,7 @@ class Presence extends Model
         'retard',
         'depart_anticipe',
         'commentaire',
+        'meta_data',
     ];
     
     /**
@@ -35,6 +36,7 @@ class Presence extends Model
         'heure_depart' => 'datetime:H:i',
         'retard' => 'boolean',
         'depart_anticipe' => 'boolean',
+        'meta_data' => 'json',
     ];
     
     /**
@@ -74,20 +76,33 @@ class Presence extends Model
     {
         // Rechercher le planning pour cette date et cet employé
         $planning = Planning::where('employe_id', $this->employe_id)
-            ->where('date', $this->date)
+            ->where('date_debut', '<=', $this->date)
+            ->where('date_fin', '>=', $this->date)
+            ->where('actif', true)
             ->first();
         
         if (!$planning) {
             return false;
         }
         
+        $jourSemaine = \Carbon\Carbon::parse($this->date)->dayOfWeekIso;
+        
+        // Récupérer le détail du planning pour ce jour de la semaine
+        $planningDetail = $planning->details()
+            ->where('jour', $jourSemaine)
+            ->first();
+            
+        if (!$planningDetail || $planningDetail->jour_repos) {
+            return false;
+        }
+        
         $heureArrivee = \Carbon\Carbon::parse($this->heure_arrivee);
-        $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut);
+        $heureDebutPlanning = \Carbon\Carbon::parse($planningDetail->heure_debut);
         
         // Tolérance de 10 minutes
-        $heureDebutPlanning->addMinutes(10);
+        $heureDebutAvecTolerance = (clone $heureDebutPlanning)->addMinutes(10);
         
-        return $heureArrivee > $heureDebutPlanning;
+        return $heureArrivee->gt($heureDebutAvecTolerance);
     }
     
     /**
@@ -103,19 +118,59 @@ class Presence extends Model
         
         // Rechercher le planning pour cette date et cet employé
         $planning = Planning::where('employe_id', $this->employe_id)
-            ->where('date', $this->date)
+            ->where('date_debut', '<=', $this->date)
+            ->where('date_fin', '>=', $this->date)
+            ->where('actif', true)
             ->first();
         
         if (!$planning) {
             return false;
         }
         
+        $jourSemaine = \Carbon\Carbon::parse($this->date)->dayOfWeekIso;
+        
+        // Récupérer le détail du planning pour ce jour de la semaine
+        $planningDetail = $planning->details()
+            ->where('jour', $jourSemaine)
+            ->first();
+            
+        if (!$planningDetail || $planningDetail->jour_repos) {
+            return false;
+        }
+        
         $heureDepart = \Carbon\Carbon::parse($this->heure_depart);
-        $heureFinPlanning = \Carbon\Carbon::parse($planning->heure_fin);
+        $heureFinPlanning = \Carbon\Carbon::parse($planningDetail->heure_fin);
         
         // Tolérance de 10 minutes
-        $heureFinPlanning->subMinutes(10);
+        $heureFinAvecTolerance = (clone $heureFinPlanning)->subMinutes(10);
         
-        return $heureDepart < $heureFinPlanning;
+        return $heureDepart->lt($heureFinAvecTolerance);
+    }
+    
+    /**
+     * Récupérer les informations de localisation d'arrivée
+     */
+    public function getLocationArriveeAttribute()
+    {
+        $metaData = json_decode($this->meta_data, true);
+        return $metaData['location'] ?? null;
+    }
+    
+    /**
+     * Récupérer les informations de localisation de départ
+     */
+    public function getLocationDepartAttribute()
+    {
+        $metaData = json_decode($this->meta_data, true);
+        return $metaData['checkout']['location'] ?? null;
+    }
+    
+    /**
+     * Récupérer le score de confiance biométrique d'arrivée
+     */
+    public function getScoreBiometriqueArriveeAttribute()
+    {
+        $metaData = json_decode($this->meta_data, true);
+        return $metaData['biometric_verification']['confidence_score'] ?? null;
     }
 }

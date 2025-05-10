@@ -24,8 +24,15 @@
                 <li><a href="{{ route('presences.template') }}" class="dropdown-item">
                     <i class="bi bi-file-earmark-excel"></i> Télécharger le modèle
                 </a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a href="{{ route('presences.export') }}" class="dropdown-item">
                     <i class="bi bi-download"></i> Exporter les pointages
+                </a></li>
+                <li><a href="{{ route('presences.export.excel') }}" class="dropdown-item">
+                    <i class="bi bi-file-earmark-excel"></i> Exporter en Excel
+                </a></li>
+                <li><a href="{{ route('presences.export.pdf') }}" class="dropdown-item">
+                    <i class="bi bi-file-earmark-pdf"></i> Exporter en PDF
                 </a></li>
             </ul>
         </div>

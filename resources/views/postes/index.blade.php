@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@php use Illuminate\Support\Str; @endphp
 
 @section('content')
 <div class="container">
