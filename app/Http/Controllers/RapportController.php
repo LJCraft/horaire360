@@ -10,7 +10,7 @@ use App\Models\Planning;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\DB;
-use PDF;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Schema;
 
 class RapportController extends Controller
@@ -84,27 +84,27 @@ class RapportController extends Controller
 
         $query = Presence::with('employe')
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
-
+        
         if ($employeId) {
             $query->where('employe_id', $employeId);
         }
-
+        
         if ($posteId) {
             $query->whereHas('employe', function($q) use ($posteId) {
                 $q->where('poste_id', $posteId);
             });
         }
-
+        
         if ($type == 'retards') {
             $query->where('retard', true);
         } elseif ($type == 'departs_anticipes') {
             $query->where('depart_anticipe', true);
         }
-
+        
         $presences = $query->orderBy('date', 'desc')->paginate(15);
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
         $postes = Poste::orderBy('nom')->get();
-
+        
         // Statistiques
         $totalPresences = $presences->total();
         $totalRetards = $query->where('retard', true)->count();
@@ -121,9 +121,9 @@ class RapportController extends Controller
         // Ajouter des informations sur les pointages biométriques
         $presencesAvecBiometrie = $hasMetaDataColumn ? $query->whereNotNull('meta_data')->count() : 0;
         $pourcentageBiometrie = $totalPresences > 0 ? round(($presencesAvecBiometrie / $totalPresences) * 100) : 0;
-
+        
         return view('rapports.presences', compact(
-            'presences', 
+            'presences',
             'employes',
             'postes',
             'dateDebut', 
@@ -131,8 +131,8 @@ class RapportController extends Controller
             'employeId',
             'posteId',
             'type',
-            'totalPresences', 
-            'totalRetards', 
+            'totalPresences',
+            'totalRetards',
             'totalDepartsAnticipes',
             'pourcentageAssiduite',
             'presencesAvecBiometrie',
@@ -156,7 +156,7 @@ class RapportController extends Controller
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
         $posteId = $request->poste_id;
-
+        
         // Récupérer tous les employés actifs
         $query = Employe::where('statut', 'actif');
         if ($employeId) {
@@ -192,7 +192,7 @@ class RapportController extends Controller
             if (!$plannings->isEmpty()) {
                 // Create a period of dates
                 $period = CarbonPeriod::create($dateDebut, $dateFin);
-                
+            
                 foreach ($period as $date) {
                     $jourSemaine = $date->dayOfWeekIso;
                     $planningPourCeJour = false;
@@ -211,13 +211,13 @@ class RapportController extends Controller
                     
                     if ($planningPourCeJour && !$jourRepos) {
                         $joursOuvrables++;
-                        
+                
                         // Check if employee has checked in this day
-                        $presence = Presence::where('employe_id', $employe->id)
+                $presence = Presence::where('employe_id', $employe->id)
                             ->where('date', $date->format('Y-m-d'))
-                            ->first();
-                            
-                        if (!$presence) {
+                    ->first();
+                
+                if (!$presence) {
                             $joursAbsence++;
                             $datesAbsence[] = $date->format('Y-m-d');
                         }
@@ -267,8 +267,8 @@ class RapportController extends Controller
         // Calculate global absence rate
         $tauxGlobalAbsenteisme = ($totalJoursOuvrables > 0) 
             ? round(($totalJoursAbsence / $totalJoursOuvrables) * 100, 1) 
-            : 0;
-
+                : 0;
+            
         // Paginer manuellement les résultats
         $page = $request->get('page', 1);
         $perPage = 15;
@@ -285,7 +285,7 @@ class RapportController extends Controller
 
         $employesList = Employe::where('statut', 'actif')->orderBy('nom')->get();
         $postes = Poste::orderBy('nom')->get();
-
+        
         // Process data for the chart using the same employee stats
         $employeAbsenceData = [];
         foreach ($employes as $employe) {
@@ -301,7 +301,7 @@ class RapportController extends Controller
                 ];
             }
         }
-
+        
         return view('rapports.absences', compact(
             'employesList',
             'postes',
@@ -339,17 +339,17 @@ class RapportController extends Controller
         $query = Presence::with('employe')
             ->where('retard', true)
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
-
+        
         if ($employeId) {
             $query->where('employe_id', $employeId);
         }
-
+        
         if ($posteId) {
             $query->whereHas('employe', function($q) use ($posteId) {
                 $q->where('poste_id', $posteId);
             });
         }
-
+        
         $retards = $query->orderBy('date', 'desc')->paginate(15);
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
         $postes = Poste::orderBy('nom')->get();
@@ -387,7 +387,7 @@ class RapportController extends Controller
             ->groupBy('employes.id', 'employes.nom', 'employes.prenom', 'postes.nom')
             ->orderByDesc('nombre_retards')
             ->paginate(5);
-
+        
         return view('rapports.retards', compact(
             'retards',
             'employes',
@@ -468,7 +468,7 @@ class RapportController extends Controller
             ? round(100 - (($totalRetards + $totalDepartsAnticipes) / $totalPresences * 100), 1) 
             : 0;
         
-        $pdf = PDF::loadView('rapports.pdf.presences', compact(
+        $pdf = Pdf::loadView('rapports.pdf.presences', compact(
             'presences',
             'dateDebut',
             'dateFin',
@@ -608,7 +608,7 @@ class RapportController extends Controller
             'Période analysée : du ' . Carbon::parse($dateDebut)->format('d/m/Y') . ' au ' . Carbon::parse($dateFin)->format('d/m/Y')
         ];
         
-        $pdf = PDF::loadView('rapports.pdf.rapport', compact(
+        $pdf = Pdf::loadView('rapports.pdf.rapport', compact(
             'titre',
             'sousTitre',
             'dateDebut',
@@ -731,71 +731,77 @@ class RapportController extends Controller
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'employe_id' => 'nullable|exists:employes,id',
-            'poste_id' => 'nullable|exists:postes,id',
         ]);
 
         $dateDebut = $request->date_debut ? Carbon::parse($request->date_debut) : Carbon::now()->startOfMonth();
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
-        $posteId = $request->poste_id;
 
-        // Check if meta_data column exists in schema
-        $hasMetaDataColumn = Schema::hasColumn('presences', 'meta_data');
-
-        $query = Presence::with('employe')
+        // Requête de base pour tous les pointages avec métadonnées biométriques
+        $query = Presence::whereNotNull('meta_data')
+            ->where(function($q) {
+                // Cette condition vérifie que meta_data contient bien des données de biométrie
+                $q->whereRaw("JSON_EXTRACT(meta_data, '$.biometric_verification') IS NOT NULL");
+            })
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
-            
-        // Only filter by meta_data if the column exists
-        if ($hasMetaDataColumn) {
-            $query->whereNotNull('meta_data');
-        }
 
+        // Filtrer par employé si spécifié
         if ($employeId) {
             $query->where('employe_id', $employeId);
         }
 
-        if ($posteId) {
-            $query->whereHas('employe', function($q) use ($posteId) {
-                $q->where('poste_id', $posteId);
-            });
-        }
-
-        $pointages = $query->orderBy('date', 'desc')->paginate(15);
-        $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
-        $postes = Poste::orderBy('nom')->get();
-
+        // Obtenir tous les pointages pour les statistiques
+        $pointagesAll = $query->get();
+        
         // Statistiques
-        $totalPointages = $pointages->total();
+        $totalPointages = $pointagesAll->count();
+        $totalPointagesArriveeDepart = $pointagesAll->filter(function($p) {
+            return !empty($p->heure_arrivee) && !empty($p->heure_depart);
+        })->count();
         
-        // Only count points with departure time if column exists
-        $totalPointagesArriveeDepart = $hasMetaDataColumn 
-            ? $query->whereNotNull('heure_depart')->count() 
-            : $query->whereNotNull('heure_depart')->count();
+        // Calculer le score biométrique moyen
+        $scoreMoyenBiometrique = 0;
+        $totalScores = 0;
+        $nombreScores = 0;
         
-        // Calculate biometric confidence score if column exists
-        $scoresMoyens = [];
-        if ($hasMetaDataColumn) {
-            foreach ($pointages as $pointage) {
-                $metaData = json_decode($pointage->meta_data, true);
-                if (isset($metaData['biometric_verification']['confidence_score'])) {
-                    $scoresMoyens[] = $metaData['biometric_verification']['confidence_score'];
-                }
+        foreach ($pointagesAll as $pointage) {
+            $metaData = json_decode($pointage->meta_data, true);
+            
+            if (isset($metaData['biometric_verification']['confidence_score'])) {
+                $totalScores += $metaData['biometric_verification']['confidence_score'];
+                $nombreScores++;
+            }
+            
+            // Si le pointage a des données de départ (checkout)
+            if (isset($metaData['checkout']['biometric_verification']['confidence_score'])) {
+                $totalScores += $metaData['checkout']['biometric_verification']['confidence_score'];
+                $nombreScores++;
             }
         }
         
-        $scoreMoyenBiometrique = count($scoresMoyens) > 0 ? round(array_sum($scoresMoyens) / count($scoresMoyens), 2) : 0;
-
+        if ($nombreScores > 0) {
+            $scoreMoyenBiometrique = number_format($totalScores / $nombreScores * 100, 1) . '%';
+        } else {
+            $scoreMoyenBiometrique = 'N/A';
+        }
+        
+        // Requête paginée pour l'affichage
+        $pointages = $query->orderBy('date', 'desc')->orderBy('heure_arrivee', 'desc')->paginate(15);
+        $employes = Employe::orderBy('nom')->get();
+        
+        // Récupérer les résultats d'importation s'ils existent
+        $importStats = session('import_stats');
+        
         return view('rapports.biometrique', compact(
-            'pointages',
-            'employes',
-            'postes',
-            'dateDebut',
-            'dateFin',
-            'employeId',
-            'posteId',
-            'totalPointages',
-            'totalPointagesArriveeDepart',
-            'scoreMoyenBiometrique'
+            'dateDebut', 
+            'dateFin', 
+            'employeId', 
+            'pointages', 
+            'employes', 
+            'totalPointages', 
+            'totalPointagesArriveeDepart', 
+            'scoreMoyenBiometrique',
+            'importStats'
         ));
     }
 }

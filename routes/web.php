@@ -56,15 +56,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/plannings/search-employes', [PlanningController::class, 'searchEmployes'])->name('plannings.search-employes');
     
     // Routes pour les présences (itération 3)
-    Route::resource('presences', PresenceController::class);
     // Import
     Route::get('/presences/import', [PresenceController::class, 'importForm'])->name('presences.importForm');
     Route::post('/presences/import', [PresenceController::class, 'import'])->name('presences.import');
+    // Import des données biométriques (nouvelle fonctionnalité)
+    Route::post('/presences/import-biometrique', [PresenceController::class, 'importBiometrique'])->name('presences.importBiometrique');
+    Route::post('/presences/verify-biometrique', [PresenceController::class, 'verifyBiometrique'])->name('presences.verifyBiometrique');
     // Template et export
     Route::get('/presences/template', [PresenceController::class, 'template'])->name('presences.template');
     Route::get('/presences/export', [PresenceController::class, 'export'])->name('presences.export');
     Route::get('/presences/export/excel', [PresenceController::class, 'exportExcel'])->name('presences.export.excel');
     Route::get('/presences/export/pdf', [PresenceController::class, 'exportPdf'])->name('presences.export.pdf');
+    // Resource route (must be after all other custom routes)
+    Route::resource('presences', PresenceController::class);
     
     // Routes pour les rapports (itération 4)
     Route::get('/rapports', [RapportController::class, 'index'])->name('rapports.index');
