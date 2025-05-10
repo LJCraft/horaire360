@@ -221,15 +221,15 @@
         // Préparation des données pour les graphiques
         const employesData = @json(array_map(function($absence) {
             return $absence['employe']->prenom . ' ' . $absence['employe']->nom;
-        }, $absences));
+        }, $absencesData ?? []));
         
         const tauxAbsenteismeData = @json(array_map(function($absence) {
             return $absence['taux_absenteisme'];
-        }, $absences));
+        }, $absencesData ?? []));
         
         const joursAbsenceData = @json(array_map(function($absence) {
             return $absence['jours_absence'];
-        }, $absences));
+        }, $absencesData ?? []));
         
         // Couleurs pour le graphique
         const backgroundColors = [

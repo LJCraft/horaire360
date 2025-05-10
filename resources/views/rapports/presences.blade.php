@@ -149,14 +149,24 @@
                             <tr>
                                 <td>{{ \Carbon\Carbon::parse($presence->date)->format('d/m/Y') }}</td>
                                 <td>
+                                    @if($presence->employe)
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-initials bg-primary bg-opacity-10 text-primary me-2">
-                                            {{ substr($presence->employe->prenom, 0, 1) }}{{ substr($presence->employe->nom, 0, 1) }}
+                                            {{ substr($presence->employe->prenom ?? '', 0, 1) }}{{ substr($presence->employe->nom ?? '', 0, 1) }}
                                         </div>
                                         {{ $presence->employe->prenom }} {{ $presence->employe->nom }}
                                     </div>
+                                    @else
+                                    <span class="text-muted">Employé supprimé</span>
+                                    @endif
                                 </td>
-                                <td>{{ $presence->employe->poste->nom }}</td>
+                                <td>
+                                    @if($presence->employe && $presence->employe->poste)
+                                    {{ $presence->employe->poste->nom }}
+                                    @else
+                                    <span class="text-muted">-</span>
+                                    @endif
+                                </td>
                                 <td>{{ \Carbon\Carbon::parse($presence->heure_arrivee)->format('H:i') }}</td>
                                 <td>{{ $presence->heure_depart ? \Carbon\Carbon::parse($presence->heure_depart)->format('H:i') : '-' }}</td>
                                 <td class="text-center">

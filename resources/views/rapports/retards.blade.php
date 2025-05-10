@@ -216,26 +216,34 @@
                             <tr>
                                 <td>{{ \Carbon\Carbon::parse($retard->date)->format('d/m/Y') }}</td>
                                 <td>
+                                    @if($retard->employe)
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-initials bg-warning bg-opacity-10 text-warning me-2">
                                             {{ substr($retard->employe->prenom, 0, 1) }}{{ substr($retard->employe->nom, 0, 1) }}
                                         </div>
                                         {{ $retard->employe->prenom }} {{ $retard->employe->nom }}
                                     </div>
+                                    @else
+                                    <span class="text-muted">Employé supprimé</span>
+                                    @endif
                                 </td>
                                 @php
-                                    $planning = \App\Models\Planning::where('employe_id', $retard->employe_id)
-                                        ->whereDate('date_debut', '<=', $retard->date)
-                                        ->whereDate('date_fin', '>=', $retard->date)
-                                        ->first();
-                                    $heurePrevue = $planning ? \Carbon\Carbon::parse($planning->heure_debut)->format('H:i') : '-';
-                                    
+                                    $planning = null;
+                                    $heurePrevue = '-';
                                     $heureArrivee = \Carbon\Carbon::parse($retard->heure_arrivee);
                                     $minutesRetard = 0;
                                     
-                                    if ($planning) {
-                                        $heurePlanifiee = \Carbon\Carbon::parse($planning->heure_debut);
-                                        $minutesRetard = $heureArrivee->diffInMinutes($heurePlanifiee);
+                                    if ($retard->employe) {
+                                        $planning = \App\Models\Planning::where('employe_id', $retard->employe_id)
+                                            ->whereDate('date_debut', '<=', $retard->date)
+                                            ->whereDate('date_fin', '>=', $retard->date)
+                                            ->first();
+                                        
+                                        if ($planning) {
+                                            $heurePrevue = \Carbon\Carbon::parse($planning->heure_debut)->format('H:i');
+                                            $heurePlanifiee = \Carbon\Carbon::parse($planning->heure_debut);
+                                            $minutesRetard = $heureArrivee->diffInMinutes($heurePlanifiee);
+                                        }
                                     }
                                 @endphp
                                 <td>{{ $heurePrevue }}</td>

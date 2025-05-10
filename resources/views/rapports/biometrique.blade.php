@@ -136,7 +136,11 @@ use Carbon\Carbon;
                             @endphp
                             <tr>
                                 <td>
+                                    @if($pointage->employe)
                                     <span class="fw-bold">{{ $pointage->employe->prenom }} {{ $pointage->employe->nom }}</span>
+                                    @else
+                                    <span class="text-muted">Employé supprimé</span>
+                                    @endif
                                 </td>
                                 <td>{{ Carbon::parse($pointage->date)->format('d/m/Y') }}</td>
                                 <td>{{ Carbon::parse($pointage->heure_arrivee)->format('H:i') }}</td>
@@ -200,7 +204,13 @@ use Carbon\Carbon;
                                                     <table class="table table-bordered">
                                                         <tr>
                                                             <th>Employé</th>
-                                                            <td>{{ $pointage->employe->prenom }} {{ $pointage->employe->nom }}</td>
+                                                            <td>
+                                                                @if($pointage->employe)
+                                                                {{ $pointage->employe->prenom }} {{ $pointage->employe->nom }}
+                                                                @else
+                                                                <span class="text-muted">Employé supprimé</span>
+                                                                @endif
+                                                            </td>
                                                         </tr>
                                                         <tr>
                                                             <th>Date</th>

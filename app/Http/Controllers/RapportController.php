@@ -72,11 +72,15 @@ class RapportController extends Controller
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'employe_id' => 'nullable|exists:employes,id',
+            'poste_id' => 'nullable|exists:postes,id',
+            'type' => 'nullable|in:tous,retards,departs_anticipes',
         ]);
 
         $dateDebut = $request->date_debut ? Carbon::parse($request->date_debut) : Carbon::now()->startOfMonth();
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
+        $posteId = $request->poste_id;
+        $type = $request->type ?? 'tous';
 
         $query = Presence::with('employe')
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
@@ -85,13 +89,31 @@ class RapportController extends Controller
             $query->where('employe_id', $employeId);
         }
 
+        if ($posteId) {
+            $query->whereHas('employe', function($q) use ($posteId) {
+                $q->where('poste_id', $posteId);
+            });
+        }
+
+        if ($type == 'retards') {
+            $query->where('retard', true);
+        } elseif ($type == 'departs_anticipes') {
+            $query->where('depart_anticipe', true);
+        }
+
         $presences = $query->orderBy('date', 'desc')->paginate(15);
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
+        $postes = Poste::orderBy('nom')->get();
 
         // Statistiques
         $totalPresences = $presences->total();
         $totalRetards = $query->where('retard', true)->count();
         $totalDepartsAnticipes = $query->where('depart_anticipe', true)->count();
+        
+        // Pourcentage d'assiduité (présences sans retard ni départ anticipé)
+        $pourcentageAssiduite = ($totalPresences > 0) 
+            ? round(100 - (($totalRetards + $totalDepartsAnticipes) / $totalPresences * 100), 1) 
+            : 0;
         
         // Check if meta_data column exists in schema
         $hasMetaDataColumn = Schema::hasColumn('presences', 'meta_data');
@@ -102,13 +124,17 @@ class RapportController extends Controller
 
         return view('rapports.presences', compact(
             'presences', 
-            'employes', 
+            'employes',
+            'postes',
             'dateDebut', 
             'dateFin', 
-            'employeId', 
+            'employeId',
+            'posteId',
+            'type',
             'totalPresences', 
             'totalRetards', 
             'totalDepartsAnticipes',
+            'pourcentageAssiduite',
             'presencesAvecBiometrie',
             'pourcentageBiometrie'
         ));
@@ -123,24 +149,33 @@ class RapportController extends Controller
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'employe_id' => 'nullable|exists:employes,id',
+            'poste_id' => 'nullable|exists:postes,id',
         ]);
 
         $dateDebut = $request->date_debut ? Carbon::parse($request->date_debut) : Carbon::now()->startOfMonth();
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
+        $posteId = $request->poste_id;
 
         // Récupérer tous les employés actifs
         $query = Employe::where('statut', 'actif');
         if ($employeId) {
             $query->where('id', $employeId);
         }
+        
+        if ($posteId) {
+            $query->where('poste_id', $posteId);
+        }
+        
         $employes = $query->get();
 
-        $absences = [];
-        $totalJoursAbsence = 0;
-
-        // Pour chaque employé, vérifier les jours d'absence
+        // Calculate working days and absences for each employee first
+        $employeStatsMap = [];
         foreach ($employes as $employe) {
+            $joursOuvrables = 0;
+            $joursAbsence = 0;
+            $datesAbsence = [];
+            
             // Récupérer les plannings actifs pour cet employé dans la période
             $plannings = Planning::where('employe_id', $employe->id)
                 ->where('actif', true)
@@ -154,57 +189,85 @@ class RapportController extends Controller
                 })
                 ->get();
 
-            if ($plannings->isEmpty()) {
-                continue;
-            }
-
-            // Créer une période de dates
-            $period = CarbonPeriod::create($dateDebut, $dateFin);
-
-            // Pour chaque jour de la période
-            foreach ($period as $date) {
-                // Ignorer les weekends si nécessaire
-                // if ($date->isWeekend()) {
-                //     continue;
-                // }
-
-                // Vérifier si l'employé a un planning pour ce jour
-                $jourSemaine = $date->dayOfWeekIso;
-                $planningPourCeJour = false;
-                $jourRepos = true;
-
-                foreach ($plannings as $planning) {
-                    if ($date->between($planning->date_debut, $planning->date_fin)) {
-                        $planningDetail = $planning->details()->where('jour', $jourSemaine)->first();
-                        if ($planningDetail) {
-                            $planningPourCeJour = true;
-                            $jourRepos = $planningDetail->jour_repos;
-                            break;
+            if (!$plannings->isEmpty()) {
+                // Create a period of dates
+                $period = CarbonPeriod::create($dateDebut, $dateFin);
+                
+                foreach ($period as $date) {
+                    $jourSemaine = $date->dayOfWeekIso;
+                    $planningPourCeJour = false;
+                    $jourRepos = true;
+                    
+                    foreach ($plannings as $planning) {
+                        if ($date->between($planning->date_debut, $planning->date_fin)) {
+                            $planningDetail = $planning->details()->where('jour', $jourSemaine)->first();
+                            if ($planningDetail) {
+                                $planningPourCeJour = true;
+                                $jourRepos = $planningDetail->jour_repos;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if ($planningPourCeJour && !$jourRepos) {
+                        $joursOuvrables++;
+                        
+                        // Check if employee has checked in this day
+                        $presence = Presence::where('employe_id', $employe->id)
+                            ->where('date', $date->format('Y-m-d'))
+                            ->first();
+                            
+                        if (!$presence) {
+                            $joursAbsence++;
+                            $datesAbsence[] = $date->format('Y-m-d');
                         }
                     }
                 }
+            }
+            
+            $employeStatsMap[$employe->id] = [
+                'jours_ouvrables' => $joursOuvrables,
+                'jours_absence' => $joursAbsence,
+                'taux_absenteisme' => ($joursOuvrables > 0) ? round(($joursAbsence / $joursOuvrables) * 100, 1) : 0,
+                'dates_absence' => $datesAbsence
+            ];
+        }
 
-                // Si l'employé n'a pas de planning ou c'est un jour de repos, on continue
-                if (!$planningPourCeJour || $jourRepos) {
-                    continue;
-                }
+        // Pour chaque employé, vérifier les jours d'absence
+        $absences = [];
+        $totalJoursAbsence = 0;
+        $totalJoursOuvrables = 0;
 
-                // Vérifier si l'employé a pointé ce jour
-                $presence = Presence::where('employe_id', $employe->id)
-                    ->where('date', $date->format('Y-m-d'))
-                    ->first();
-
-                // Si pas de présence, c'est une absence
-                if (!$presence) {
-                    $absences[] = [
-                        'employe' => $employe,
-                        'date' => $date->format('Y-m-d'),
-                        'jour_semaine' => $date->locale('fr')->dayName,
-                    ];
-                    $totalJoursAbsence++;
-                }
+        foreach ($employes as $employe) {
+            // Skip employees with no working days
+            if (!isset($employeStatsMap[$employe->id]) || $employeStatsMap[$employe->id]['jours_ouvrables'] == 0) {
+                continue;
+            }
+            
+            $employeStats = $employeStatsMap[$employe->id];
+            $totalJoursOuvrables += $employeStats['jours_ouvrables'];
+            $totalJoursAbsence += $employeStats['jours_absence'];
+            
+            // Only add to the absences array if there are absences
+            if ($employeStats['jours_absence'] > 0) {
+                // Add an entry for each employee with absences
+                $absences[] = [
+                    'employe' => $employe,
+                    'jours_ouvrables' => $employeStats['jours_ouvrables'],
+                    'jours_absence' => $employeStats['jours_absence'],
+                    'taux_absenteisme' => $employeStats['taux_absenteisme'],
+                    'dates_absence' => $employeStats['dates_absence']
+                ];
             }
         }
+
+        // Alias totalAbsences to totalJoursAbsence for the view
+        $totalAbsences = $totalJoursAbsence;
+        
+        // Calculate global absence rate
+        $tauxGlobalAbsenteisme = ($totalJoursOuvrables > 0) 
+            ? round(($totalJoursAbsence / $totalJoursOuvrables) * 100, 1) 
+            : 0;
 
         // Paginer manuellement les résultats
         $page = $request->get('page', 1);
@@ -221,15 +284,39 @@ class RapportController extends Controller
         );
 
         $employesList = Employe::where('statut', 'actif')->orderBy('nom')->get();
+        $postes = Poste::orderBy('nom')->get();
+
+        // Process data for the chart using the same employee stats
+        $employeAbsenceData = [];
+        foreach ($employes as $employe) {
+            if (isset($employeStatsMap[$employe->id])) {
+                $stats = $employeStatsMap[$employe->id];
+                
+                $employeAbsenceData[] = [
+                    'employe' => $employe,
+                    'jours_absence' => $stats['jours_absence'],
+                    'jours_ouvrables' => $stats['jours_ouvrables'],
+                    'taux_absenteisme' => $stats['taux_absenteisme'],
+                    'dates_absence' => $stats['dates_absence']
+                ];
+            }
+        }
 
         return view('rapports.absences', compact(
-            'absencesPagination',
             'employesList',
+            'postes',
             'dateDebut',
             'dateFin',
             'employeId',
-            'totalJoursAbsence'
-        ));
+            'posteId',
+            'totalJoursAbsence',
+            'totalAbsences',
+            'totalJoursOuvrables',
+            'tauxGlobalAbsenteisme'
+        ))->with([
+            'absences' => $absencesPagination,
+            'absencesData' => $employeAbsenceData
+        ]);
     }
 
     /**
@@ -241,11 +328,13 @@ class RapportController extends Controller
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'employe_id' => 'nullable|exists:employes,id',
+            'poste_id' => 'nullable|exists:postes,id',
         ]);
 
         $dateDebut = $request->date_debut ? Carbon::parse($request->date_debut) : Carbon::now()->startOfMonth();
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
+        $posteId = $request->poste_id;
 
         $query = Presence::with('employe')
             ->where('retard', true)
@@ -255,30 +344,61 @@ class RapportController extends Controller
             $query->where('employe_id', $employeId);
         }
 
+        if ($posteId) {
+            $query->whereHas('employe', function($q) use ($posteId) {
+                $q->where('poste_id', $posteId);
+            });
+        }
+
         $retards = $query->orderBy('date', 'desc')->paginate(15);
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
+        $postes = Poste::orderBy('nom')->get();
 
         // Statistiques
         $totalRetards = $retards->total();
         
+        // Calculate average delays per day
+        $joursTotal = Carbon::parse($dateDebut)->diffInDays(Carbon::parse($dateFin)) + 1;
+        $retardsMoyenParJour = ($joursTotal > 0) ? round($totalRetards / $joursTotal, 1) : 0;
+        
         // Regrouper par employé pour les statistiques
-        $retardsParEmploye = Presence::with('employe')
-            ->where('retard', true)
-            ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')])
-            ->select('employe_id', DB::raw('count(*) as total'))
-            ->groupBy('employe_id')
-            ->orderByDesc('total')
-            ->limit(5)
-            ->get();
+        $retardsParEmployeQuery = DB::table('presences')
+            ->join('employes', 'presences.employe_id', '=', 'employes.id')
+            ->join('postes', 'employes.poste_id', '=', 'postes.id')
+            ->select(
+                'employes.id',
+                'employes.nom',
+                'employes.prenom',
+                'postes.nom as poste',
+                DB::raw('COUNT(*) as nombre_retards')
+            )
+            ->where('presences.retard', true)
+            ->whereBetween('presences.date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
+        
+        if ($employeId) {
+            $retardsParEmployeQuery->where('employes.id', $employeId);
+        }
+        
+        if ($posteId) {
+            $retardsParEmployeQuery->where('employes.poste_id', $posteId);
+        }
+        
+        $retardsParEmploye = $retardsParEmployeQuery
+            ->groupBy('employes.id', 'employes.nom', 'employes.prenom', 'postes.nom')
+            ->orderByDesc('nombre_retards')
+            ->paginate(5);
 
         return view('rapports.retards', compact(
             'retards',
             'employes',
+            'postes',
             'dateDebut',
             'dateFin',
             'employeId',
+            'posteId',
             'totalRetards',
-            'retardsParEmploye'
+            'retardsParEmploye',
+            'retardsMoyenParJour'
         ));
     }
 
@@ -611,11 +731,13 @@ class RapportController extends Controller
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'employe_id' => 'nullable|exists:employes,id',
+            'poste_id' => 'nullable|exists:postes,id',
         ]);
 
         $dateDebut = $request->date_debut ? Carbon::parse($request->date_debut) : Carbon::now()->startOfMonth();
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
+        $posteId = $request->poste_id;
 
         // Check if meta_data column exists in schema
         $hasMetaDataColumn = Schema::hasColumn('presences', 'meta_data');
@@ -632,8 +754,15 @@ class RapportController extends Controller
             $query->where('employe_id', $employeId);
         }
 
+        if ($posteId) {
+            $query->whereHas('employe', function($q) use ($posteId) {
+                $q->where('poste_id', $posteId);
+            });
+        }
+
         $pointages = $query->orderBy('date', 'desc')->paginate(15);
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
+        $postes = Poste::orderBy('nom')->get();
 
         // Statistiques
         $totalPointages = $pointages->total();
@@ -659,9 +788,11 @@ class RapportController extends Controller
         return view('rapports.biometrique', compact(
             'pointages',
             'employes',
+            'postes',
             'dateDebut',
             'dateFin',
             'employeId',
+            'posteId',
             'totalPointages',
             'totalPointagesArriveeDepart',
             'scoreMoyenBiometrique'
