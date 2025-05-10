@@ -462,12 +462,18 @@ use Carbon\Carbon;
                     
                     <!-- Aide sur les formats (caché par défaut) -->
                     <div id="formatHelp" class="mt-2 p-2 bg-light rounded small d-none">
-                        <div class="d-flex">
-                            <div class="me-2">
-                                <strong>CSV:</strong> employee_id, timestamp, type, latitude, longitude, biometric_score
+                        <div class="d-flex flex-column">
+                            <div class="mb-2">
+                                <strong>Format CSV:</strong> 
+                                <ul class="mb-1">
+                                    <li>Utiliser des <strong>virgules</strong> comme séparateurs</li>
+                                    <li>Inclure une ligne d'en-tête avec les noms des colonnes</li>
+                                    <li>Colonnes requises: employee_id, timestamp, type, latitude, longitude, biometric_score</li>
+                                    <li>Types de pointage: check-in (arrivée) ou check-out (départ)</li>
+                                </ul>
                             </div>
                             <div>
-                                <strong>JSON:</strong> Voir <a href="#" onclick="downloadJsonTemplate(); return false;">modèle</a>
+                                <strong>Format JSON:</strong> Voir <a href="#" onclick="downloadJsonTemplate(); return false;">modèle</a>
                             </div>
                         </div>
                         <div class="mt-1 text-end">
@@ -491,7 +497,7 @@ use Carbon\Carbon;
     function downloadJsonTemplate() {
         const jsonTemplate = [
             {
-                "employee_id": 1,
+                "employee_id": 2,
                 "timestamp": "2025-05-15T08:01:23",
                 "type": "check-in",
                 "location": {
@@ -508,7 +514,7 @@ use Carbon\Carbon;
                 }
             },
             {
-                "employee_id": 1,
+                "employee_id": 2,
                 "timestamp": "2025-05-15T17:02:45",
                 "type": "check-out",
                 "location": {
@@ -537,10 +543,10 @@ use Carbon\Carbon;
     
     function downloadCsvTemplate() {
         const csvContent = `employee_id,timestamp,type,latitude,longitude,accuracy,biometric_score,device_id
-1,2025-05-15T08:01:23,check-in,45.5017,-73.5673,10,0.95,mobile-app-001
-1,2025-05-15T17:02:45,check-out,45.5018,-73.5670,15,0.92,mobile-app-001
-2,2025-05-15T08:10:05,check-in,45.5020,-73.5680,8,0.97,mobile-app-002
-2,2025-05-15T17:15:30,check-out,45.5022,-73.5678,12,0.94,mobile-app-002`;
+2,2025-05-15T08:01:23,check-in,45.5017,-73.5673,10,0.95,mobile-app-001
+2,2025-05-15T17:02:45,check-out,45.5018,-73.5670,15,0.92,mobile-app-001
+3,2025-05-15T08:10:05,check-in,45.5020,-73.5680,8,0.97,mobile-app-002
+3,2025-05-15T17:15:30,check-out,45.5022,-73.5678,12,0.94,mobile-app-002`;
         
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -588,54 +594,99 @@ use Carbon\Carbon;
             return;
         }
         
-        // Créer un FormData pour l'envoi
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        formData.append('format', formatSelect.value);
-        formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+        // Afficher des informations sur le fichier pour le débogage
+        const fileDetails = `<div class="small text-muted mb-1">Taille du fichier: ${(fileInput.files[0].size / 1024).toFixed(2)} KB, Type: ${fileInput.files[0].type}</div>`;
         
-        // Envoyer la requête de vérification
-        fetch('/presences/verify-biometrique', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            let html = '';
-            
-            if (data.success) {
-                const isAllValid = data.stats.invalid === 0;
-                const statusClass = isAllValid ? 'success' : 'warning';
-                const statusIcon = isAllValid ? 'check-circle' : 'exclamation-triangle';
-                
-                html = `<div class="alert alert-${statusClass} py-1 mb-2">
-                    <i class="bi bi-${statusIcon}"></i> ${data.stats.valid} valides, ${data.stats.invalid} invalides sur ${data.stats.total}
-                </div>`;
-                
-                // Si des erreurs existent, afficher un échantillon
-                if (!isAllValid && data.records.length > 0) {
-                    html += '<div class="small text-muted mb-1">Exemples d\'erreurs :</div>';
-                    html += '<ul class="ps-3 mb-0">';
-                    
-                    // Afficher seulement les entrées invalides
-                    data.records.filter(r => !r.valid).slice(0, 3).forEach(record => {
-                        html += `<li>${record.error} (ID:${record.employee_id})</li>`;
-                    });
-                    
-                    html += '</ul>';
+        // Si c'est un JSON, vérifier le contenu localement d'abord
+        if (formatSelect.value === 'json') {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonContent = JSON.parse(e.target.result);
+                    if (!Array.isArray(jsonContent)) {
+                        contentDiv.innerHTML = `${fileDetails}<div class="alert alert-danger py-1 mb-0">Le fichier JSON doit contenir un tableau d'objets.</div>`;
+                        verifyBtn.disabled = false;
+                        return;
+                    }
+                    if (jsonContent.length > 0) {
+                        // Afficher un petit échantillon pour validation manuelle
+                        const sampleJson = `<div class="small text-muted mb-1">Vérification de ${jsonContent.length} enregistrements. Premier élément :</div>
+                        <pre class="small bg-light p-1">${JSON.stringify(jsonContent[0], null, 2)}</pre>`;
+                        contentDiv.innerHTML = fileDetails + sampleJson + '<div class="text-center mt-2"><i class="bi bi-hourglass-split text-info"></i> Envoi au serveur pour validation...</div>';
+                    }
+                } catch (error) {
+                    contentDiv.innerHTML = `${fileDetails}<div class="alert alert-danger py-1 mb-0">Erreur lors de l'analyse JSON: ${error.message}</div>`;
+                    verifyBtn.disabled = false;
+                    return;
                 }
-            } else {
-                html = `<div class="alert alert-danger py-1 mb-0">${data.message}</div>`;
-            }
+                
+                // Continuer avec la vérification serveur
+                sendVerificationRequest();
+            };
+            reader.readAsText(fileInput.files[0]);
+        } else {
+            // Pour CSV, envoyer directement au serveur
+            sendVerificationRequest();
+        }
+        
+        function sendVerificationRequest() {
+            // Créer un FormData pour l'envoi
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('format', formatSelect.value);
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
             
-            contentDiv.innerHTML = html;
-        })
-        .catch(error => {
-            contentDiv.innerHTML = `<div class="alert alert-danger py-1 mb-0">Erreur: ${error.message}</div>`;
-        })
-        .finally(() => {
-            verifyBtn.disabled = false;
-        });
+            // Envoyer la requête de vérification
+            fetch('/presences/verify-biometrique', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                let html = '';
+                
+                if (data.success) {
+                    const isAllValid = data.stats.invalid === 0;
+                    const statusClass = isAllValid ? 'success' : 'warning';
+                    const statusIcon = isAllValid ? 'check-circle' : 'exclamation-triangle';
+                    
+                    html = `${fileDetails}<div class="alert alert-${statusClass} py-1 mb-2">
+                        <i class="bi bi-${statusIcon}"></i> ${data.stats.valid} valides, ${data.stats.invalid} invalides sur ${data.stats.total}
+                    </div>`;
+                    
+                    // Si des erreurs existent, afficher un échantillon
+                    if (!isAllValid && data.records.length > 0) {
+                        html += '<div class="small text-muted mb-1">Exemples d\'erreurs :</div>';
+                        html += '<ul class="ps-3 mb-0">';
+                        
+                        // Afficher seulement les entrées invalides
+                        data.records.filter(r => !r.valid).slice(0, 3).forEach(record => {
+                            html += `<li>${record.error} (ID:${record.employee_id})</li>`;
+                        });
+                        
+                        html += '</ul>';
+                        
+                        // Afficher les premières données pour débogage
+                        html += '<div class="small text-muted mt-2">Détails du premier enregistrement:</div>';
+                        html += '<pre class="small bg-light p-1">' + JSON.stringify(data.records[0], null, 2) + '</pre>';
+                    } else if (isAllValid && data.records.length > 0) {
+                        // Montrer un exemple de record valide aussi
+                        html += '<div class="small text-muted mt-2">Exemple d\'enregistrement valide:</div>';
+                        html += '<pre class="small bg-light p-1">' + JSON.stringify(data.records[0], null, 2) + '</pre>';
+                    }
+                } else {
+                    html = `${fileDetails}<div class="alert alert-danger py-1 mb-0">${data.message}</div>`;
+                }
+                
+                contentDiv.innerHTML = html;
+            })
+            .catch(error => {
+                contentDiv.innerHTML = `<div class="alert alert-danger py-1 mb-0">Erreur: ${error.message}</div>`;
+            })
+            .finally(() => {
+                verifyBtn.disabled = false;
+            });
+        }
     }
 </script>
 @endpush 

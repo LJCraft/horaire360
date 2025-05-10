@@ -739,11 +739,17 @@ class RapportController extends Controller
 
         // Requête de base pour tous les pointages avec métadonnées biométriques
         $query = Presence::whereNotNull('meta_data')
-            ->where(function($q) {
-                // Cette condition vérifie que meta_data contient bien des données de biométrie
-                $q->whereRaw("JSON_EXTRACT(meta_data, '$.biometric_verification') IS NOT NULL");
-            })
+            ->where('meta_data', '<>', '{}')
+            ->where('meta_data', '<>', 'null')
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
+        
+        // La condition JSON_EXTRACT ne fonctionne pas correctement, on la supprime temporairement
+        /* Ancienne condition:
+        ->where(function($q) {
+            // Cette condition vérifie que meta_data contient bien des données de biométrie
+            $q->whereRaw("JSON_EXTRACT(meta_data, '$.biometric_verification') IS NOT NULL");
+        })
+        */
 
         // Filtrer par employé si spécifié
         if ($employeId) {
@@ -765,17 +771,22 @@ class RapportController extends Controller
         $nombreScores = 0;
         
         foreach ($pointagesAll as $pointage) {
-            $metaData = json_decode($pointage->meta_data, true);
-            
-            if (isset($metaData['biometric_verification']['confidence_score'])) {
-                $totalScores += $metaData['biometric_verification']['confidence_score'];
-                $nombreScores++;
-            }
-            
-            // Si le pointage a des données de départ (checkout)
-            if (isset($metaData['checkout']['biometric_verification']['confidence_score'])) {
-                $totalScores += $metaData['checkout']['biometric_verification']['confidence_score'];
-                $nombreScores++;
+            try {
+                $metaData = json_decode($pointage->meta_data, true);
+                
+                if (isset($metaData['biometric_verification']['confidence_score'])) {
+                    $totalScores += $metaData['biometric_verification']['confidence_score'];
+                    $nombreScores++;
+                }
+                
+                // Si le pointage a des données de départ (checkout)
+                if (isset($metaData['checkout']['biometric_verification']['confidence_score'])) {
+                    $totalScores += $metaData['checkout']['biometric_verification']['confidence_score'];
+                    $nombreScores++;
+                }
+            } catch (\Exception $e) {
+                // Ignorer les erreurs de parsing JSON
+                \Log::error("Erreur de parsing JSON pour le pointage ID {$pointage->id}: " . $e->getMessage());
             }
         }
         
