@@ -261,9 +261,59 @@ use Carbon\Carbon;
                                 </td>
                                 <td>
                                     @if($coordsArrivee != '-')
-                                        <a href="https://www.google.com/maps?q={{ $coordsArrivee }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mapModal{{ $pointage->id }}">
                                             <i class="bi bi-geo-alt"></i> Voir
-                                        </a>
+                                        </button>
+                                        
+                                        <!-- Modal pour la carte -->
+                                        <div class="modal fade" id="mapModal{{ $pointage->id }}" tabindex="-1" aria-labelledby="mapModalLabel{{ $pointage->id }}" aria-hidden="true">
+                                            <div class="modal-dialog modal-lg">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="mapModalLabel{{ $pointage->id }}">Localisation du pointage</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        @php
+                                                            $locationParts = explode(',', $coordsArrivee);
+                                                            $latitude = trim($locationParts[0]);
+                                                            $longitude = trim($locationParts[1]);
+                                                            $accuracy = isset($metaData['location']['accuracy']) ? $metaData['location']['accuracy'] : 0;
+                                                        @endphp
+                                                        <div class="map-container">
+                                                            <div id="map-pointage-{{ $pointage->id }}" class="location-map" 
+                                                                 data-leaflet-map 
+                                                                 data-lat="{{ $latitude }}" 
+                                                                 data-lng="{{ $longitude }}"
+                                                                 data-accuracy="{{ $accuracy }}"
+                                                                 data-type="arrival"
+                                                                 @if($pointage->employe && $pointage->employe->photo_profil && file_exists(public_path('storage/photos/' . $pointage->employe->photo_profil)))
+                                                                 data-photo="{{ asset('storage/photos/' . $pointage->employe->photo_profil) }}"
+                                                                 @endif
+                                                                 data-initials="{{ $pointage->employe ? strtoupper(substr($pointage->employe->prenom, 0, 1) . substr($pointage->employe->nom, 0, 1)) : '??' }}"
+                                                                 data-title="Pointage de {{ $pointage->employe ? $pointage->employe->prenom . ' ' . $pointage->employe->nom : 'Employé' }}"></div>
+                                                        </div>
+                                                        <div class="mt-3">
+                                                            <div class="row">
+                                                                <div class="col-md-6">
+                                                                    <p><strong>Coordonnées :</strong> {{ $coordsArrivee }}</p>
+                                                                    @if(isset($metaData['location']['accuracy']))
+                                                                    <p><strong>Précision :</strong> {{ $metaData['location']['accuracy'] }} mètres</p>
+                                                                    @endif
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <p><strong>Date :</strong> {{ Carbon::parse($pointage->date)->format('d/m/Y') }}</p>
+                                                                    <p><strong>Heure :</strong> {{ Carbon::parse($pointage->heure_arrivee)->format('H:i') }}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     @else
                                         -
                                     @endif
@@ -360,17 +410,34 @@ use Carbon\Carbon;
                                             @if(isset($metaData['location']))
                                             <div class="mt-3">
                                                 <h6>Carte</h6>
-                                                <div class="ratio ratio-16x9">
-                                                    <iframe 
-                                                        src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q={{ $metaData['location']['latitude'] }},{{ $metaData['location']['longitude'] }}&zoom=18" 
-                                                        style="border:0;" 
-                                                        allowfullscreen="" 
-                                                        loading="lazy">
-                                                    </iframe>
+                                                <div class="map-container">
+                                                    <div id="map-details-{{ $pointage->id }}" class="location-map"
+                                                         data-leaflet-map
+                                                         data-lat="{{ $metaData['location']['latitude'] }}"
+                                                         data-lng="{{ $metaData['location']['longitude'] }}"
+                                                         data-accuracy="{{ $metaData['location']['accuracy'] ?? 0 }}"
+                                                         data-type="arrival"
+                                                         @if($pointage->employe && $pointage->employe->photo_profil && file_exists(public_path('storage/photos/' . $pointage->employe->photo_profil)))
+                                                         data-photo="{{ asset('storage/photos/' . $pointage->employe->photo_profil) }}"
+                                                         @endif
+                                                         data-initials="{{ $pointage->employe ? strtoupper(substr($pointage->employe->prenom, 0, 1) . substr($pointage->employe->nom, 0, 1)) : '??' }}"
+                                                         data-title="Localisation (arrivée)"></div>
                                                 </div>
-                                                <div class="text-muted small mt-1">
-                                                    Note: La clé API Google Maps utilisée est une clé de démonstration. Remplacez-la par votre propre clé en production.
+                                                @if(isset($metaData['checkout']) && isset($metaData['checkout']['location']))
+                                                <div class="map-container mt-2">
+                                                    <div id="map-details-checkout-{{ $pointage->id }}" class="location-map"
+                                                         data-leaflet-map
+                                                         data-lat="{{ $metaData['checkout']['location']['latitude'] }}"
+                                                         data-lng="{{ $metaData['checkout']['location']['longitude'] }}"
+                                                         data-accuracy="{{ $metaData['checkout']['location']['accuracy'] ?? 0 }}"
+                                                         data-type="departure"
+                                                         @if($pointage->employe && $pointage->employe->photo_profil && file_exists(public_path('storage/photos/' . $pointage->employe->photo_profil)))
+                                                         data-photo="{{ asset('storage/photos/' . $pointage->employe->photo_profil) }}"
+                                                         @endif
+                                                         data-initials="{{ $pointage->employe ? strtoupper(substr($pointage->employe->prenom, 0, 1) . substr($pointage->employe->nom, 0, 1)) : '??' }}"
+                                                         data-title="Localisation (départ)"></div>
                                                 </div>
+                                                @endif
                                             </div>
                                             @endif
                                         </div>
@@ -505,8 +572,86 @@ use Carbon\Carbon;
 </div>
 @endsection 
 
+@push('styles')
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+<style>
+    .map-container {
+        height: 300px;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .location-map {
+        height: 100%;
+        width: 100%;
+    }
+    .map-popup {
+        font-size: 14px;
+    }
+    /* Styles pour les marqueurs personnalisés */
+    .custom-marker {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    .marker-photo {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #fff;
+        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    }
+    .marker-initials {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #3498db;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 16px;
+        border: 2px solid #fff;
+        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    }
+    .marker-badge {
+        position: absolute;
+        bottom: -5px;
+        right: -5px;
+        background-color: #e74c3c;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        border: 1px solid white;
+    }
+    .marker-badge.arrival {
+        background-color: #2ecc71;
+    }
+    .marker-badge.departure {
+        background-color: #e74c3c;
+    }
+</style>
+@endpush
+
 @push('scripts')
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+     
 <script>
+    // Code existant pour les téléchargements de modèles
     function downloadJsonTemplate() {
         const jsonTemplate = [
             {
@@ -514,8 +659,8 @@ use Carbon\Carbon;
                 "timestamp": "2025-05-15T08:01:23",
                 "type": "check-in",
                 "location": {
-                    "latitude": 45.5017,
-                    "longitude": -73.5673,
+                    "latitude": 3.8667,
+                    "longitude": 11.5167,
                     "accuracy": 10
                 },
                 "biometric_verification": {
@@ -531,8 +676,8 @@ use Carbon\Carbon;
                 "timestamp": "2025-05-15T17:02:45",
                 "type": "check-out",
                 "location": {
-                    "latitude": 45.5018,
-                    "longitude": -73.5670,
+                    "latitude": 3.8669,
+                    "longitude": 11.5170,
                     "accuracy": 15
                 },
                 "biometric_verification": {
@@ -556,10 +701,10 @@ use Carbon\Carbon;
     
     function downloadCsvTemplate() {
         const csvContent = `employee_id,timestamp,type,latitude,longitude,accuracy,biometric_score,device_id
-2,2025-05-15T08:01:23,check-in,45.5017,-73.5673,10,0.95,mobile-app-001
-2,2025-05-15T17:02:45,check-out,45.5018,-73.5670,15,0.92,mobile-app-001
-3,2025-05-15T08:10:05,check-in,45.5020,-73.5680,8,0.97,mobile-app-002
-3,2025-05-15T17:15:30,check-out,45.5022,-73.5678,12,0.94,mobile-app-002`;
+2,2025-05-15T08:01:23,check-in,3.8667,11.5167,10,0.95,mobile-app-001
+2,2025-05-15T17:02:45,check-out,3.8669,11.5170,15,0.92,mobile-app-001
+3,2025-05-15T08:10:05,check-in,4.0511,9.7679,8,0.97,mobile-app-002
+3,2025-05-15T17:15:30,check-out,4.0513,9.7682,12,0.94,mobile-app-002`;
         
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -583,7 +728,77 @@ use Carbon\Carbon;
             const formatHelp = document.getElementById('formatHelp');
             formatHelp.classList.toggle('d-none');
         });
+        
+        // Initialiser toutes les cartes Leaflet
+        document.querySelectorAll('[data-leaflet-map]').forEach(function(element) {
+            const mapId = element.id;
+            const lat = parseFloat(element.getAttribute('data-lat'));
+            const lng = parseFloat(element.getAttribute('data-lng'));
+            const title = element.getAttribute('data-title') || 'Localisation';
+            const employePhoto = element.getAttribute('data-photo');
+            const employeInitials = element.getAttribute('data-initials');
+            const pointageType = element.getAttribute('data-type'); // 'arrival' ou 'departure'
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                element.innerHTML = '<div class="alert alert-warning">Coordonnées invalides</div>';
+                return;
+            }
+            
+            // Créer la carte
+            const map = L.map(mapId).setView([lat, lng], 16);
+            
+            // Ajouter la couche OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Créer une icône personnalisée avec la photo ou les initiales
+            const customIcon = L.divIcon({
+                className: 'custom-marker',
+                html: createMarkerHtml(employePhoto, employeInitials, pointageType),
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
+            
+            // Ajouter un marqueur avec l'icône personnalisée
+            const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+            marker.bindPopup(`<div class="map-popup"><strong>${title}</strong><br>Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}</div>`).openPopup();
+            
+            // Ajouter un cercle pour montrer la précision (si disponible)
+            const accuracy = parseFloat(element.getAttribute('data-accuracy'));
+            if (!isNaN(accuracy) && accuracy > 0) {
+                L.circle([lat, lng], {
+                    color: pointageType === 'departure' ? '#e74c3c' : '#2ecc71',
+                    fillColor: pointageType === 'departure' ? '#e74c3c' : '#2ecc71',
+                    fillOpacity: 0.1,
+                    radius: accuracy
+                }).addTo(map);
+            }
+        });
     });
+
+    /**
+     * Crée le HTML pour le marqueur personnalisé
+     */
+    function createMarkerHtml(photoUrl, initials, type) {
+        const typeLabel = type === 'departure' ? 'D' : 'A';
+        const typeCls = type === 'departure' ? 'departure' : 'arrival';
+        
+        if (photoUrl) {
+            return `
+                <div class="custom-marker">
+                    <img src="${photoUrl}" alt="Photo employé" class="marker-photo">
+                    <span class="marker-badge ${typeCls}">${typeLabel}</span>
+                </div>`;
+        } else {
+            return `
+                <div class="custom-marker">
+                    <div class="marker-initials">${initials || '?'}</div>
+                    <span class="marker-badge ${typeCls}">${typeLabel}</span>
+                </div>`;
+        }
+    }
 
     /**
      * Vérifier le contenu du fichier avant l'importation
