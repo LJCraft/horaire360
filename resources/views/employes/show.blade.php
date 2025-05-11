@@ -24,8 +24,16 @@
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-4">
-                        <div class="avatar-placeholder bg-light rounded-circle mx-auto mb-3" style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
-                            <i class="bi bi-person"></i>
+                        <div class="mx-auto mb-3">
+                            @if($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil)))
+                                <img src="{{ asset('storage/photos/' . $employe->photo_profil) }}" alt="Photo de {{ $employe->prenom }} {{ $employe->nom }}" 
+                                    class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                            @else
+                                <div class="avatar-placeholder bg-light rounded-circle mx-auto" 
+                                    style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                                    <span>{{ strtoupper(substr($employe->prenom, 0, 1)) }}{{ strtoupper(substr($employe->nom, 0, 1)) }}</span>
+                                </div>
+                            @endif
                         </div>
                         <h3 class="mb-1">{{ $employe->prenom }} {{ $employe->nom }}</h3>
                         <p class="text-muted mb-0">{{ $employe->poste->nom }}</p>

@@ -15,40 +15,65 @@
 
     <div class="card">
         <div class="card-body">
-            <form action="{{ route('employes.store') }}" method="POST">
+            <form action="{{ route('employes.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('nom') is-invalid @enderror" id="nom" name="nom" value="{{ old('nom') }}" required>
-                        @error('nom')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label for="photo_profil" class="form-label">Photo de profil</label>
+                        <div class="card p-3 text-center">
+                            <div class="mb-3">
+                                <img id="preview_image" src="https://ui-avatars.com/api/?name=?&background=random&color=fff&size=256" 
+                                    alt="Preview" class="img-fluid rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            </div>
+                            <div class="input-group">
+                                <input type="file" class="form-control @error('photo_profil') is-invalid @enderror" 
+                                    id="photo_profil" name="photo_profil" accept="image/*">
+                                <button type="button" class="btn btn-outline-secondary" 
+                                    onclick="document.getElementById('photo_profil').value='';document.getElementById('preview_image').src='https://ui-avatars.com/api/?name=?&background=random&color=fff&size=256';">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                            @error('photo_profil')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text small">Formats acceptés: JPG, PNG. Max: 2 Mo</div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label for="prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('prenom') is-invalid @enderror" id="prenom" name="prenom" value="{{ old('prenom') }}" required>
-                        @error('prenom')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
+                    <div class="col-md-8">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control @error('nom') is-invalid @enderror" id="nom" name="nom" value="{{ old('nom') }}" required>
+                                @error('nom')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label for="prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control @error('prenom') is-invalid @enderror" id="prenom" name="prenom" value="{{ old('prenom') }}" required>
+                                @error('prenom')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}" required>
-                        @error('email')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="col-md-6">
-                        <label for="telephone" class="form-label">Téléphone</label>
-                        <input type="text" class="form-control @error('telephone') is-invalid @enderror" id="telephone" name="telephone" value="{{ old('telephone') }}">
-                        @error('telephone')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}" required>
+                                @error('email')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label for="telephone" class="form-label">Téléphone</label>
+                                <input type="text" class="form-control @error('telephone') is-invalid @enderror" id="telephone" name="telephone" value="{{ old('telephone') }}">
+                                @error('telephone')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -104,4 +129,19 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    document.getElementById('photo_profil').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('preview_image').src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+</script>
+@endpush
 @endsection

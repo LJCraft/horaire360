@@ -14,7 +14,7 @@ class Employe extends Model
     protected $fillable = [
         'matricule', 'nom', 'prenom', 'email', 'telephone',
         'date_naissance', 'date_embauche', 'poste_id',
-        'utilisateur_id', 'statut'
+        'utilisateur_id', 'statut', 'photo_profil'
     ];
 
     protected $casts = [
@@ -64,4 +64,19 @@ class Employe extends Model
         return $this->prenom . ' ' . $this->nom;
     }
 
+    /**
+     * Récupère l'URL de la photo de profil ou une image par défaut
+     */
+    public function getPhotoProfilUrlAttribute()
+    {
+        if (!empty($this->photo_profil) && file_exists(public_path('storage/photos/' . $this->photo_profil))) {
+            return asset('storage/photos/' . $this->photo_profil);
+        }
+        
+        // Retourne une image par défaut basée sur les initiales du prénom et du nom
+        $initialPrenom = strtoupper(substr($this->prenom, 0, 1));
+        $initialNom = strtoupper(substr($this->nom, 0, 1));
+        $initials = $initialPrenom . $initialNom;
+        return "https://ui-avatars.com/api/?name={$initials}&background=random&color=fff&size=256";
+    }
 }

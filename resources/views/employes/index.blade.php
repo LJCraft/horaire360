@@ -289,10 +289,25 @@
                             <tr class="{{ $employe->created_at && $employe->created_at->gt(now()->subMinutes(5)) ? 'table-success' : '' }}">
                                 <td>{{ $employe->matricule }}</td>
                                 <td>
-                                    {{ $employe->prenom }} {{ $employe->nom }}
-                                    @if($employe->created_at && $employe->created_at->gt(now()->subMinutes(5)))
-                                        <span class="badge bg-success ms-1">Nouveau</span>
-                                    @endif
+                                    <div class="d-flex align-items-center">
+                                        @if($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil)))
+                                            <img src="{{ asset('storage/photos/' . $employe->photo_profil) }}" 
+                                                alt="Photo de {{ $employe->prenom }}" 
+                                                class="rounded-circle me-2" 
+                                                style="width: 30px; height: 30px; object-fit: cover;">
+                                        @else
+                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                                style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                                {{ strtoupper(substr($employe->prenom, 0, 1)) }}{{ strtoupper(substr($employe->nom, 0, 1)) }}
+                                            </div>
+                                        @endif
+                                        <div>
+                                            {{ $employe->prenom }} {{ $employe->nom }}
+                                            @if($employe->created_at && $employe->created_at->gt(now()->subMinutes(5)))
+                                                <span class="badge bg-success ms-1">Nouveau</span>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>{{ $employe->email }}</td>
                                 <td>{{ $employe->poste->nom }}</td>

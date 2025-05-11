@@ -92,6 +92,7 @@ class EmployeController extends Controller
             'date_embauche' => 'required|date',
             'poste_id' => 'required|exists:postes,id',
             'create_user' => 'boolean',
+            'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
         
         // Génération du matricule (préfixe EMP + 5 chiffres)
@@ -99,7 +100,7 @@ class EmployeController extends Controller
         $lastId = $lastEmploye ? $lastEmploye->id + 1 : 1;
         $matricule = 'EMP' . str_pad($lastId, 5, '0', STR_PAD_LEFT);
         
-        $employe = new Employe([
+        $employeData = [
             'matricule' => $matricule,
             'nom' => $request->nom,
             'prenom' => $request->prenom,
@@ -109,7 +110,23 @@ class EmployeController extends Controller
             'date_embauche' => $request->date_embauche,
             'poste_id' => $request->poste_id,
             'statut' => 'actif',
-        ]);
+        ];
+        
+        // Traitement de la photo de profil
+        if ($request->hasFile('photo_profil')) {
+            $photoFile = $request->file('photo_profil');
+            $photoName = time() . '_' . $matricule . '.' . $photoFile->getClientOriginalExtension();
+            
+            // Assurez-vous que le répertoire existe
+            if (!file_exists(public_path('storage/photos'))) {
+                mkdir(public_path('storage/photos'), 0755, true);
+            }
+            
+            $photoFile->move(public_path('storage/photos'), $photoName);
+            $employeData['photo_profil'] = $photoName;
+        }
+        
+        $employe = new Employe($employeData);
         
         // Création d'un compte utilisateur si demandé
         if ($request->create_user) {
@@ -169,9 +186,39 @@ class EmployeController extends Controller
             'date_embauche' => 'required|date',
             'poste_id' => 'required|exists:postes,id',
             'statut' => 'required|in:actif,inactif',
+            'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
         
-        $employe->update($request->all());
+        $dataToUpdate = $request->except(['photo_profil', 'supprimer_photo']);
+        
+        // Traitement de la photo de profil
+        if ($request->hasFile('photo_profil')) {
+            // Supprimer l'ancienne photo si elle existe
+            if ($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil))) {
+                unlink(public_path('storage/photos/' . $employe->photo_profil));
+            }
+            
+            // Enregistrer la nouvelle photo
+            $photoFile = $request->file('photo_profil');
+            $photoName = time() . '_' . $employe->matricule . '.' . $photoFile->getClientOriginalExtension();
+            
+            // Assurez-vous que le répertoire existe
+            if (!file_exists(public_path('storage/photos'))) {
+                mkdir(public_path('storage/photos'), 0755, true);
+            }
+            
+            $photoFile->move(public_path('storage/photos'), $photoName);
+            $dataToUpdate['photo_profil'] = $photoName;
+        }
+        // Supprimer la photo si demandé
+        else if ($request->has('supprimer_photo')) {
+            if ($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil))) {
+                unlink(public_path('storage/photos/' . $employe->photo_profil));
+            }
+            $dataToUpdate['photo_profil'] = null;
+        }
+        
+        $employe->update($dataToUpdate);
         
         // Si l'employé a un compte utilisateur, mettre à jour son nom et email
         if ($employe->utilisateur) {

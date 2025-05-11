@@ -15,45 +15,80 @@
 
     <div class="card">
         <div class="card-body">
-            <form action="{{ route('employes.update', $employe) }}" method="POST">
+            <form action="{{ route('employes.update', $employe) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
                 
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <label for="matricule" class="form-label">Matricule</label>
-                        <input type="text" class="form-control" id="matricule" value="{{ $employe->matricule }}" readonly>
-                    </div>
+                <div class="row mb-4">
                     <div class="col-md-4">
-                        <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('nom') is-invalid @enderror" id="nom" name="nom" value="{{ old('nom', $employe->nom) }}" required>
-                        @error('nom')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                        <label for="photo_profil" class="form-label">Photo de profil</label>
+                        <div class="card p-3 text-center">
+                            <div class="mb-3">
+                                <img id="preview_image" src="{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}" 
+                                    alt="Photo de {{ $employe->prenom }}" class="img-fluid rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            </div>
+                            <div class="input-group">
+                                <input type="file" class="form-control @error('photo_profil') is-invalid @enderror" 
+                                    id="photo_profil" name="photo_profil" accept="image/*">
+                                <button type="button" class="btn btn-outline-secondary" 
+                                    onclick="document.getElementById('photo_profil').value='';document.getElementById('preview_image').src='{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}';">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                            @error('photo_profil')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text small">Formats acceptés: JPG, PNG. Max: 2 Mo</div>
+                            @if($employe->photo_profil)
+                                <div class="mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="supprimer_photo" id="supprimer_photo">
+                                        <label class="form-check-label" for="supprimer_photo">
+                                            Supprimer la photo actuelle
+                                        </label>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
                     </div>
-                    <div class="col-md-5">
-                        <label for="prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('prenom') is-invalid @enderror" id="prenom" name="prenom" value="{{ old('prenom', $employe->prenom) }}" required>
-                        @error('prenom')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
+                    <div class="col-md-8">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="matricule" class="form-label">Matricule</label>
+                                <input type="text" class="form-control" id="matricule" value="{{ $employe->matricule }}" readonly>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control @error('nom') is-invalid @enderror" id="nom" name="nom" value="{{ old('nom', $employe->nom) }}" required>
+                                @error('nom')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-4">
+                                <label for="prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control @error('prenom') is-invalid @enderror" id="prenom" name="prenom" value="{{ old('prenom', $employe->prenom) }}" required>
+                                @error('prenom')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email', $employe->email) }}" required>
-                        @error('email')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="col-md-6">
-                        <label for="telephone" class="form-label">Téléphone</label>
-                        <input type="text" class="form-control @error('telephone') is-invalid @enderror" id="telephone" name="telephone" value="{{ old('telephone', $employe->telephone) }}">
-                        @error('telephone')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email', $employe->email) }}" required>
+                                @error('email')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label for="telephone" class="form-label">Téléphone</label>
+                                <input type="text" class="form-control @error('telephone') is-invalid @enderror" id="telephone" name="telephone" value="{{ old('telephone', $employe->telephone) }}">
+                                @error('telephone')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -145,4 +180,30 @@
     </div>
     @endif
 </div>
+
+@push('scripts')
+<script>
+    document.getElementById('photo_profil').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('preview_image').src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Si la case "supprimer la photo" est cochée, désactiver l'input de fichier
+    document.addEventListener('DOMContentLoaded', function() {
+        const supprimerPhotoCheckbox = document.getElementById('supprimer_photo');
+        if (supprimerPhotoCheckbox) {
+            supprimerPhotoCheckbox.addEventListener('change', function() {
+                const photoInput = document.getElementById('photo_profil');
+                photoInput.disabled = this.checked;
+            });
+        }
+    });
+</script>
+@endpush
 @endsection
