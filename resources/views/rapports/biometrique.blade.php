@@ -212,7 +212,20 @@ use Carbon\Carbon;
                             <tr>
                                 <td>
                                     @if($pointage->employe)
-                                    <span class="fw-bold">{{ $pointage->employe->prenom }} {{ $pointage->employe->nom }}</span>
+                                    <div class="d-flex align-items-center">
+                                        @if($pointage->employe->photo_profil && file_exists(public_path('storage/photos/' . $pointage->employe->photo_profil)))
+                                            <img src="{{ asset('storage/photos/' . $pointage->employe->photo_profil) }}" 
+                                                alt="Photo de {{ $pointage->employe->prenom }}" 
+                                                class="rounded-circle me-2" 
+                                                style="width: 30px; height: 30px; object-fit: cover;">
+                                        @else
+                                            <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 text-primary me-2" 
+                                                 style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                                {{ strtoupper(substr($pointage->employe->prenom, 0, 1)) }}{{ strtoupper(substr($pointage->employe->nom, 0, 1)) }}
+                                            </div>
+                                        @endif
+                                        <span class="fw-bold">{{ $pointage->employe->prenom }} {{ $pointage->employe->nom }}</span>
+                                    </div>
                                     @else
                                     <span class="text-muted">Employé supprimé</span>
                                     @endif

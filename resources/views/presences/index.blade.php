@@ -105,7 +105,17 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($presence->employe->prenom . ' ' . $presence->employe->nom) }}&size=32&color=7F9CF5&background=EBF4FF" alt="{{ $presence->employe->prenom }} {{ $presence->employe->nom }}" class="rounded-circle me-2">
+                                    @if($presence->employe->photo_profil && file_exists(public_path('storage/photos/' . $presence->employe->photo_profil)))
+                                        <img src="{{ asset('storage/photos/' . $presence->employe->photo_profil) }}" 
+                                            alt="Photo de {{ $presence->employe->prenom }}" 
+                                            class="rounded-circle me-2" 
+                                            style="width: 32px; height: 32px; object-fit: cover;">
+                                    @else
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                            style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                            {{ strtoupper(substr($presence->employe->prenom, 0, 1)) }}{{ strtoupper(substr($presence->employe->nom, 0, 1)) }}
+                                        </div>
+                                    @endif
                                     {{ $presence->employe->prenom }} {{ $presence->employe->nom }}
                                 </div>
                             </td>

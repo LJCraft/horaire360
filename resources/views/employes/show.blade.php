@@ -24,14 +24,28 @@
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-4">
-                        <div class="mx-auto mb-3">
+                        <div class="mx-auto mb-3 position-relative">
                             @if($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil)))
-                                <img src="{{ asset('storage/photos/' . $employe->photo_profil) }}" alt="Photo de {{ $employe->prenom }} {{ $employe->nom }}" 
-                                    class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                                <div class="photo-container position-relative" style="width: 120px; height: 120px; margin: 0 auto;">
+                                    <img src="{{ asset('storage/photos/' . $employe->photo_profil) }}" alt="Photo de {{ $employe->prenom }} {{ $employe->nom }}" 
+                                        class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                                    <a href="{{ route('employes.edit', $employe) }}" class="change-photo-btn">
+                                        <div class="photo-overlay rounded-circle d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-camera-fill text-white"></i>
+                                        </div>
+                                    </a>
+                                </div>
                             @else
-                                <div class="avatar-placeholder bg-light rounded-circle mx-auto" 
-                                    style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
-                                    <span>{{ strtoupper(substr($employe->prenom, 0, 1)) }}{{ strtoupper(substr($employe->nom, 0, 1)) }}</span>
+                                <div class="photo-container position-relative" style="width: 120px; height: 120px; margin: 0 auto;">
+                                    <div class="avatar-placeholder bg-light rounded-circle mx-auto" 
+                                        style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                                        <span>{{ strtoupper(substr($employe->prenom, 0, 1)) }}{{ strtoupper(substr($employe->nom, 0, 1)) }}</span>
+                                    </div>
+                                    <a href="{{ route('employes.edit', $employe) }}" class="change-photo-btn">
+                                        <div class="photo-overlay rounded-circle d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-camera-fill text-white"></i>
+                                        </div>
+                                    </a>
                                 </div>
                             @endif
                         </div>

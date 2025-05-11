@@ -24,31 +24,38 @@
                         <label for="photo_profil" class="form-label">Photo de profil</label>
                         <div class="card p-3 text-center">
                             <div class="mb-3">
-                                <img id="preview_image" src="{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}" 
-                                    alt="Photo de {{ $employe->prenom }}" class="img-fluid rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                                <div class="photo-container position-relative" style="width: 150px; height: 150px; margin: 0 auto;">
+                                    <img id="preview_image" src="{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}" 
+                                        alt="Photo de {{ $employe->prenom }}" class="img-fluid rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                                    <label for="photo_profil" class="change-photo-btn">
+                                        <div class="photo-overlay rounded-circle d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-camera-fill text-white"></i>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group" style="display:none;">
                                 <input type="file" class="form-control @error('photo_profil') is-invalid @enderror" 
                                     id="photo_profil" name="photo_profil" accept="image/*">
-                                <button type="button" class="btn btn-outline-secondary" 
-                                    onclick="document.getElementById('photo_profil').value='';document.getElementById('preview_image').src='{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}';">
-                                    <i class="bi bi-x-circle"></i>
+                            </div>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" 
+                                    onclick="resetImage()">
+                                    <i class="bi bi-x-circle"></i> Annuler
                                 </button>
+                                @if($employe->photo_profil)
+                                <div class="form-check form-switch d-flex align-items-center mt-2 ms-2">
+                                    <input class="form-check-input" type="checkbox" name="supprimer_photo" id="supprimer_photo">
+                                    <label class="form-check-label ms-2" for="supprimer_photo">
+                                        Supprimer la photo
+                                    </label>
+                                </div>
+                                @endif
                             </div>
                             @error('photo_profil')
                                 <div class="invalid-feedback d-block">{{ $message }}</div>
                             @enderror
-                            <div class="form-text small">Formats acceptés: JPG, PNG. Max: 2 Mo</div>
-                            @if($employe->photo_profil)
-                                <div class="mt-2">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="supprimer_photo" id="supprimer_photo">
-                                        <label class="form-check-label" for="supprimer_photo">
-                                            Supprimer la photo actuelle
-                                        </label>
-                                    </div>
-                                </div>
-                            @endif
+                            <div class="form-text small mt-2">Formats acceptés: JPG, PNG. Max: 2 Mo</div>
                         </div>
                     </div>
                     <div class="col-md-8">
@@ -183,6 +190,12 @@
 
 @push('scripts')
 <script>
+    // Fonction pour réinitialiser l'image
+    function resetImage() {
+        document.getElementById('photo_profil').value = '';
+        document.getElementById('preview_image').src = '{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}';
+    }
+
     document.getElementById('photo_profil').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {

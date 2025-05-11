@@ -139,9 +139,16 @@
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="avatar-initials bg-warning bg-opacity-10 text-warning me-2">
-                                            {{ substr($retard->prenom, 0, 1) }}{{ substr($retard->nom, 0, 1) }}
-                                        </div>
+                                        @if(isset($retard->photo_profil) && file_exists(public_path('storage/photos/' . $retard->photo_profil)))
+                                            <img src="{{ asset('storage/photos/' . $retard->photo_profil) }}" 
+                                                alt="Photo de {{ $retard->prenom }}" 
+                                                class="rounded-circle me-2" 
+                                                style="width: 30px; height: 30px; object-fit: cover;">
+                                        @else
+                                            <div class="avatar-initials bg-warning bg-opacity-10 text-warning me-2">
+                                                {{ strtoupper(substr($retard->prenom, 0, 1)) }}{{ strtoupper(substr($retard->nom, 0, 1)) }}
+                                            </div>
+                                        @endif
                                         {{ $retard->prenom }} {{ $retard->nom }}
                                     </div>
                                 </td>
@@ -218,9 +225,16 @@
                                 <td>
                                     @if($retard->employe)
                                     <div class="d-flex align-items-center">
-                                        <div class="avatar-initials bg-warning bg-opacity-10 text-warning me-2">
-                                            {{ substr($retard->employe->prenom, 0, 1) }}{{ substr($retard->employe->nom, 0, 1) }}
-                                        </div>
+                                        @if($retard->employe->photo_profil && file_exists(public_path('storage/photos/' . $retard->employe->photo_profil)))
+                                            <img src="{{ asset('storage/photos/' . $retard->employe->photo_profil) }}" 
+                                                alt="Photo de {{ $retard->employe->prenom }}" 
+                                                class="rounded-circle me-2" 
+                                                style="width: 30px; height: 30px; object-fit: cover;">
+                                        @else
+                                            <div class="avatar-initials bg-warning bg-opacity-10 text-warning me-2">
+                                                {{ strtoupper(substr($retard->employe->prenom, 0, 1)) }}{{ strtoupper(substr($retard->employe->nom, 0, 1)) }}
+                                            </div>
+                                        @endif
                                         {{ $retard->employe->prenom }} {{ $retard->employe->nom }}
                                     </div>
                                     @else

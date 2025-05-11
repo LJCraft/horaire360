@@ -132,7 +132,25 @@
                                 <tr>
                                     <td>{{ $planning->id }}</td>
                                     <td>
-                                        {{ $planning->employe ? $planning->employe->nom : 'Employé inconnu' }}
+                                        <div class="d-flex align-items-center">
+                                            @if($planning->employe && $planning->employe->photo_profil && file_exists(public_path('storage/photos/' . $planning->employe->photo_profil)))
+                                                <img src="{{ asset('storage/photos/' . $planning->employe->photo_profil) }}" 
+                                                    alt="Photo de {{ $planning->employe->prenom }}" 
+                                                    class="rounded-circle me-2" 
+                                                    style="width: 32px; height: 32px; object-fit: cover;">
+                                            @elseif($planning->employe)
+                                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                                    style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                    {{ strtoupper(substr($planning->employe->prenom, 0, 1)) }}{{ strtoupper(substr($planning->employe->nom, 0, 1)) }}
+                                                </div>
+                                            @else
+                                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                                    style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                    ?
+                                                </div>
+                                            @endif
+                                            {{ $planning->employe ? $planning->employe->prenom . ' ' . $planning->employe->nom : 'Employé inconnu' }}
+                                        </div>
                                     </td>
                                     <td>{{ $planning->date_debut ? $planning->date_debut->format('d/m/Y') : '' }}</td>
                                     <td>{{ $planning->date_fin ? $planning->date_fin->format('d/m/Y') : '' }}</td>

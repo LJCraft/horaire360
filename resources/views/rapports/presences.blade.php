@@ -151,9 +151,16 @@
                                 <td>
                                     @if($presence->employe)
                                     <div class="d-flex align-items-center">
-                                        <div class="avatar-initials bg-primary bg-opacity-10 text-primary me-2">
-                                            {{ substr($presence->employe->prenom ?? '', 0, 1) }}{{ substr($presence->employe->nom ?? '', 0, 1) }}
-                                        </div>
+                                        @if($presence->employe->photo_profil && file_exists(public_path('storage/photos/' . $presence->employe->photo_profil)))
+                                            <img src="{{ asset('storage/photos/' . $presence->employe->photo_profil) }}" 
+                                                alt="Photo de {{ $presence->employe->prenom }}" 
+                                                class="rounded-circle me-2" 
+                                                style="width: 30px; height: 30px; object-fit: cover;">
+                                        @else
+                                            <div class="avatar-initials bg-primary bg-opacity-10 text-primary me-2">
+                                                {{ strtoupper(substr($presence->employe->prenom ?? '', 0, 1)) }}{{ strtoupper(substr($presence->employe->nom ?? '', 0, 1)) }}
+                                            </div>
+                                        @endif
                                         {{ $presence->employe->prenom }} {{ $presence->employe->nom }}
                                     </div>
                                     @else

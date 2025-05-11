@@ -187,7 +187,17 @@
             </div>
             <div class="card-body">
                 <div class="text-center mb-3">
-                    <img src="https://ui-avatars.com/api/?name={{ urlencode($presence->employe->prenom . ' ' . $presence->employe->nom) }}&size=100&color=7F9CF5&background=EBF4FF" alt="{{ $presence->employe->prenom }} {{ $presence->employe->nom }}" class="rounded-circle">
+                    @if($presence->employe->photo_profil && file_exists(public_path('storage/photos/' . $presence->employe->photo_profil)))
+                        <img src="{{ asset('storage/photos/' . $presence->employe->photo_profil) }}" 
+                            alt="Photo de {{ $presence->employe->prenom }} {{ $presence->employe->nom }}" 
+                            class="rounded-circle" 
+                            style="width: 100px; height: 100px; object-fit: cover;">
+                    @else
+                        <div class="bg-light rounded-circle mx-auto d-flex align-items-center justify-content-center" 
+                            style="width: 100px; height: 100px; font-size: 2.5rem;">
+                            {{ strtoupper(substr($presence->employe->prenom, 0, 1)) }}{{ strtoupper(substr($presence->employe->nom, 0, 1)) }}
+                        </div>
+                    @endif
                 </div>
                 <h5 class="text-center">{{ $presence->employe->prenom }} {{ $presence->employe->nom }}</h5>
                 <p class="text-center text-muted">{{ $presence->employe->poste->titre }}</p>

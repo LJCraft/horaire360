@@ -144,9 +144,16 @@
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="avatar-initials bg-danger bg-opacity-10 text-danger me-2">
-                                            {{ substr($absence['employe']->prenom, 0, 1) }}{{ substr($absence['employe']->nom, 0, 1) }}
-                                        </div>
+                                        @if($absence['employe']->photo_profil && file_exists(public_path('storage/photos/' . $absence['employe']->photo_profil)))
+                                            <img src="{{ asset('storage/photos/' . $absence['employe']->photo_profil) }}" 
+                                                alt="Photo de {{ $absence['employe']->prenom }}" 
+                                                class="rounded-circle me-2" 
+                                                style="width: 30px; height: 30px; object-fit: cover;">
+                                        @else
+                                            <div class="avatar-initials bg-danger bg-opacity-10 text-danger me-2">
+                                                {{ strtoupper(substr($absence['employe']->prenom, 0, 1)) }}{{ strtoupper(substr($absence['employe']->nom, 0, 1)) }}
+                                            </div>
+                                        @endif
                                         {{ $absence['employe']->prenom }} {{ $absence['employe']->nom }}
                                     </div>
                                 </td>
