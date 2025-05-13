@@ -79,3 +79,34 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/rapports/export/pdf', [RapportController::class, 'exportPdf'])->name('rapports.export.pdf');
     Route::get('/rapports/export/excel', [RapportController::class, 'exportExcel'])->name('rapports.export.excel');
 });
+
+// Route de test pour déboguer le téléchargement de photos
+Route::get('/test-photo', function () {
+    // Créer un fichier test dans le dossier storage/app/public/photos
+    $filename = 'test_' . time() . '.txt';
+    $path = 'photos/' . $filename;
+    
+    // Vérifications et diagnostics
+    $results = [
+        'storage_public_writable' => is_writable(storage_path('app/public')),
+        'photos_dir_exists' => file_exists(storage_path('app/public/photos')),
+        'photos_dir_writable' => is_writable(storage_path('app/public/photos')),
+        'public_storage_exists' => file_exists(public_path('storage')),
+        'symbolic_link_valid' => is_link(public_path('storage')),
+    ];
+    
+    // Créer un fichier test
+    try {
+        \Illuminate\Support\Facades\Storage::disk('public')->put($path, 'Test file content');
+        $results['file_created'] = true;
+        $results['file_path'] = storage_path('app/public/' . $path);
+        $results['file_exists'] = \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
+        $results['url'] = asset('storage/' . $path);
+        $results['file_accessible'] = @file_get_contents(asset('storage/' . $path)) !== false;
+    } catch (\Exception $e) {
+        $results['file_created'] = false;
+        $results['error'] = $e->getMessage();
+    }
+    
+    return response()->json($results);
+});

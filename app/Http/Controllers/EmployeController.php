@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class EmployeController extends Controller
 {
@@ -117,13 +120,32 @@ class EmployeController extends Controller
             $photoFile = $request->file('photo_profil');
             $photoName = time() . '_' . $matricule . '.' . $photoFile->getClientOriginalExtension();
             
-            // Assurez-vous que le répertoire existe
-            if (!file_exists(public_path('storage/photos'))) {
-                mkdir(public_path('storage/photos'), 0755, true);
-            }
+            // Définir le chemin avec DIRECTORY_SEPARATOR pour la compatibilité cross-platform
+            $photoDirectory = public_path('storage'.DIRECTORY_SEPARATOR.'photos');
             
-            $photoFile->move(public_path('storage/photos'), $photoName);
-            $employeData['photo_profil'] = $photoName;
+            // S'assurer que le répertoire existe
+            try {
+                if (!is_dir($photoDirectory)) {
+                    mkdir($photoDirectory, 0755, true);
+                }
+                
+                // Vérifier que le dossier est accessible en écriture
+                if (!is_writable($photoDirectory)) {
+                    chmod($photoDirectory, 0755);
+                }
+                
+                // Déplacer le fichier
+                $photoFile->move($photoDirectory, $photoName);
+                
+                // Sauvegarder uniquement le nom du fichier
+                $employeData['photo_profil'] = $photoName;
+                
+                // Log pour débogage
+                Log::info('Photo enregistrée dans: ' . $photoDirectory . DIRECTORY_SEPARATOR . $photoName);
+            } catch (\Exception $e) {
+                Log::error('Erreur lors de l\'enregistrement de la photo: ' . $e->getMessage());
+                Log::error('Chemin du dossier: ' . $photoDirectory);
+            }
         }
         
         $employe = new Employe($employeData);
@@ -194,26 +216,53 @@ class EmployeController extends Controller
         // Traitement de la photo de profil
         if ($request->hasFile('photo_profil')) {
             // Supprimer l'ancienne photo si elle existe
-            if ($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil))) {
-                unlink(public_path('storage/photos/' . $employe->photo_profil));
+            if ($employe->photo_profil) {
+                $oldPhotoPath = public_path('storage'.DIRECTORY_SEPARATOR.'photos'.DIRECTORY_SEPARATOR.$employe->photo_profil);
+                if (file_exists($oldPhotoPath)) {
+                    unlink($oldPhotoPath);
+                    Log::info('Photo supprimée: ' . $oldPhotoPath);
+                }
             }
             
             // Enregistrer la nouvelle photo
             $photoFile = $request->file('photo_profil');
             $photoName = time() . '_' . $employe->matricule . '.' . $photoFile->getClientOriginalExtension();
             
-            // Assurez-vous que le répertoire existe
-            if (!file_exists(public_path('storage/photos'))) {
-                mkdir(public_path('storage/photos'), 0755, true);
-            }
+            // Définir le chemin avec DIRECTORY_SEPARATOR pour la compatibilité cross-platform
+            $photoDirectory = public_path('storage'.DIRECTORY_SEPARATOR.'photos');
             
-            $photoFile->move(public_path('storage/photos'), $photoName);
-            $dataToUpdate['photo_profil'] = $photoName;
+            // S'assurer que le répertoire existe
+            try {
+                if (!is_dir($photoDirectory)) {
+                    mkdir($photoDirectory, 0755, true);
+                }
+                
+                // Vérifier que le dossier est accessible en écriture
+                if (!is_writable($photoDirectory)) {
+                    chmod($photoDirectory, 0755);
+                }
+                
+                // Déplacer le fichier
+                $photoFile->move($photoDirectory, $photoName);
+                
+                // Sauvegarder uniquement le nom du fichier
+                $dataToUpdate['photo_profil'] = $photoName;
+                
+                // Log pour débogage
+                Log::info('Photo mise à jour dans: ' . $photoDirectory . DIRECTORY_SEPARATOR . $photoName);
+            } catch (\Exception $e) {
+                Log::error('Erreur lors de l\'enregistrement de la photo: ' . $e->getMessage());
+                Log::error('Chemin du dossier: ' . $photoDirectory);
+            }
         }
         // Supprimer la photo si demandé
         else if ($request->has('supprimer_photo')) {
-            if ($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil))) {
-                unlink(public_path('storage/photos/' . $employe->photo_profil));
+            if ($employe->photo_profil) {
+                $oldPhotoPath = public_path('storage'.DIRECTORY_SEPARATOR.'photos'.DIRECTORY_SEPARATOR.$employe->photo_profil);
+                if (file_exists($oldPhotoPath)) {
+                    unlink($oldPhotoPath);
+                    Log::info('Photo supprimée: ' . $oldPhotoPath);
+                }
             }
             $dataToUpdate['photo_profil'] = null;
         }
@@ -237,10 +286,67 @@ class EmployeController extends Controller
      */
     public function destroy(Employe $employe)
     {
-        $employe->delete();
-        
-        return redirect()->route('employes.index')
-            ->with('success', 'Employé supprimé avec succès.');
+        try {
+            // Commencer une transaction pour garantir l'intégrité des données
+            DB::beginTransaction();
+            
+            // Supprimer manuellement les enregistrements liés
+            
+            // Récupérer l'ID de l'employé pour les requêtes directes
+            $employeId = $employe->id;
+            
+            // Récupérer l'utilisateur associé avant de supprimer l'employé
+            $utilisateur = $employe->utilisateur;
+            
+            // Supprimer les présences de manière définitive
+            \App\Models\Presence::where('employe_id', $employeId)->delete();
+            
+            // Supprimer les plannings et leurs détails
+            $plannings = \App\Models\Planning::where('employe_id', $employeId)->get();
+            foreach ($plannings as $planning) {
+                \App\Models\PlanningDetail::where('planning_id', $planning->id)->delete();
+                $planning->delete();
+            }
+            
+            // Supprimer les congés si le modèle existe
+            if (class_exists('\App\Models\Conge')) {
+                \App\Models\Conge::where('employe_id', $employeId)->delete();
+            }
+            
+            // Supprimer la photo de profil si elle existe
+            if (!empty($employe->photo_profil)) {
+                $oldPhotoPath = public_path('storage'.DIRECTORY_SEPARATOR.'photos'.DIRECTORY_SEPARATOR.$employe->photo_profil);
+                if (file_exists($oldPhotoPath)) {
+                    unlink($oldPhotoPath);
+                    Log::info('Photo supprimée: ' . $oldPhotoPath);
+                }
+            }
+            
+            // Supprimer l'employé
+            $employe->delete();
+            
+            // Supprimer définitivement l'utilisateur associé s'il existe
+            // Le modèle User utilise SoftDeletes, donc il faut utiliser forceDelete
+            if ($utilisateur) {
+                $utilisateur->forceDelete();
+            }
+            
+            // Valider la transaction
+            DB::commit();
+            
+            return redirect()->route('employes.index')
+                ->with('success', 'Employé et toutes ses données associées supprimés définitivement.');
+                
+        } catch (\Exception $e) {
+            // Annuler la transaction en cas d'erreur
+            DB::rollBack();
+            
+            Log::error('Erreur lors de la suppression de l\'employé: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
+            
+            return redirect()->route('employes.index')
+                ->with('error', 'Erreur lors de la suppression : ' . $e->getMessage());
+        }
     }
 
     /**
@@ -273,7 +379,7 @@ class EmployeController extends Controller
     {
         try {
             $employes = Employe::with('poste')->get();
-            $pdf = \PDF::loadView('exports.employes_pdf', compact('employes'));
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.employes_pdf', compact('employes'));
             return $pdf->download('employes.pdf');
         } catch (\Exception $e) {
             return redirect()->back()

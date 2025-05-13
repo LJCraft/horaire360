@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class Employe extends Model
 {
@@ -68,8 +69,12 @@ class Employe extends Model
      */
     public function getPhotoProfilUrlAttribute()
     {
-        if (!empty($this->photo_profil) && file_exists(public_path('storage/photos/' . $this->photo_profil))) {
-            return asset('storage/photos/' . $this->photo_profil);
+        if (!empty($this->photo_profil)) {
+            $photoPath = public_path('storage'.DIRECTORY_SEPARATOR.'photos'.DIRECTORY_SEPARATOR.$this->photo_profil);
+            if (file_exists($photoPath)) {
+                // Retourne toujours un URL avec des slashes pour le navigateur
+                return asset('storage/photos/' . $this->photo_profil);
+            }
         }
         
         // Retourne une image par défaut basée sur les initiales du prénom et du nom
