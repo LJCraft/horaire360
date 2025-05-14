@@ -70,7 +70,7 @@ class BiometricAttendanceController extends Controller
         $planning = Planning::where('employe_id', $data['employee_id'])
             ->where('date_debut', '<=', $date)
             ->where('date_fin', '>=', $date)
-            ->where('actif', true)
+            ->where('statut', 'actif')
             ->first();
             
         $retard = false;
@@ -189,7 +189,7 @@ class BiometricAttendanceController extends Controller
         $planning = Planning::where('employe_id', $data['employee_id'])
             ->where('date_debut', '<=', $date)
             ->where('date_fin', '>=', $date)
-            ->where('actif', true)
+            ->where('statut', 'actif')
             ->first();
             
         $departAnticipe = false;

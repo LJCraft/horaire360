@@ -78,7 +78,7 @@ class Presence extends Model
         $planning = Planning::where('employe_id', $this->employe_id)
             ->where('date_debut', '<=', $this->date)
             ->where('date_fin', '>=', $this->date)
-            ->where('actif', true)
+            ->where('statut', 'actif')
             ->first();
         
         if (!$planning) {
@@ -120,7 +120,7 @@ class Presence extends Model
         $planning = Planning::where('employe_id', $this->employe_id)
             ->where('date_debut', '<=', $this->date)
             ->where('date_fin', '>=', $this->date)
-            ->where('actif', true)
+            ->where('statut', 'actif')
             ->first();
         
         if (!$planning) {

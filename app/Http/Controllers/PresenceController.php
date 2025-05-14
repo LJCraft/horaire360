@@ -65,7 +65,7 @@ class PresenceController extends Controller
         $presences = $presencesQuery->orderBy('date', 'desc')->orderBy('heure_arrivee')->paginate(15);
         
         // Récupération des employés pour le filtre
-        $employes = Employe::orderBy('nom')->orderBy('prenom')->get();
+        $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         
         return view('presences.index', compact('presences', 'employes', 'employe', 'date', 'retard', 'departAnticipe'));
     }
@@ -214,7 +214,7 @@ class PresenceController extends Controller
      */
     public function edit(Presence $presence)
     {
-        $employes = Employe::where('actif', true)->orderBy('nom')->orderBy('prenom')->get();
+        $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         return view('presences.edit', compact('presence', 'employes'));
     }
     
@@ -742,7 +742,7 @@ class PresenceController extends Controller
             $planning = Planning::where('employe_id', $presence->employe_id)
                 ->where('date_debut', '<=', $date)
                 ->where('date_fin', '>=', $date)
-                ->where('actif', true)
+                ->where('statut', 'actif')
                 ->first();
                 
             if ($planning) {
@@ -793,7 +793,7 @@ class PresenceController extends Controller
         $planning = Planning::where('employe_id', $presence->employe_id)
             ->where('date_debut', '<=', $date)
             ->where('date_fin', '>=', $date)
-            ->where('actif', true)
+            ->where('statut', 'actif')
             ->first();
             
         if ($planning) {

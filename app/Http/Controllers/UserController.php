@@ -136,6 +136,13 @@ class UserController extends Controller
                 ->with('error', 'Cet employé a déjà un compte utilisateur.');
         }
         
+        // Vérifier si un utilisateur avec cet email existe déjà
+        $existingUser = User::where('email', $employe->email)->first();
+        if ($existingUser) {
+            return redirect()->route('employes.show', $employe)
+                ->with('error', 'Un utilisateur avec cet email existe déjà.');
+        }
+        
         // Utiliser le mot de passe par défaut
         $password = 'password';
         
@@ -157,5 +164,20 @@ class UserController extends Controller
         
         return redirect()->route('employes.show', $employe)
             ->with('success', $message);
+    }
+
+    /**
+     * Rediriger vers la création d'un compte utilisateur (méthode GET vers POST)
+     */
+    public function redirectToCreateFromEmployee(Employe $employe)
+    {
+        // Vérifier si l'employé a déjà un compte
+        if ($employe->utilisateur_id) {
+            return redirect()->route('employes.show', $employe)
+                ->with('error', 'Cet employé a déjà un compte utilisateur.');
+        }
+        
+        // Afficher une vue qui va automatiquement soumettre un formulaire POST
+        return view('users.redirect-create', compact('employe'));
     }
 }

@@ -1,285 +1,330 @@
 @extends('layouts.app')
 
+@section('title', 'Tableau de bord administrateur')
+
+@section('head')
+<!-- ApexCharts CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.35.3/dist/apexcharts.css">
+@endsection
+
 @section('content')
-<div class="container">
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <h1>Tableau de bord administrateur</h1>
-            
-            @if (session('success'))
-            <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
-                <i class="bi bi-check-circle-fill me-2"></i>
-                {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            @endif
-            
-            @if (session('error'))
-            <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                {{ session('error') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            @endif
-            
-            @if ($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                <strong>Erreurs de validation :</strong>
-                <ul class="mb-0 mt-2">
-                    @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                    @endforeach
+<div class="container-fluid">
+    <!-- En-tête du tableau de bord -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-tachometer-alt me-2"></i>Tableau de bord administrateur
+        </h1>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary" id="refreshDashboard">
+                <i class="fas fa-sync-alt me-1"></i> Actualiser
+            </button>
+            <div class="dropdown d-inline-block ms-2">
+                <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="exportOptions" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-download me-1"></i> Exporter
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportOptions">
+                    <li><a class="dropdown-item" href="#" id="exportPDF"><i class="far fa-file-pdf me-2"></i>PDF</a></li>
+                    <li><a class="dropdown-item" href="#" id="exportExcel"><i class="far fa-file-excel me-2"></i>Excel</a></li>
                 </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
-            @endif
         </div>
     </div>
 
-    <!-- Cartes de statistiques -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white h-100">
+    <!-- Cartes de statistiques principales -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-0">Employés</h6>
-                            <h2 class="mt-2 mb-0">{{ $stats['employes'] }}</h2>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Employés</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalEmployes">{{ $stats['employes'] }}</div>
+                            <div class="small">
+                                <span class="text-success"><span id="employesActifs">{{ $stats['employes_actifs'] }}</span> actifs</span> / 
+                                <span class="text-danger"><span id="employesInactifs">{{ $stats['employes'] - $stats['employes_actifs'] }}</span> inactifs</span>
+                            </div>
                         </div>
-                        <div class="fs-1">
-                            <i class="bi bi-people"></i>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <small>{{ $stats['employes_actifs'] }} actifs</small>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('employes.index') }}" class="text-white text-decoration-none small">
-                        Voir tous les employés <i class="bi bi-arrow-right"></i>
-                    </a>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white h-100">
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-0">Postes</h6>
-                            <h2 class="mt-2 mb-0">{{ $stats['postes'] }}</h2>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Postes</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalPostes">{{ $stats['postes'] }}</div>
+                            <div class="small">{{ count($postes) > 0 ? $postes->first()->nom : 'Aucun' }} et plus</div>
                         </div>
-                        <div class="fs-1">
-                            <i class="bi bi-briefcase"></i>
+                        <div class="col-auto">
+                            <i class="fas fa-briefcase fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <small>{{ count($postes) > 0 ? $postes->max('employes_count') : 0 }} employés max par poste</small>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('postes.index') }}" class="text-white text-decoration-none small">
-                        Voir tous les postes <i class="bi bi-arrow-right"></i>
-                    </a>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white h-100">
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-0">Nouveaux</h6>
-                            <h2 class="mt-2 mb-0">{{ $stats['nouveaux'] }}</h2>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Présences du jour</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="presencesToday">
+                                {{ $statsPresence['presencesAujourdhui'] }}
+                            </div>
+                            <div class="small" id="presencesDetail">
+                                <span class="text-success">{{ $statsPresence['presencesAujourdhui'] - $statsPresence['retardsAujourdhui'] }} à l'heure</span> / 
+                                <span class="text-warning">{{ $statsPresence['retardsAujourdhui'] }} en retard</span>
+                            </div>
                         </div>
-                        <div class="fs-1">
-                            <i class="bi bi-person-plus"></i>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-check fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <small>Derniers 30 jours</small>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('employes.index', ['sort' => 'date_embauche', 'direction' => 'desc']) }}" class="text-white text-decoration-none small">
-                        Voir les nouveaux employés <i class="bi bi-arrow-right"></i>
-                    </a>
                 </div>
             </div>
         </div>
-        <!-- <div class="col-md-3">
-            <div class="card bg-warning text-white h-100">
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-0">Itération</h6>
-                            <h2 class="mt-2 mb-0">1/4</h2>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Nouveaux employés (30j)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['nouveaux'] }}</div>
+                            <div class="small">{{ round(($stats['employes'] > 0 ? $stats['nouveaux'] / $stats['employes'] * 100 : 0), 1) }}% de croissance</div>
                         </div>
-                        <div class="fs-1">
-                            <i class="bi bi-gear"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <small>Gestion des employés</small>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <span class="text-white text-decoration-none small">
-                        Fonctionnalités actuelles <i class="bi bi-check2-circle"></i>
-                    </span>
-                </div>
-            </div>
-        </div> -->
-        <div class="col-md-3">
-            <div class="card bg-info text-white h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-0">Plannings</h6>
-                            <h2 class="mt-2 mb-0">{{ \App\Models\Planning::count() }}</h2>
-                        </div>
-                        <div class="fs-1">
-                            <i class="bi bi-calendar-week"></i>
+                        <div class="col-auto">
+                            <i class="fas fa-user-plus fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <small>{{ \App\Models\Planning::where('date_debut', '<=', \Carbon\Carbon::today())->where('date_fin', '>=', \Carbon\Carbon::today())->count() }} en cours</small>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('plannings.index') }}" class="text-white text-decoration-none small">
-                        Voir tous les plannings <i class="bi bi-arrow-right"></i>
-                    </a>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-dark h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-0">Sans planning</h6>
-                            <h2 class="mt-2 mb-0">{{ \App\Models\Employe::where('statut', 'actif')->whereNotIn('id', function($query) { $query->select('employe_id')->from('plannings'); })->count() }}</h2>
                         </div>
-                        <div class="fs-1">
-                            <i class="bi bi-exclamation-triangle"></i>
+
+    <!-- Graphiques et tableaux -->
+    <div class="row">
+        <!-- Graphique de répartition des employés par poste -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Répartition des employés par poste</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="employesChartOptions" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="employesChartOptions">
+                            <div class="dropdown-header">Options de graphique:</div>
+                            <a class="dropdown-item chart-type" data-type="donut" href="#"><i class="fas fa-circle fa-sm fa-fw me-2"></i>Anneau</a>
+                            <a class="dropdown-item chart-type" data-type="pie" href="#"><i class="fas fa-chart-pie fa-sm fa-fw me-2"></i>Camembert</a>
+                            <a class="dropdown-item chart-type" data-type="bar" href="#"><i class="fas fa-chart-bar fa-sm fa-fw me-2"></i>Barres</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" id="downloadEmployesChart"><i class="fas fa-download fa-sm fa-fw me-2"></i>Télécharger</a>
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <small>Employés actifs sans planning</small>
                     </div>
                 </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('plannings.create') }}" class="text-dark text-decoration-none small">
-                        Créer un planning <i class="bi bi-arrow-right"></i>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <div id="employesChart" style="min-height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carte des employés récemment ajoutés -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Employés récemment ajoutés</h6>
+                    <a href="{{ route('employes.index') }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-users me-1"></i> Tous
                     </a>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        @forelse($recent_employes as $employe)
+                            <div class="list-group-item px-0 border-bottom">
+                                <div class="d-flex align-items-center">
+                                    @if($employe->photo_profil && file_exists(public_path('storage/photos/' . $employe->photo_profil)))
+                                        <img src="{{ asset('storage/photos/' . $employe->photo_profil) }}" 
+                                            alt="Photo de {{ $employe->prenom }}" 
+                                            class="rounded-circle me-3" 
+                                            style="width: 48px; height: 48px; object-fit: cover;">
+                                    @else
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                            style="width: 48px; height: 48px; font-size: 1.2rem;">
+                                            {{ strtoupper(substr($employe->prenom, 0, 1)) }}{{ strtoupper(substr($employe->nom, 0, 1)) }}
+                                        </div>
+                                    @endif
+                        <div>
+                                        <h6 class="mb-0">{{ $employe->prenom }} {{ $employe->nom }}</h6>
+                                        <p class="text-muted small mb-0">{{ $employe->poste->nom ?? 'Non assigné' }}</p>
+                                        <p class="text-muted small mb-0">
+                                            <i class="fas fa-calendar-alt me-1"></i> Ajouté {{ $employe->created_at->diffForHumans() }}
+                                        </p>
+                                    </div>
+                                    <div class="ms-auto">
+                                        <a href="{{ route('employes.show', $employe) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                        </div>
+                        </div>
+                    </div>
+                        @empty
+                            <div class="text-center py-4">
+                                <i class="fas fa-user-plus fa-3x text-gray-300 mb-3"></i>
+                                <p>Aucun employé récemment ajouté</p>
+                                <a href="{{ route('employes.create') }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus-circle me-1"></i> Ajouter un employé
+                                </a>
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <!-- Graphique répartition des employés par poste -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">Répartition des employés par poste</h5>
+        <!-- Graphique des présences sur les 30 derniers jours -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Présences des 30 derniers jours</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="presencesChartOptions" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="presencesChartOptions">
+                            <div class="dropdown-header">Options de graphique:</div>
+                            <a class="dropdown-item presence-chart-type" data-type="area" href="#"><i class="fas fa-chart-area fa-sm fa-fw me-2"></i>Aire</a>
+                            <a class="dropdown-item presence-chart-type" data-type="line" href="#"><i class="fas fa-chart-line fa-sm fa-fw me-2"></i>Ligne</a>
+                            <a class="dropdown-item presence-chart-type" data-type="bar" href="#"><i class="fas fa-chart-bar fa-sm fa-fw me-2"></i>Barres</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" id="downloadPresencesChart"><i class="fas fa-download fa-sm fa-fw me-2"></i>Télécharger</a>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
-                    @if(count($postes) > 0)
-                        <div class="chart-container" style="position: relative; height:300px;">
-                            <canvas id="posteChart"></canvas>
+                    <div class="chart-area">
+                        <div id="presencesChart" style="min-height: 300px;"></div>
                         </div>
-                    @else
-                        <div class="text-center py-5">
-                            <i class="bi bi-bar-chart text-muted" style="font-size: 3rem;"></i>
-                            <p class="mt-3 text-muted">Aucune donnée disponible</p>
-                        </div>
-                    @endif
                 </div>
             </div>
         </div>
 
-        <!-- Liste des employés récemment ajoutés -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Employés récemment ajoutés</h5>
-                    <a href="{{ route('employes.create') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-plus-circle"></i> Ajouter
-                    </a>
+        <!-- Statistiques de présence -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Statistiques de présence</h6>
                 </div>
-                <div class="card-body p-0">
-                    @if(count($recent_employes) > 0)
-                        <div class="list-group list-group-flush">
-                            @foreach($recent_employes as $employe)
-                                <a href="{{ route('employes.show', $employe) }}" class="list-group-item list-group-item-action">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1">{{ $employe->prenom }} {{ $employe->nom }}</h6>
-                                        <small>{{ $employe->created_at->diffForHumans() }}</small>
+                <div class="card-body">
+                    <h4 class="small font-weight-bold">Taux de présence <span class="float-end">{{ $statsPresence['tauxPresence'] }}%</span></h4>
+                    <div class="progress mb-4">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ $statsPresence['tauxPresence'] }}%"></div>
                                     </div>
-                                    <p class="mb-1">{{ $employe->poste->nom }}</p>
-                                    <small class="text-muted">
-                                        <i class="bi bi-envelope me-1"></i> {{ $employe->email }}
-                                    </small>
-                                </a>
-                            @endforeach
+                    
+                    <h4 class="small font-weight-bold">Taux de retard <span class="float-end">{{ $statsPresence['tauxRetard'] }}%</span></h4>
+                    <div class="progress mb-4">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: {{ $statsPresence['tauxRetard'] }}%"></div>
                         </div>
-                    @else
-                        <div class="text-center py-5">
-                            <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
-                            <p class="mt-3 text-muted">Aucun employé récemment ajouté</p>
+                    
+                    <h4 class="small font-weight-bold">Taux d'absence <span class="float-end">{{ $statsPresence['tauxAbsence'] }}%</span></h4>
+                    <div class="progress mb-4">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $statsPresence['tauxAbsence'] }}%"></div>
                         </div>
-                    @endif
+                    
+                    <!-- Graphique de répartition des présences -->
+                    <div id="presenceRepartitionChart" style="min-height: 200px; margin-top: 1.5rem;"></div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="{{ route('presences.index') }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-clipboard-list me-1"></i> Gérer les présences
+                        </a>
                 </div>
-                <div class="card-footer bg-white">
-                    <a href="{{ route('employes.index') }}" class="text-decoration-none">
-                        Voir tous les employés <i class="bi bi-arrow-right"></i>
-                    </a>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Accès rapides -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">Accès rapides</h5>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Accès rapides</h6>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center">
+                    <div class="row">
                         <div class="col-md-3 mb-3">
-                            <a href="{{ route('employes.create') }}" class="text-decoration-none">
-                                <div class="p-3 bg-light rounded">
-                                    <i class="bi bi-person-plus-fill text-primary" style="font-size: 2rem;"></i>
-                                    <h6 class="mt-3 mb-0">Nouvel employé</h6>
+                            <a href="{{ route('employes.index') }}" class="card h-100 border-left-primary shadow py-2 text-decoration-none">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Gérer les employés</div>
+                                            <div class="small">Ajouter, modifier, supprimer</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
                                 </div>
                             </a>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <a href="{{ route('postes.create') }}" class="text-decoration-none">
-                                <div class="p-3 bg-light rounded">
-                                    <i class="bi bi-briefcase-fill text-success" style="font-size: 2rem;"></i>
-                                    <h6 class="mt-3 mb-0">Nouveau poste</h6>
+                            <a href="{{ route('presences.index') }}" class="card h-100 border-left-info shadow py-2 text-decoration-none">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Gérer les présences</div>
+                                            <div class="small">Suivi et pointage</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-clipboard-check fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
                                 </div>
                             </a>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <a href="{{ route('plannings.create') }}" class="text-decoration-none">
-                                <div class="p-3 bg-light rounded">
-                                    <i class="bi bi-calendar-plus text-info" style="font-size: 2rem;"></i>
-                                    <h6 class="mt-3 mb-0">Créer planning</h6>
+                            <a href="{{ route('plannings.index') }}" class="card h-100 border-left-success shadow py-2 text-decoration-none">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Gérer les plannings</div>
+                                            <div class="small">Horaires et calendrier</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
                                 </div>
                             </a>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <a href="{{ route('rapports.index') }}" class="text-decoration-none">
-                                <div class="p-3 bg-light rounded">
-                                    <i class="bi bi-file-earmark-text text-warning" style="font-size: 2rem;"></i>
-                                    <h6 class="mt-3 mb-0">Rapports</h6>
+                            <a href="{{ route('rapports.index') }}" class="card h-100 border-left-warning shadow py-2 text-decoration-none">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Rapports</div>
+                                            <div class="small">Statistiques et analyses</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-chart-bar fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
                                 </div>
                             </a>
                         </div>
@@ -290,228 +335,252 @@
     </div>
 </div>
 
-@endsection
+<!-- ApexCharts JS - Assurez-vous qu'il est chargé avant votre script -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.35.3/dist/apexcharts.min.js"></script>
 
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        @if(count($postes) > 0)
-        // Données pour le graphique
-        const postes = @json($postes->pluck('nom'));
-        const employesCounts = @json($postes->pluck('employes_count'));
+    console.log('Initialisation des graphiques du tableau de bord...');
+    
+    // Vérification que ApexCharts est bien chargé
+    if (typeof ApexCharts === 'undefined') {
+        console.error('ApexCharts n\'est pas défini! La bibliothèque n\'est pas correctement chargée.');
+        document.querySelectorAll('#employesChart, #presencesChart, #presenceRepartitionChart').forEach(function(container) {
+            container.innerHTML = '<div class="alert alert-danger">Erreur: La bibliothèque ApexCharts n\'est pas chargée correctement.</div>';
+        });
+        return;
+    }
+    
+    // Fonction pour créer les graphiques
+    function createCharts(data) {
+        console.log('Données reçues pour les graphiques:', data);
         
-        // Définir des couleurs professionnelles
-        const baseColors = [
-            'rgba(54, 162, 235, 0.8)',   // Bleu
-            'rgba(75, 192, 192, 0.8)',   // Turquoise
-            'rgba(255, 159, 64, 0.8)',   // Orange
-            'rgba(153, 102, 255, 0.8)',  // Violet
-            'rgba(255, 99, 132, 0.8)',   // Rose
-            'rgba(46, 204, 113, 0.8)',   // Vert
-            'rgba(52, 73, 94, 0.8)',     // Bleu foncé
-            'rgba(243, 156, 18, 0.8)',   // Jaune
-            'rgba(231, 76, 60, 0.8)',    // Rouge
-            'rgba(155, 89, 182, 0.8)'    // Pourpre
-        ];
-        
-        // Générer suffisamment de couleurs
-        const colors = [];
-        const borderColors = [];
-        for (let i = 0; i < postes.length; i++) {
-            colors.push(baseColors[i % baseColors.length]);
-            borderColors.push(baseColors[i % baseColors.length].replace('0.8', '1'));
+        // 1. Graphique de répartition des employés par poste (donut)
+        if (data.postes.labels.length > 0) {
+            try {
+                var chart1 = new ApexCharts(document.getElementById('employesChart'), {
+                    series: data.postes.values,
+                    chart: {
+                        type: 'donut',
+                        height: 300
+                    },
+                    labels: data.postes.labels,
+                    colors: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e']
+                });
+                
+                chart1.render();
+                
+                // Type change handlers
+                document.querySelectorAll('.chart-type').forEach(function(item) {
+                    item.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        var type = this.getAttribute('data-type');
+                        
+                        if (type === 'donut' || type === 'pie') {
+                            chart1.updateOptions({
+                                chart: { type: type },
+                                plotOptions: {
+                                    pie: {
+                                        donut: {
+                                            size: type === 'donut' ? '55%' : '0%'
+                                        }
+                                    }
+                                }
+                            });
+                        } else if (type === 'bar') {
+                            chart1.updateOptions({
+                                chart: { type: 'bar' },
+                                xaxis: { categories: data.postes.labels }
+                            });
+                        }
+                    });
+                });
+                
+                // Download handler
+                var downloadEmployesChart = document.getElementById('downloadEmployesChart');
+                if (downloadEmployesChart) {
+                    downloadEmployesChart.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        chart1.dataURI().then(function(uri) {
+                            var link = document.createElement('a');
+                            link.href = uri.imgURI;
+                            link.download = 'repartition-employes.png';
+                            link.click();
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors de la création du graphique 1:', error);
+                document.getElementById('employesChart').innerHTML = 
+                    '<div class="alert alert-danger">Erreur: ' + error.message + '</div>';
+            }
         }
         
-        // Créer le total pour calculer les pourcentages
-        const total = employesCounts.reduce((a, b) => Number(a) + Number(b), 0);
-        
-        // Créer les pourcentages pour l'affichage
-        const percentages = employesCounts.map(count => {
-            const percentage = (count / total) * 100;
-            return percentage.toFixed(1) + '%';
-        });
-        
-        // Distribution par poste (graphique à barres)
-        const barCtx = document.getElementById('posteChart').getContext('2d');
-        const barChart = new Chart(barCtx, {
-            type: 'bar',
-            data: {
-                labels: postes,
-                datasets: [{
-                    label: 'Nombre d\'employés',
-                    data: employesCounts,
-                    backgroundColor: colors,
-                    borderColor: borderColors,
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barThickness: 40,
-                    maxBarThickness: 60
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+        // 2. Graphique des présences (area)
+        if (data.presences.labels.length > 0) {
+            try {
+                var chart2 = new ApexCharts(document.getElementById('presencesChart'), {
+                    series: [{
+                        name: 'Présences',
+                        data: data.presences.values
+                    }],
+                    chart: {
+                        height: 300,
+                        type: 'area'
                     },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const value = context.raw;
-                                const percentage = (value / total * 100).toFixed(1);
-                                return `Nombre: ${value} (${percentage}%)`;
-                            }
-                        }
+                    dataLabels: {
+                        enabled: false
                     },
-                    datalabels: {
-                        color: '#000',
-                        anchor: 'end',
-                        align: 'top',
-                        offset: 0,
-                        font: {
-                            weight: 'bold'
-                        },
-                        formatter: (value) => {
-                            return value > 0 ? value : '';
-                        }
+                    stroke: {
+                        curve: 'smooth'
+                    },
+                    xaxis: {
+                        categories: data.presences.labels
                     }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1,
-                            precision: 0
-                        },
-                        grid: {
-                            drawBorder: false
-                        },
-                        title: {
-                            display: true,
-                            text: 'Nombre d\'employés',
-                            font: {
-                                size: 14
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false,
-                            drawBorder: false
-                        },
-                        ticks: {
-                            font: {
-                                weight: 'bold'
-                            }
-                        }
-                    }
-                },
-                animation: {
-                    duration: 1500,
-                    easing: 'easeOutQuart'
-                }
-            }
-        });
-        
-        // Créer un deuxième graphique en camembert pour la distribution en pourcentage
-        const pieCanvas = document.createElement('canvas');
-        pieCanvas.id = 'postePieChart';
-        document.querySelector('.chart-container').appendChild(pieCanvas);
-        
-        const pieCtx = document.getElementById('postePieChart').getContext('2d');
-        const pieChart = new Chart(pieCtx, {
-            type: 'doughnut',
-            data: {
-                labels: postes,
-                datasets: [{
-                    data: employesCounts,
-                    backgroundColor: colors,
-                    borderColor: borderColors,
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            boxWidth: 15,
-                            padding: 15
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const value = context.raw;
-                                const percentage = (value / total * 100).toFixed(1);
-                                return `${context.label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
-                },
-                cutout: '60%',
-                radius: '90%',
-                animation: {
-                    animateRotate: true,
-                    animateScale: true
-                }
-            }
-        });
-        
-        // Ajouter des boutons pour basculer entre les graphiques
-        const chartContainer = document.querySelector('.chart-container');
-        const chartToggleButtons = document.createElement('div');
-        chartToggleButtons.className = 'btn-group mt-3';
-        chartToggleButtons.style.display = 'flex';
-        chartToggleButtons.style.justifyContent = 'center';
-        chartToggleButtons.innerHTML = `
-            <button type="button" class="btn btn-sm btn-primary active" data-chart="bar">Graphique à barres</button>
-            <button type="button" class="btn btn-sm btn-outline-primary" data-chart="pie">Graphique circulaire</button>
-        `;
-        chartContainer.parentNode.insertBefore(chartToggleButtons, chartContainer.nextSibling);
-        
-        // Masquer le graphique circulaire par défaut
-        pieCanvas.style.display = 'none';
-        
-        // Ajouter des événements aux boutons
-        const buttons = chartToggleButtons.querySelectorAll('button');
-        buttons.forEach(button => {
-            button.addEventListener('click', function() {
-                buttons.forEach(btn => {
-                    btn.classList.remove('active');
-                    btn.classList.remove('btn-primary');
-                    btn.classList.add('btn-outline-primary');
                 });
-                this.classList.add('active');
-                this.classList.add('btn-primary');
-                this.classList.remove('btn-outline-primary');
                 
-                const chartType = this.getAttribute('data-chart');
-                if (chartType === 'bar') {
-                    document.getElementById('posteChart').style.display = 'block';
-                    document.getElementById('postePieChart').style.display = 'none';
-                } else {
-                    document.getElementById('posteChart').style.display = 'none';
-                    document.getElementById('postePieChart').style.display = 'block';
+                chart2.render();
+                
+                // Type change handlers
+                document.querySelectorAll('.presence-chart-type').forEach(function(item) {
+                    item.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        chart2.updateOptions({
+                            chart: {
+                                type: this.getAttribute('data-type')
+                            }
+                        });
+                    });
+                });
+                
+                // Download handler
+                var downloadPresencesChart = document.getElementById('downloadPresencesChart');
+                if (downloadPresencesChart) {
+                    downloadPresencesChart.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        chart2.dataURI().then(function(uri) {
+                            var link = document.createElement('a');
+                            link.href = uri.imgURI;
+                            link.download = 'presences-30-jours.png';
+                            link.click();
+                        });
+                    });
                 }
+            } catch (error) {
+                console.error('Erreur lors de la création du graphique 2:', error);
+                document.getElementById('presencesChart').innerHTML = 
+                    '<div class="alert alert-danger">Erreur: ' + error.message + '</div>';
+            }
+        }
+        
+        // 3. Graphique de répartition des présences (radialBar)
+        try {
+            var chart3 = new ApexCharts(document.getElementById('presenceRepartitionChart'), {
+                series: [
+                    data.stats_presence.tauxPresence,
+                    data.stats_presence.tauxRetard,
+                    data.stats_presence.tauxAbsence
+                ],
+                chart: {
+                    height: 250,
+                    type: 'radialBar'
+                },
+                plotOptions: {
+                    radialBar: {
+                        dataLabels: {
+                            name: {
+                                show: true
+                            },
+                            value: {
+                                show: true,
+                                formatter: function(val) {
+                                    return val + '%';
+                                }
+                            }
+                        }
+                    }
+                },
+                colors: ['#1cc88a', '#f6c23e', '#e74a3b'],
+                labels: ['Présences', 'Retards', 'Absences']
             });
+            
+            chart3.render();
+        } catch (error) {
+            console.error('Erreur lors de la création du graphique 3:', error);
+            document.getElementById('presenceRepartitionChart').innerHTML = 
+                '<div class="alert alert-danger">Erreur: ' + error.message + '</div>';
+        }
+    }
+    
+    // Charger les données via AJAX
+    function loadDashboardData() {
+        // Afficher des indicateurs de chargement
+        const loadingMessage = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Chargement des données...</p></div>';
+        document.getElementById('employesChart').innerHTML = loadingMessage;
+        document.getElementById('presencesChart').innerHTML = loadingMessage;
+        document.getElementById('presenceRepartitionChart').innerHTML = loadingMessage;
+        
+        // Faire la requête AJAX - Utiliser l'API avec les données réelles de l'application
+        fetch('/api/dashboard-data')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erreur réseau: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Données réelles chargées:', data);
+                createCharts(data);
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des données:', error);
+                const errorMessage = '<div class="alert alert-danger">Erreur lors du chargement des données: ' + error.message + '</div>';
+                document.getElementById('employesChart').innerHTML = errorMessage;
+                document.getElementById('presencesChart').innerHTML = errorMessage;
+                document.getElementById('presenceRepartitionChart').innerHTML = errorMessage;
+            });
+    }
+    
+    // Charger les données au chargement de la page
+    loadDashboardData();
+    
+    // Ajouter un gestionnaire d'événement pour le bouton de rafraîchissement
+    const refreshButton = document.getElementById('refreshDashboard');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', function() {
+            // Ajouter un effet de rotation à l'icône
+            var icon = this.querySelector('i');
+            if (icon) icon.classList.add('fa-spin');
+            this.disabled = true;
+            
+            // Charger les données
+            loadDashboardData();
+            
+            // Réactiver le bouton après un court délai
+            setTimeout(function() {
+                if (icon) icon.classList.remove('fa-spin');
+                refreshButton.disabled = false;
+            }, 1000);
         });
-        
-        // Ajouter une petite statistique récapitulative
-        const statsRecap = document.createElement('div');
-        statsRecap.className = 'mt-3 text-center small text-muted';
-        statsRecap.innerHTML = `
-            <p class="mb-0">Total: <strong>${total} employés</strong> répartis sur <strong>${postes.length} postes</strong></p>
-            <p class="mb-0">Moyenne: <strong>${(total / postes.length).toFixed(1)} employés</strong> par poste</p>
-        `;
-        chartContainer.parentNode.insertBefore(statsRecap, chartToggleButtons.nextSibling);
-        
-        @endif
+    }
+    
+    // Gestionnaire pour les boutons d'export
+    var exportPDF = document.getElementById('exportPDF');
+    var exportExcel = document.getElementById('exportExcel');
+    
+    if (exportPDF) {
+        exportPDF.addEventListener('click', function(e) {
+            e.preventDefault();
+            alert('Export PDF en cours de développement');
+        });
+    }
+    
+    if (exportExcel) {
+        exportExcel.addEventListener('click', function(e) {
+            e.preventDefault();
+            alert('Export Excel en cours de développement');
+        });
+    }
     });
 </script>
-@endpush
+@endsection

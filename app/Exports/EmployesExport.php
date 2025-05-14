@@ -37,42 +37,71 @@ class EmployesExport implements
     public function collection()
     {
         if ($this->template) {
-            // Retourner une collection avec deux exemples pour le modèle
-            return collect([
-                [
-                    'matricule' => 'EMP00001',
-                    'nom' => 'Dupont',
-                    'prenom' => 'Jean',
-                    'email' => 'jean.dupont@example.com',
-                    'telephone' => '0123456789',
-                    'date_naissance' => now()->subYears(40),
-                    'date_embauche' => now()->subYears(5),
+            // Pour le modèle, générer 100 exemples est suffisant
+            $employees = [];
+            
+            // Noms et prénoms réalistes
+            $noms = ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau', 
+                    'Simon', 'Laurent', 'Lefebvre', 'Michel', 'Garcia', 'David', 'Bertrand', 'Roux', 'Vincent', 'Fournier'];
+            
+            $prenoms = ['Jean', 'Pierre', 'Michel', 'André', 'Philippe', 'René', 'Louis', 'Alain', 'Jacques', 'Bernard',
+                       'Marie', 'Isabelle', 'Françoise', 'Catherine', 'Anne', 'Monique', 'Sylvie', 'Nathalie', 'Nicole', 'Sophie'];
+            
+            // Postes réalistes par département
+            $departements = [
+                'Ressources Humaines' => ['Responsable RH', 'Chargé de recrutement', 'Assistant RH', 'Gestionnaire paie', 'Responsable formation'],
+                'Informatique' => ['Développeur', 'Chef de projet', 'Administrateur système', 'Technicien support', 'Responsable sécurité'],
+                'Commercial' => ['Commercial', 'Responsable commercial', 'Assistant commercial', 'Chargé de clientèle', 'Directeur commercial'],
+                'Comptabilité' => ['Comptable', 'Aide-comptable', 'Contrôleur de gestion', 'Responsable comptable', 'Trésorier'],
+                'Production' => ['Opérateur', 'Chef d\'équipe', 'Responsable production', 'Technicien maintenance', 'Ingénieur qualité']
+            ];
+            
+            // Convertir les clés du tableau $departements en tableau pour pouvoir utiliser array_rand
+            $departementKeys = array_keys($departements);
+            
+            for ($i = 1; $i <= 100; $i++) {
+                // Choisir un nom et prénom aléatoires
+                $nomIndex = array_rand($noms);
+                $prenomIndex = array_rand($prenoms);
+                $nom = $noms[$nomIndex];
+                $prenom = $prenoms[$prenomIndex];
+                
+                // Choisir un département aléatoire
+                $departementIndex = array_rand($departementKeys);
+                $departement = $departementKeys[$departementIndex];
+                
+                // Choisir un poste cohérent avec le département
+                $posteIndex = array_rand($departements[$departement]);
+                $poste = $departements[$departement][$posteIndex];
+                
+                $employees[] = [
+                    'matricule' => 'EMP' . str_pad($i, 5, '0', STR_PAD_LEFT),
+                    'nom' => $nom,
+                    'prenom' => $prenom,
+                    'email' => strtolower($prenom . '.' . $nom . $i . '@entreprise.com'),
+                    'telephone' => '06' . str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT),
+                    'date_naissance' => now()->subYears(rand(25, 60))->subDays(rand(0, 365)),
+                    'date_embauche' => now()->subYears(rand(0, 15))->subMonths(rand(0, 11)),
                     'poste' => [
-                        'nom' => 'Directeur',
-                        'departement' => 'Administration'
+                        'nom' => $poste,
+                        'departement' => $departement
                     ],
-                    'statut' => 'actif',
+                    'statut' => ($i % 10 == 0) ? 'inactif' : 'actif',
                     'utilisateur_id' => null
-                ],
-                [
-                    'matricule' => 'EMP00002',
-                    'nom' => 'Martin',
-                    'prenom' => 'Sophie',
-                    'email' => 'sophie.martin@example.com',
-                    'telephone' => '0698765432',
-                    'date_naissance' => now()->subYears(30),
-                    'date_embauche' => now()->subYears(2),
-                    'poste' => [
-                        'nom' => 'Technicien',
-                        'departement' => 'Support'
-                    ],
-                    'statut' => 'actif',
-                    'utilisateur_id' => null
-                ]
-            ]);
+                ];
+            }
+            
+            return collect($employees);
         }
         
-        return Employe::with('poste')->get();
+        // Pour l'exportation de données réelles, utiliser un curseur pour économiser la mémoire
+        return new \Illuminate\Support\LazyCollection(function () {
+            $query = Employe::with('poste')->cursor();
+            
+            foreach ($query as $employe) {
+                yield $employe;
+            }
+        });
     }
     
     /**

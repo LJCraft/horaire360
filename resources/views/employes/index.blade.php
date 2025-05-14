@@ -233,10 +233,123 @@
                         <option value="inactif" {{ request('statut') == 'inactif' ? 'selected' : '' }}>Inactif</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <select name="acces" class="form-select">
+                        <option value="">Tous les accès</option>
+                        <option value="avec" {{ request('acces') == 'avec' ? 'selected' : '' }}>Avec accès</option>
+                        <option value="sans" {{ request('acces') == 'sans' ? 'selected' : '' }}>Sans accès</option>
+                    </select>
+                </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+                    <div class="d-flex">
+                        <button type="submit" class="btn btn-primary flex-grow-1">Filtrer</button>
+                        @if(request()->anyFilled(['search', 'poste_id', 'statut', 'acces']))
+                            <a href="{{ route('employes.index') }}" class="btn btn-outline-secondary ms-1" title="Effacer les filtres">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                        @endif
+                    </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Statistiques de filtrage -->
+    <div class="card mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-bar-chart-line me-2"></i> Statistiques
+            </h5>
+            <span class="badge bg-primary">{{ $employes->count() }} sur {{ $stats['filtered'] }} employés affichés</span>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Résultats de la recherche</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['filtered'] }} employés</div>
+                                    <div class="small">
+                                        <span class="text-success">{{ $stats['actifs'] }} actifs</span> / 
+                                        <span class="text-danger">{{ $stats['inactifs'] }} inactifs</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-search fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        Total des employés</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total'] }} employés</div>
+                                    <div class="small">
+                                        <span class="text-success">{{ $stats['totalActifs'] }} actifs</span> / 
+                                        <span class="text-danger">{{ $stats['totalInactifs'] }} inactifs</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-people fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if($stats['poste'])
+                <div class="col-md-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        {{ $stats['poste']['nom'] }}</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['poste']['total'] }} employés</div>
+                                    <div class="small">
+                                        <span class="text-success">{{ $stats['poste']['actifs'] }} actifs</span> / 
+                                        <span class="text-danger">{{ $stats['poste']['inactifs'] }} inactifs</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-briefcase fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+                
+                <div class="col-md-4">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Accès au système</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ request('acces') ? ($stats['avecAcces'] + $stats['sansAcces']) : $stats['filtered'] }} employés</div>
+                                    <div class="small">
+                                        <span class="text-success">{{ $stats['avecAcces'] }} avec accès</span> / 
+                                        <span class="text-secondary">{{ $stats['sansAcces'] }} sans accès</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-shield-lock fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -281,6 +394,7 @@
                                 </a>
                             </th>
                             <th>Statut</th>
+                            <th>Accès système</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -316,6 +430,26 @@
                                     <span class="badge bg-{{ $employe->statut === 'actif' ? 'success' : 'danger' }}">
                                         {{ $employe->statut }}
                                     </span>
+                                </td>
+                                <td class="text-center">
+                                    @if($employe->utilisateur_id)
+                                        <span class="badge bg-success" title="Possède un compte utilisateur">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Actif
+                                        </span>
+                                    @else
+                                        <span class="badge bg-secondary" title="Aucun compte utilisateur">
+                                            <i class="bi bi-x-circle-fill me-1"></i> Non
+                                        </span>
+                                        <form action="{{ route('users.create-from-employee', $employe) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button type="submit" 
+                                               class="btn btn-sm btn-outline-primary ms-1" 
+                                               onclick="return confirm('Créer un compte utilisateur pour {{ $employe->prenom }} {{ $employe->nom }} ?');"
+                                               title="Créer un compte utilisateur">
+                                                <i class="bi bi-person-plus-fill"></i>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">

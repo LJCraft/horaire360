@@ -68,7 +68,13 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                                <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}" required>
+                                <div class="input-group">
+                                    <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="check-email-btn">
+                                        <i class="bi bi-check-circle"></i> Vérifier
+                                    </button>
+                                </div>
+                                <div id="email-feedback" class="mt-2" style="display: none;"></div>
                                 @error('email')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -154,6 +160,107 @@
         document.getElementById('photo_profil').value = '';
         document.getElementById('preview_image').src = 'https://ui-avatars.com/api/?name=?&background=random&color=fff&size=256';
     }
+    
+    // Vérification d'email
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkEmailBtn = document.getElementById('check-email-btn');
+        const emailInput = document.getElementById('email');
+        const prenomInput = document.getElementById('prenom');
+        const nomInput = document.getElementById('nom');
+        const emailFeedback = document.getElementById('email-feedback');
+        
+        checkEmailBtn.addEventListener('click', function() {
+            checkEmail();
+        });
+        
+        // Vérifier l'email quand l'utilisateur quitte le champ
+        emailInput.addEventListener('blur', function() {
+            if (emailInput.value.trim() !== '') {
+                checkEmail();
+            }
+        });
+        
+        function checkEmail() {
+            const email = emailInput.value.trim();
+            const prenom = prenomInput.value.trim();
+            const nom = nomInput.value.trim();
+            
+            if (!email || !prenom || !nom) {
+                emailFeedback.innerHTML = '<div class="alert alert-warning">Veuillez remplir les champs prénom, nom et email.</div>';
+                emailFeedback.style.display = 'block';
+                return;
+            }
+            
+            // Afficher un indicateur de chargement
+            emailFeedback.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Vérification en cours...</div>';
+            emailFeedback.style.display = 'block';
+            
+            // Créer l'URL pour la requête AJAX
+            const url = "{{ route('employes.check-email') }}";
+            const token = "{{ csrf_token() }}";
+            
+            // Créer un objet XMLHttpRequest
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", url);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.setRequestHeader("X-CSRF-TOKEN", token);
+            
+            xhr.onreadystatechange = function() {
+                if (this.readyState === 4) {
+                    if (this.status === 200) {
+                        const response = JSON.parse(this.responseText);
+                        
+                        if (response.exists) {
+                            // Email existe déjà, afficher suggestion
+                            emailFeedback.innerHTML = `
+                                <div class="alert alert-warning">
+                                    <div class="mb-2">${response.message}</div>
+                                    <div class="d-flex align-items-center">
+                                        <strong class="me-2">${response.alternativeEmail}</strong>
+                                        <button type="button" class="btn btn-sm btn-success me-2" id="accept-email-btn">
+                                            <i class="bi bi-check-lg"></i> Utiliser
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-email-btn">
+                                            <i class="bi bi-x-lg"></i> Non
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            document.getElementById('accept-email-btn').addEventListener('click', function() {
+                                emailInput.value = response.alternativeEmail;
+                                emailFeedback.style.display = 'none';
+                            });
+                            
+                            document.getElementById('cancel-email-btn').addEventListener('click', function() {
+                                emailFeedback.style.display = 'none';
+                            });
+                            
+                        } else {
+                            // Email disponible
+                            emailFeedback.innerHTML = `<div class="alert alert-success">${response.message}</div>`;
+                            setTimeout(() => {
+                                emailFeedback.style.display = 'none';
+                            }, 3000);
+                        }
+                    } else {
+                        // Erreur serveur
+                        emailFeedback.innerHTML = '<div class="alert alert-danger">Erreur de communication avec le serveur.</div>';
+                    }
+                }
+            };
+            
+            // Préparer les données à envoyer
+            const data = JSON.stringify({
+                email: email,
+                prenom: prenom,
+                nom: nom
+            });
+            
+            // Envoyer la requête
+            xhr.send(data);
+        }
+    });
 </script>
 @endpush
 @endsection

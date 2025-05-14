@@ -47,7 +47,7 @@ class CongeController extends Controller
         $conges = $congesQuery->orderBy('created_at', 'desc')->paginate(15);
         
         // Récupération des employés pour le filtre
-        $employes = Employe::orderBy('nom')->orderBy('prenom')->get();
+        $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         
         return view('conges.index', compact('conges', 'employes', 'employe', 'statut', 'type'));
     }
@@ -57,7 +57,7 @@ class CongeController extends Controller
      */
     public function create()
     {
-        $employes = Employe::where('actif', true)->orderBy('nom')->orderBy('prenom')->get();
+        $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         return view('conges.create', compact('employes'));
     }
     
@@ -115,7 +115,7 @@ class CongeController extends Controller
                 ->with('error', 'Cette demande de congé a déjà été traitée et ne peut plus être modifiée.');
         }
         
-        $employes = Employe::where('actif', true)->orderBy('nom')->orderBy('prenom')->get();
+        $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         return view('conges.edit', compact('conge', 'employes'));
     }
     

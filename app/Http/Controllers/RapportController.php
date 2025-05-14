@@ -178,7 +178,7 @@ class RapportController extends Controller
             
             // Récupérer les plannings actifs pour cet employé dans la période
             $plannings = Planning::where('employe_id', $employe->id)
-                ->where('actif', true)
+                ->where('statut', 'actif')
                 ->where(function ($query) use ($dateDebut, $dateFin) {
                     $query->whereBetween('date_debut', [$dateDebut, $dateFin])
                         ->orWhereBetween('date_fin', [$dateDebut, $dateFin])

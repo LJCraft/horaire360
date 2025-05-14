@@ -31,6 +31,8 @@ Auth::routes();
 Route::middleware(['auth'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/admin', [DashboardController::class, 'adminDashboard'])->name('dashboard.admin');
+    Route::get('/dashboard/employe', [DashboardController::class, 'employeDashboard'])->name('dashboard.employe');
     
     // Gestion des employés
     Route::resource('employes', EmployeController::class);
@@ -40,12 +42,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/employes/export/template', [EmployeController::class, 'exportTemplate'])->name('employes.export-template');
     Route::get('/employes/export', [EmployeController::class, 'export'])->name('employes.export');
     Route::get('/employes/export/pdf', [EmployeController::class, 'exportPdf'])->name('employes.export-pdf');
+    Route::post('/employes/check-email', [EmployeController::class, 'checkEmail'])->name('employes.check-email');
     
     // Gestion des postes
     Route::resource('postes', PosteController::class);
     
     // Création d'un compte utilisateur pour un employé
+    Route::get('/users/create-from-employee/{employe}', [UserController::class, 'redirectToCreateFromEmployee'])->name('users.redirect-create-from-employee');
     Route::post('/users/create-from-employee/{employe}', [UserController::class, 'createFromEmployee'])->name('users.create-from-employee');
+    
+    // Gestion des utilisateurs
+    Route::resource('users', UserController::class);
     
     // Routes pour les plannings (itération 2)
     Route::resource('plannings', PlanningController::class);
@@ -78,6 +85,29 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/rapports/biometrique', [RapportController::class, 'biometrique'])->name('rapports.biometrique');
     Route::get('/rapports/export/pdf', [RapportController::class, 'exportPdf'])->name('rapports.export.pdf');
     Route::get('/rapports/export/excel', [RapportController::class, 'exportExcel'])->name('rapports.export.excel');
+
+    // Route API pour les données du tableau de bord
+    Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData'])->name('api.dashboard-data');
+
+    // Route API pour les données de test
+    Route::get('/api/test-charts-data', function () {
+        // Données simples pour le test
+        return response()->json([
+            'postes' => [
+                'labels' => ['Développeur', 'Manager', 'Designer', 'Commercial'],
+                'values' => [12, 5, 8, 3]
+            ],
+            'presences' => [
+                'labels' => ['01/05', '02/05', '03/05', '04/05', '05/05', '06/05', '07/05'],
+                'values' => [25, 22, 28, 24, 27, 10, 15]
+            ],
+            'stats_presence' => [
+                'tauxPresence' => 75,
+                'tauxRetard' => 15,
+                'tauxAbsence' => 10
+            ]
+        ]);
+    })->name('api.test-charts-data');
 });
 
 // Route de test pour déboguer le téléchargement de photos
@@ -110,3 +140,9 @@ Route::get('/test-photo', function () {
     
     return response()->json($results);
 });
+
+// Page de test des graphiques - accessible à tous pour le diagnostic
+Route::get('/test-charts', function () {
+    // Vue simplifiée qui ne dépend pas des données du contrôleur
+    return view('dashboard.test-charts');
+})->name('test-charts');

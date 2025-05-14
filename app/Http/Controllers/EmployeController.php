@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class EmployeController extends Controller
 {
@@ -34,11 +36,11 @@ class EmployeController extends Controller
         $query = Employe::with('poste');
         
         // Filtres par rôle utilisateur
-        if (auth()->user()->isAdmin()) {
+        if (Auth::user()->role_id === 1) { // Supposons que role_id 1 est admin
             // Admin peut voir tous les employés
         } else {
             // Utilisateur standard ne voit que son propre profil
-            $query->where('utilisateur_id', auth()->id());
+            $query->where('utilisateur_id', Auth::id());
         }
         
         // Filtres de recherche
@@ -60,16 +62,93 @@ class EmployeController extends Controller
             $query->where('statut', $request->statut);
         }
         
+        // Filtre par accès au système
+        if ($request->has('acces')) {
+            if ($request->acces === 'avec') {
+                $query->whereNotNull('utilisateur_id');
+            } elseif ($request->acces === 'sans') {
+                $query->whereNull('utilisateur_id');
+            }
+        }
+        
         // Tri
         $sortField = $request->input('sort', 'nom');
         $sortDirection = $request->input('direction', 'asc');
         $query->orderBy($sortField, $sortDirection);
         
-        // Pagination
-        $employes = $query->paginate(10);
+        // Pagination optimisée - augmenter le nombre par page et utiliser simplePaginate pour les grandes listes
+        $perPage = $request->input('per_page', 25); // Par défaut 25 employés par page
+        $employes = $query->simplePaginate($perPage);
+        
+        // Statistiques de filtrage
+        // Nous utilisons des requêtes séparées pour calculer les statistiques afin de ne pas perturber la pagination
+        $statsQuery = clone $query;
+        
+        // Statistiques filtrées (selon les critères de recherche actuels)
+        $filteredCount = $statsQuery->count();
+        
+        // Statistiques par statut avec les mêmes filtres (sauf le statut lui-même)
+        $statsBaseQuery = Employe::query();
+        
+        // Appliquer les mêmes filtres que la requête principale, sauf le statut
+        if ($request->has('search')) {
+            $search = $request->input('search');
+            $statsBaseQuery->where(function($q) use ($search) {
+                $q->where('nom', 'like', "%$search%")
+                  ->orWhere('prenom', 'like', "%$search%")
+                  ->orWhere('email', 'like', "%$search%")
+                  ->orWhere('matricule', 'like', "%$search%");
+            });
+        }
+        
+        if ($request->has('poste_id') && $request->poste_id) {
+            $statsBaseQuery->where('poste_id', $request->poste_id);
+        }
+        
+        // Statistiques par statut
+        $actifsCount = (clone $statsBaseQuery)->where('statut', 'actif')->count();
+        $inactifsCount = (clone $statsBaseQuery)->where('statut', 'inactif')->count();
+        
+        // Statistiques globales (sans filtres)
+        $totalCount = Employe::count();
+        $totalActifsCount = Employe::where('statut', 'actif')->count();
+        $totalInactifsCount = Employe::where('statut', 'inactif')->count();
+        
+        // Statistiques d'accès au système
+        $avecAccesCount = (clone $statsBaseQuery)->whereNotNull('utilisateur_id')->count();
+        $sansAccesCount = (clone $statsBaseQuery)->whereNull('utilisateur_id')->count();
+        $totalAvecAccesCount = Employe::whereNotNull('utilisateur_id')->count();
+        $totalSansAccesCount = Employe::whereNull('utilisateur_id')->count();
+        
+        // Statistiques par poste (pour le poste sélectionné)
+        $posteStats = null;
+        if ($request->has('poste_id') && $request->poste_id) {
+            $posteStats = [
+                'nom' => Poste::find($request->poste_id)->nom,
+                'total' => (clone $statsBaseQuery)->count(),
+                'actifs' => (clone $statsBaseQuery)->where('statut', 'actif')->count(),
+                'inactifs' => (clone $statsBaseQuery)->where('statut', 'inactif')->count(),
+            ];
+        }
+        
         $postes = Poste::all();
         
-        return view('employes.index', compact('employes', 'postes'));
+        // Statistiques à passer à la vue
+        $stats = [
+            'filtered' => $filteredCount,
+            'actifs' => $actifsCount,
+            'inactifs' => $inactifsCount,
+            'total' => $totalCount,
+            'totalActifs' => $totalActifsCount,
+            'totalInactifs' => $totalInactifsCount,
+            'avecAcces' => $avecAccesCount,
+            'sansAcces' => $sansAccesCount,
+            'totalAvecAcces' => $totalAvecAccesCount,
+            'totalSansAcces' => $totalSansAccesCount,
+            'poste' => $posteStats
+        ];
+        
+        return view('employes.index', compact('employes', 'postes', 'perPage', 'stats'));
     }
 
     /**
@@ -86,10 +165,10 @@ class EmployeController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
-            'email' => 'required|email|unique:employes,email',
+            'email' => 'required|email|max:255',
             'telephone' => 'nullable|string|max:20',
             'date_naissance' => 'nullable|date',
             'date_embauche' => 'required|date',
@@ -98,10 +177,45 @@ class EmployeController extends Controller
             'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
         
-        // Génération du matricule (préfixe EMP + 5 chiffres)
-        $lastEmploye = Employe::latest()->first();
-        $lastId = $lastEmploye ? $lastEmploye->id + 1 : 1;
-        $matricule = 'EMP' . str_pad($lastId, 5, '0', STR_PAD_LEFT);
+        // Vérifier si l'email existe déjà
+        $email = $request->email;
+        $emailExists = Employe::where('email', $email)->exists() || User::where('email', $email)->exists();
+        
+        if ($emailExists) {
+            // Générer un email alternatif basé sur prenom.nom
+            $baseEmail = $this->generateBaseEmail($request->prenom, $request->nom);
+            $randomNum = rand(100, 999);
+            $alternativeEmail = $baseEmail . $randomNum . '@gmail.com';
+            
+            // Vérifier que l'email alternatif n'existe pas déjà
+            while (Employe::where('email', $alternativeEmail)->exists() || User::where('email', $alternativeEmail)->exists()) {
+                $randomNum = rand(100, 999);
+                $alternativeEmail = $baseEmail . $randomNum . '@gmail.com';
+            }
+            
+            // Ajouter l'erreur d'email existant avec suggestion d'alternative
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['email' => "Cet email existe déjà. Essayez plutôt : {$alternativeEmail}"]);
+        }
+        
+        // Continuer la validation
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+        
+        // Génération du matricule unique (préfixe EMP + 5 chiffres)
+        $lastId = Employe::max('id') ?? 0;
+        $nextId = $lastId + 1;
+        $matricule = 'EMP' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+        
+        // Vérifier que le matricule est unique
+        while (Employe::where('matricule', $matricule)->exists()) {
+            $nextId++;
+            $matricule = 'EMP' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+        }
         
         $employeData = [
             'matricule' => $matricule,
@@ -831,9 +945,36 @@ class EmployeController extends Controller
                     }
                     
                     // Générer matricule si nécessaire
-                    $matricule = !empty($rowData['matricule']) 
-                        ? trim($rowData['matricule']) 
-                        : 'EMP' . str_pad(Employe::max('id') + 1, 5, '0', STR_PAD_LEFT);
+                    if (!empty($rowData['matricule'])) {
+                        $matricule = trim($rowData['matricule']);
+                        
+                        // Vérifier si ce matricule existe déjà
+                        if (Employe::where('matricule', $matricule)->exists()) {
+                            // Générer un matricule unique
+                            $lastId = Employe::max('id') ?? 0;
+                            $nextId = $lastId + 1;
+                            $matricule = 'EMP' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+                            
+                            // Vérifier que le matricule est unique
+                            while (Employe::where('matricule', $matricule)->exists()) {
+                                $nextId++;
+                                $matricule = 'EMP' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+                            }
+                            
+                            $errors[] = "Ligne $rowIndex: Le matricule '{$rowData['matricule']}' existe déjà, un nouveau matricule a été généré: $matricule";
+                        }
+                    } else {
+                        // Générer un matricule unique automatiquement
+                        $lastId = Employe::max('id') ?? 0;
+                        $nextId = $lastId + 1;
+                        $matricule = 'EMP' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+                        
+                        // Vérifier que le matricule est unique
+                        while (Employe::where('matricule', $matricule)->exists()) {
+                            $nextId++;
+                            $matricule = 'EMP' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+                        }
+                    }
                     
                     // Déterminer le statut
                     $statut = isset($rowData['statut']) && in_array(strtolower(trim($rowData['statut'])), ['actif', 'inactif']) 
@@ -989,5 +1130,81 @@ class EmployeController extends Controller
         }
         
         return implode(', ', $summaryParts);
+    }
+
+    /**
+     * Vérifier si un email existe déjà et suggérer une alternative si nécessaire
+     */
+    public function checkEmail(Request $request)
+    {
+        $email = $request->input('email');
+        $prenom = $request->input('prenom');
+        $nom = $request->input('nom');
+        
+        // Vérifier si l'email existe déjà
+        $exists = Employe::where('email', $email)->exists() || User::where('email', $email)->exists();
+        
+        if (!$exists) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Cet email est disponible.',
+                'email' => $email
+            ]);
+        }
+        
+        // Générer un email alternatif basé sur le prénom et le nom
+        $baseEmail = strtolower(transliterator_transliterate('Any-Latin; Latin-ASCII', $prenom)) . '.' . 
+                    strtolower(transliterator_transliterate('Any-Latin; Latin-ASCII', $nom));
+        $randomNumber = rand(100, 999);
+        $alternativeEmail = $baseEmail . $randomNumber . '@gmail.com';
+        
+        // Vérifier que l'email alternatif n'existe pas déjà
+        while (Employe::where('email', $alternativeEmail)->exists() || User::where('email', $alternativeEmail)->exists()) {
+            $randomNumber = rand(100, 999);
+            $alternativeEmail = $baseEmail . $randomNumber . '@gmail.com';
+        }
+        
+        return response()->json([
+            'exists' => true,
+            'message' => 'Cet email existe déjà dans le système. Voulez-vous utiliser l\'email suggéré ci-dessous ?',
+            'email' => $email,
+            'alternativeEmail' => $alternativeEmail
+        ]);
+    }
+    
+    /**
+     * Générer la partie base de l'email à partir du prénom et du nom
+     */
+    private function generateBaseEmail($prenom, $nom)
+    {
+        // Nettoyer le prénom et le nom
+        $prenom = $this->cleanName($prenom);
+        $nom = $this->cleanName($nom);
+        
+        // Créer la base de l'email: prenom.nom
+        return strtolower($prenom . '.' . $nom);
+    }
+    
+    /**
+     * Nettoyer un nom pour l'utiliser dans un email
+     */
+    private function cleanName($name)
+    {
+        if (empty($name)) {
+            return '';
+        }
+        
+        // Remplacer les espaces et caractères spéciaux
+        $name = preg_replace('/\s+/', '', $name); // Supprimer les espaces
+        $name = str_replace(['-', "'", '"'], '', $name); // Supprimer les tirets et apostrophes
+        
+        // Supprimer les accents
+        $name = str_replace(
+            ['à', 'â', 'ä', 'á', 'ã', 'å', 'æ', 'ç', 'é', 'è', 'ê', 'ë', 'í', 'ì', 'î', 'ï', 'ñ', 'ó', 'ò', 'ô', 'ö', 'õ', 'ø', 'œ', 'ß', 'ú', 'ù', 'û', 'ü', 'ý', 'ÿ'],
+            ['a', 'a', 'a', 'a', 'a', 'a', 'ae', 'c', 'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'n', 'o', 'o', 'o', 'o', 'o', 'o', 'oe', 'ss', 'u', 'u', 'u', 'u', 'y', 'y'],
+            $name
+        );
+        
+        return $name;
     }
 }

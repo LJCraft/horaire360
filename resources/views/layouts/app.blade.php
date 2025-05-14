@@ -146,6 +146,11 @@ use Illuminate\Support\Facades\Route;
                                     <i class="bi bi-file-earmark-bar-graph"></i> Rapports
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
+                                    <i class="bi bi-people-fill"></i> Utilisateurs
+                                </a>
+                            </li>
                             @else
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
