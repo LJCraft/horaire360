@@ -40,6 +40,17 @@
                                         @endforeach
                                     </select>
                                 </div>
+                                <div class="col-md-4">
+                                    <label for="poste_id" class="form-label">Poste</label>
+                                    <select id="poste_id" name="poste_id" class="form-select form-select-sm">
+                                        <option value="">Tous les postes</option>
+                                        @foreach($postes ?? [] as $poste)
+                                            <option value="{{ $poste->id }}" {{ request('poste_id') == $poste->id ? 'selected' : '' }}>
+                                                {{ $poste->departement }} - {{ $poste->nom }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
                                 <div class="col-md-2 d-flex align-items-end">
                                     <button type="submit" class="btn btn-primary btn-sm w-100">
                                         <i class="bi bi-filter me-1"></i>Filtrer
@@ -63,6 +74,31 @@
                                 <button type="button" id="view-day" class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-calendar-day me-1"></i>Jour
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Légende -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body py-2">
+                                    <h6 class="mb-2">Légende</h6>
+                                    <div class="d-flex flex-wrap">
+                                        <div class="me-3 mb-1">
+                                            <span class="badge bg-primary me-1">&nbsp;</span>
+                                            <small>Horaire normal</small>
+                                        </div>
+                                        <div class="me-3 mb-1">
+                                            <span class="badge bg-success me-1">&nbsp;</span>
+                                            <small>Repos</small>
+                                        </div>
+                                        <div class="me-3 mb-1">
+                                            <span class="badge bg-warning text-dark me-1">&nbsp;</span>
+                                            <small>Journée entière</small>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -92,9 +128,6 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                <a href="#" class="btn btn-primary" id="editPlanningBtn">
-                    <i class="bi bi-pencil me-1"></i>Modifier
-                </a>
             </div>
         </div>
     </div>
@@ -109,20 +142,47 @@
     }
     .fc-event-title {
         white-space: normal;
+        font-weight: 500;
     }
     
     /* Styles pour les différents types d'événements */
-    .planning-event {
-        background-color: #3788d8;
-        border-color: #3788d8;
+    .poste-event {
+        border-left-width: 5px;
     }
     .repos-event {
-        background-color: #28a745;
-        border-color: #28a745;
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
     }
-    .conge-event {
-        background-color: #dc3545;
-        border-color: #dc3545;
+    .jour-entier-event {
+        background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent) !important;
+        background-size: 1rem 1rem !important;
+    }
+    .horaire-event {
+        border-style: solid;
+    }
+    
+    /* Tooltip personnalisé */
+    .calendar-tooltip {
+        position: absolute;
+        z-index: 1070;
+        display: block;
+        margin: 0;
+        padding: 8px;
+        max-width: 300px;
+        background-color: white;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        font-size: 0.875rem;
+        border: 1px solid rgba(0,0,0,0.1);
+    }
+    .calendar-tooltip h6 {
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+    }
+    .calendar-tooltip ul {
+        margin: 0;
+        padding-left: 1.5rem;
     }
 </style>
 @endpush
@@ -134,6 +194,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialisation du calendrier
     var calendarEl = document.getElementById('calendar');
+    var tooltipEl = null;
+    
     var calendar = new FullCalendar.Calendar(calendarEl, {
         locale: 'fr',
         initialView: 'dayGridMonth',
@@ -156,15 +218,22 @@ document.addEventListener('DOMContentLoaded', function() {
         selectMirror: true,
         dayMaxEvents: true,
         eventClick: function(info) {
-            showPlanningDetails(info.event.id);
+            showGroupDetails(info.event);
+        },
+        eventMouseEnter: function(info) {
+            showTooltip(info.event, info.jsEvent);
+        },
+        eventMouseLeave: function() {
+            hideTooltip();
         },
         events: function(info, successCallback, failureCallback) {
             // Récupération des données filtrées
             var departement = document.getElementById('departement').value;
+            var posteId = document.getElementById('poste_id').value;
             
             // Appel AJAX pour récupérer les événements
-            fetch('{{ url("/api/plannings") }}?start=' + info.startStr + '&end=' + info.endStr + 
-                  '&departement=' + departement)
+            fetch('{{ url("/api/plannings/departement") }}?start=' + info.startStr + '&end=' + info.endStr + 
+                  '&departement=' + departement + '&poste_id=' + posteId)
                 .then(response => response.json())
                 .then(data => {
                     successCallback(data);
@@ -201,116 +270,155 @@ document.addEventListener('DOMContentLoaded', function() {
         button.classList.add('active');
     }
     
-    // Fonction pour afficher les détails d'un planning
-    function showPlanningDetails(planningId) {
-        var modal = new bootstrap.Modal(document.getElementById('planningModal'));
+    // Fonction pour afficher un tooltip au survol
+    function showTooltip(event, mouseEvent) {
+        // Créer le tooltip s'il n'existe pas
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.className = 'calendar-tooltip';
+            document.body.appendChild(tooltipEl);
+        }
         
-        // Réinitialiser le contenu
-        document.getElementById('planningModalBody').innerHTML = `
-            <div class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Chargement...</span>
+        // Récupérer les données de l'événement
+        var props = event.extendedProps;
+        var employes = props.employes || [];
+        var type = props.type;
+        var heureDebut = props.heure_debut;
+        var heureFin = props.heure_fin;
+        
+        // Construire le contenu du tooltip
+        var content = `<h6>${props.poste} - ${props.departement}</h6>`;
+        
+        if (type === 'repos') {
+            content += `<p class="mb-1"><span class="badge bg-success">Repos</span></p>`;
+        } else if (type === 'jour_entier') {
+            content += `<p class="mb-1"><span class="badge bg-warning text-dark">Journée entière</span></p>`;
+        } else {
+            content += `<p class="mb-1"><span class="badge bg-primary">Horaire: ${heureDebut.substring(0, 5)} - ${heureFin.substring(0, 5)}</span></p>`;
+        }
+        
+        content += `<p class="mb-1"><strong>${employes.length} employé(s):</strong></p>`;
+        content += '<ul class="mb-0">';
+        
+        // Limiter à 5 employés pour éviter un tooltip trop grand
+        var displayCount = Math.min(employes.length, 5);
+        for (var i = 0; i < displayCount; i++) {
+            content += `<li>${employes[i].nom}</li>`;
+        }
+        
+        // S'il y a plus d'employés, indiquer le nombre restant
+        if (employes.length > 5) {
+            content += `<li>+ ${employes.length - 5} autres</li>`;
+        }
+        
+        content += '</ul>';
+        
+        // Mettre à jour le contenu et positionner le tooltip
+        tooltipEl.innerHTML = content;
+        tooltipEl.style.left = mouseEvent.pageX + 10 + 'px';
+        tooltipEl.style.top = mouseEvent.pageY + 10 + 'px';
+        tooltipEl.style.display = 'block';
+    }
+    
+    function hideTooltip() {
+        if (tooltipEl) {
+            tooltipEl.style.display = 'none';
+        }
+    }
+    
+    // Fonction pour afficher les détails d'un groupe
+    function showGroupDetails(event) {
+        var modal = new bootstrap.Modal(document.getElementById('planningModal'));
+        var props = event.extendedProps;
+        var employes = props.employes || [];
+        
+        // Titre de la modal
+        document.getElementById('planningModalLabel').textContent = 
+            props.poste + ' - ' + event.start.toLocaleDateString('fr-FR');
+        
+        // Construire le contenu
+        var content = `
+            <div class="mb-3">
+                <h6 class="mb-2">${props.departement} - ${props.poste}</h6>
+                <p class="mb-1">
+                    <strong>Date:</strong> ${event.start.toLocaleDateString('fr-FR')}
+                </p>
+        `;
+        
+        if (props.type === 'repos') {
+            content += `<p class="mb-2"><span class="badge bg-success">Repos</span></p>`;
+        } else if (props.type === 'jour_entier') {
+            content += `<p class="mb-2"><span class="badge bg-warning text-dark">Journée entière</span></p>`;
+        } else {
+            content += `<p class="mb-2"><span class="badge bg-primary">Horaire: ${props.heure_debut.substring(0, 5)} - ${props.heure_fin.substring(0, 5)}</span></p>`;
+        }
+        
+        content += `
+            </div>
+            <div class="mb-3">
+                <h6 class="border-bottom pb-2 mb-2">Employés (${employes.length})</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        employes.forEach(function(employe) {
+            content += `
+                <tr>
+                    <td>${employe.nom}</td>
+                    <td class="text-end">
+                        <a href="/plannings/${employe.planning_id}" class="btn btn-sm btn-outline-info">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="/plannings/${employe.planning_id}/edit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        content += `
+                        </tbody>
+                    </table>
                 </div>
             </div>
         `;
         
-        // Mettre à jour le lien d'édition
-        document.getElementById('editPlanningBtn').href = '/plannings/' + planningId + '/edit';
+        document.getElementById('planningModalBody').innerHTML = content;
         
         // Afficher la modal
         modal.show();
-        
-        // Charger les détails
-        fetch('{{ url("/api/plannings") }}/' + planningId)
-            .then(response => response.json())
-            .then(data => {
-                var content = `
-                    <h5>${data.titre}</h5>
-                    <p class="text-muted">
-                        <i class="bi bi-person me-1"></i> ${data.employe}<br>
-                        <i class="bi bi-building me-1"></i> ${data.departement}<br>
-                        <i class="bi bi-briefcase me-1"></i> ${data.poste}
-                    </p>
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <small class="text-muted">Date de début</small>
-                            <div>${data.date_debut}</div>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted">Date de fin</small>
-                            <div>${data.date_fin}</div>
-                        </div>
-                    </div>
-                `;
-                
-                if (data.description) {
-                    content += `
-                        <div class="mb-3">
-                            <small class="text-muted">Description</small>
-                            <div>${data.description}</div>
-                        </div>
-                    `;
-                }
-                
-                if (data.details && data.details.length > 0) {
-                    content += `
-                        <h6 class="mt-3">Horaires hebdomadaires</h6>
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Jour</th>
-                                    <th>Type</th>
-                                    <th>Horaires</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    
-                    data.details.forEach(detail => {
-                        let horaires = '';
-                        if (detail.type === 'Horaire') {
-                            horaires = `${detail.heure_debut} - ${detail.heure_fin}`;
-                        } else if (detail.type === 'Journée entière') {
-                            horaires = 'Toute la journée';
-                        } else {
-                            horaires = 'Repos';
-                        }
-                        
-                        content += `
-                            <tr>
-                                <td>${detail.jour}</td>
-                                <td>${detail.type}</td>
-                                <td>${horaires}</td>
-                            </tr>
-                        `;
-                        
-                        if (detail.note) {
-                            content += `
-                                <tr>
-                                    <td colspan="3" class="text-muted small">
-                                        <i class="bi bi-info-circle me-1"></i> ${detail.note}
-                                    </td>
-                                </tr>
-                            `;
-                        }
-                    });
-                    
-                    content += `
-                            </tbody>
-                        </table>
-                    `;
-                }
-                
-                document.getElementById('planningModalBody').innerHTML = content;
-            })
-            .catch(error => {
-                document.getElementById('planningModalBody').innerHTML = `
-                    <div class="alert alert-danger">
-                        Erreur lors du chargement des détails: ${error.message}
-                    </div>
-                `;
-            });
     }
+    
+    // Mettre à jour les postes disponibles lorsque le département change
+    document.getElementById('departement').addEventListener('change', function() {
+        var departement = this.value;
+        var posteSelect = document.getElementById('poste_id');
+        
+        // Réinitialiser la sélection de poste
+        posteSelect.innerHTML = '<option value="">Tous les postes</option>';
+        
+        // Si un département est sélectionné, charger les postes correspondants
+        if (departement) {
+            fetch('{{ url("/api/postes") }}?departement=' + departement)
+                .then(response => response.json())
+                .then(postes => {
+                    postes.forEach(function(poste) {
+                        var option = document.createElement('option');
+                        option.value = poste.id;
+                        option.textContent = poste.nom;
+                        posteSelect.appendChild(option);
+                    });
+                });
+        }
+    });
 });
 </script>
 @endpush 

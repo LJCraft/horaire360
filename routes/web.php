@@ -99,8 +99,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData'])->name('api.dashboard-data');
 
     // Route API pour les données de plannings pour le calendrier
+    Route::get('/api/plannings/departement', [PlanningDepartementController::class, 'getCalendarData'])->name('api.plannings.departement');
     Route::get('/api/plannings', [PlanningController::class, 'getCalendarData'])->name('api.plannings');
     Route::get('/api/plannings/{planning}', [PlanningController::class, 'getPlanningData'])->name('api.planning-detail');
+    Route::get('/api/postes', [PosteController::class, 'getPostesByDepartement'])->name('api.postes');
 
     // Route API pour les données de test
     Route::get('/api/test-charts-data', function () {

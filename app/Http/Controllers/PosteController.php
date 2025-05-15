@@ -90,4 +90,22 @@ class PosteController extends Controller
         return redirect()->route('postes.index')
             ->with('success', 'Poste supprimé avec succès.');
     }
+    
+    /**
+     * Récupérer les postes par département (API)
+     */
+    public function getPostesByDepartement(Request $request)
+    {
+        $departement = $request->input('departement');
+        
+        if (!$departement) {
+            return response()->json([]);
+        }
+        
+        $postes = Poste::where('departement', $departement)
+            ->orderBy('nom')
+            ->get(['id', 'nom']);
+            
+        return response()->json($postes);
+    }
 }
