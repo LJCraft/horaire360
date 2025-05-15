@@ -7,13 +7,13 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="bi bi-calendar-week me-2"></i>Calendrier des plannings
+                        <i class="bi bi-calendar-week me-2"></i>Calendrier des plannings par département
                     </h5>
                     <div>
-                        <a href="{{ route('plannings.index') }}" class="btn btn-outline-secondary btn-sm me-2">
+                        <a href="{{ route('plannings.departement.index') }}" class="btn btn-outline-secondary btn-sm me-2">
                             <i class="bi bi-list me-1"></i>Liste des plannings
                         </a>
-                        <a href="{{ route('plannings.create') }}" class="btn btn-primary btn-sm">
+                        <a href="{{ route('plannings.departement.create') }}" class="btn btn-primary btn-sm">
                             <i class="bi bi-plus-circle me-1"></i>Nouveau planning
                         </a>
                     </div>
@@ -30,34 +30,25 @@
                     <!-- Filtres -->
                     <div class="row mb-4">
                         <div class="col-md-9">
-                            <form id="filterForm" class="row g-3">
+                            <form id="filterForm" class="row g-3" method="GET" action="{{ route('plannings.departement.calendrier') }}">
                                 <div class="col-md-4">
                                     <label for="departement" class="form-label">Département</label>
-                                    <select id="departement" class="form-select form-select-sm">
+                                    <select id="departement" name="departement" class="form-select form-select-sm">
                                         <option value="">Tous les départements</option>
                                         @foreach($departements ?? [] as $dept)
-                                            <option value="{{ $dept }}">{{ $dept }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="employe" class="form-label">Employé</label>
-                                    <select id="employe" class="form-select form-select-sm">
-                                        <option value="">Tous les employés</option>
-                                        @foreach($employes ?? [] as $emp)
-                                            <option value="{{ $emp->id }}">{{ $emp->nom_complet }}</option>
+                                            <option value="{{ $dept }}" {{ $departementSelectionne == $dept ? 'selected' : '' }}>{{ $dept }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end">
-                                    <button type="button" id="filtrer" class="btn btn-primary btn-sm w-100">
+                                    <button type="submit" class="btn btn-primary btn-sm w-100">
                                         <i class="bi bi-filter me-1"></i>Filtrer
                                     </button>
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end">
-                                    <button type="button" id="resetFiltre" class="btn btn-outline-secondary btn-sm w-100">
+                                    <a href="{{ route('plannings.departement.calendrier') }}" class="btn btn-outline-secondary btn-sm w-100">
                                         <i class="bi bi-x-circle me-1"></i>Réinitialiser
-                                    </button>
+                                    </a>
                                 </div>
                             </form>
                         </div>
@@ -170,11 +161,10 @@ document.addEventListener('DOMContentLoaded', function() {
         events: function(info, successCallback, failureCallback) {
             // Récupération des données filtrées
             var departement = document.getElementById('departement').value;
-            var employe = document.getElementById('employe').value;
             
             // Appel AJAX pour récupérer les événements
             fetch('{{ url("/api/plannings") }}?start=' + info.startStr + '&end=' + info.endStr + 
-                  '&departement=' + departement + '&employe=' + employe)
+                  '&departement=' + departement)
                 .then(response => response.json())
                 .then(data => {
                     successCallback(data);
@@ -187,17 +177,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     calendar.render();
-    
-    // Gestion des filtres
-    document.getElementById('filtrer').addEventListener('click', function() {
-        calendar.refetchEvents();
-    });
-    
-    document.getElementById('resetFiltre').addEventListener('click', function() {
-        document.getElementById('departement').value = '';
-        document.getElementById('employe').value = '';
-        calendar.refetchEvents();
-    });
     
     // Gestion des vues
     document.getElementById('view-month').addEventListener('click', function() {
@@ -248,35 +227,79 @@ document.addEventListener('DOMContentLoaded', function() {
                 var content = `
                     <h5>${data.titre}</h5>
                     <p class="text-muted">
-                        <strong>Période:</strong> ${data.date_debut} - ${data.date_fin}
+                        <i class="bi bi-person me-1"></i> ${data.employe}<br>
+                        <i class="bi bi-building me-1"></i> ${data.departement}<br>
+                        <i class="bi bi-briefcase me-1"></i> ${data.poste}
                     </p>
-                    ${data.description ? '<p>' + data.description + '</p>' : ''}
-                    <hr>
-                    <p><strong>Employé:</strong> ${data.employe}</p>
-                    <p><strong>Poste:</strong> ${data.poste}</p>
-                    <p><strong>Département:</strong> ${data.departement}</p>
-                    
-                    <h6 class="mt-3">Horaires hebdomadaires</h6>
-                    <ul class="list-group">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted">Date de début</small>
+                            <div>${data.date_debut}</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Date de fin</small>
+                            <div>${data.date_fin}</div>
+                        </div>
+                    </div>
                 `;
                 
-                data.details.forEach(detail => {
+                if (data.description) {
                     content += `
-                        <li class="list-group-item d-flex justify-content-between align-items-start">
-                            <div class="ms-2 me-auto">
-                                <div class="fw-bold">${detail.jour}</div>
-                                ${detail.type === 'repos' ? 
-                                    '<span class="badge bg-success">Repos</span>' : 
-                                    (detail.type === 'jour_entier' ? 
-                                        '<span class="badge bg-primary">Journée entière</span>' : 
-                                        detail.heure_debut + ' - ' + detail.heure_fin)}
-                                ${detail.note ? '<br><small class="text-muted">' + detail.note + '</small>' : ''}
-                            </div>
-                        </li>
+                        <div class="mb-3">
+                            <small class="text-muted">Description</small>
+                            <div>${data.description}</div>
+                        </div>
                     `;
-                });
+                }
                 
-                content += `</ul>`;
+                if (data.details && data.details.length > 0) {
+                    content += `
+                        <h6 class="mt-3">Horaires hebdomadaires</h6>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Jour</th>
+                                    <th>Type</th>
+                                    <th>Horaires</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.details.forEach(detail => {
+                        let horaires = '';
+                        if (detail.type === 'Horaire') {
+                            horaires = `${detail.heure_debut} - ${detail.heure_fin}`;
+                        } else if (detail.type === 'Journée entière') {
+                            horaires = 'Toute la journée';
+                        } else {
+                            horaires = 'Repos';
+                        }
+                        
+                        content += `
+                            <tr>
+                                <td>${detail.jour}</td>
+                                <td>${detail.type}</td>
+                                <td>${horaires}</td>
+                            </tr>
+                        `;
+                        
+                        if (detail.note) {
+                            content += `
+                                <tr>
+                                    <td colspan="3" class="text-muted small">
+                                        <i class="bi bi-info-circle me-1"></i> ${detail.note}
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    });
+                    
+                    content += `
+                            </tbody>
+                        </table>
+                    `;
+                }
                 
                 document.getElementById('planningModalBody').innerHTML = content;
             })
@@ -290,4 +313,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-@endpush
+@endpush 

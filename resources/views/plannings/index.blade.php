@@ -10,7 +10,7 @@
             <a href="{{ route('plannings.create') }}" class="btn btn-primary me-2">
                 <i class="bi bi-plus-circle"></i> Nouveau planning
             </a>
-            <a href="{{ route('plannings.calendrier') }}" class="btn btn-info me-2">
+            <a href="{{ route('plannings.departement.calendrier') }}" class="btn btn-info me-2">
                 <i class="bi bi-calendar-week"></i> Calendrier
             </a>
             <div class="btn-group">

@@ -5,10 +5,12 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\PosteController;
 use App\Http\Controllers\PlanningController;
+use App\Http\Controllers\PlanningDepartementController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\RapportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\TestController;
 
 
 /*
@@ -21,8 +23,8 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Route de connexion directe pour le débogage
-// Ces routes ont été supprimées pour garantir la sécurité de l'authentification
+// Route de test publique (sans authentification)
+Route::get('/test', [TestController::class, 'index'])->name('test');
 
 // Routes d'authentification (générées par Laravel UI)
 Auth::routes();
@@ -59,8 +61,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/plannings/import', [PlanningController::class, 'import'])->name('plannings.import');
     Route::get('/plannings/export/template', [PlanningController::class, 'exportTemplate'])->name('plannings.export-template');
     Route::get('/plannings/export', [PlanningController::class, 'export'])->name('plannings.export');
-    Route::get('/plannings/calendrier', [PlanningController::class, 'calendrier'])->name('plannings.calendrier');
     Route::get('/plannings/search-employes', [PlanningController::class, 'searchEmployes'])->name('plannings.search-employes');
+    
+    // Routes pour les plannings par département
+    Route::prefix('admin/plannings')->group(function () {
+        Route::get('/departement', [PlanningDepartementController::class, 'index'])->name('plannings.departement.index');
+        Route::get('/departement/create', [PlanningDepartementController::class, 'create'])->name('plannings.departement.create');
+        Route::post('/departement', [PlanningDepartementController::class, 'store'])->name('plannings.departement.store');
+        Route::get('/departement/calendrier', [PlanningDepartementController::class, 'calendrier'])->name('plannings.departement.calendrier');
+    });
     
     // Routes pour les présences (itération 3)
     // Import
@@ -88,6 +97,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Route API pour les données du tableau de bord
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData'])->name('api.dashboard-data');
+
+    // Route API pour les données de plannings pour le calendrier
+    Route::get('/api/plannings', [PlanningController::class, 'getCalendarData'])->name('api.plannings');
+    Route::get('/api/plannings/{planning}', [PlanningController::class, 'getPlanningData'])->name('api.planning-detail');
 
     // Route API pour les données de test
     Route::get('/api/test-charts-data', function () {

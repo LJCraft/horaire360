@@ -174,31 +174,8 @@ class PlanningController extends Controller
      */
     public function calendrier(Request $request)
     {
-        // Récupérer le mois et l'année demandés, ou utiliser le mois courant
-        $mois = $request->input('mois', date('m'));
-        $annee = $request->input('annee', date('Y'));
-        
-        // Date de début et de fin du mois
-        $dateDebut = Carbon::createFromDate($annee, $mois, 1)->startOfMonth();
-        $dateFin = Carbon::createFromDate($annee, $mois, 1)->endOfMonth();
-        
-        // Récupérer les plannings de ce mois
-        $plannings = Planning::with(['employe', 'details'])
-            ->where(function($query) use ($dateDebut, $dateFin) {
-                $query->whereBetween('date_debut', [$dateDebut, $dateFin])
-                    ->orWhereBetween('date_fin', [$dateDebut, $dateFin])
-                    ->orWhere(function($q) use ($dateDebut, $dateFin) {
-                        $q->where('date_debut', '<=', $dateDebut)
-                          ->where('date_fin', '>=', $dateFin);
-                    });
-            })
-            ->orderBy('date_debut')
-            ->get();
-        
-        // Liste des employés pour le filtre
-        $employes = Employe::orderBy('nom')->get();
-        
-        return view('plannings.calendrier', compact('plannings', 'employes', 'mois', 'annee', 'dateDebut', 'dateFin'));
+        // Redirect to the new working calendar route
+        return redirect()->route('plannings.departement.calendrier');
     }
     
     /**
@@ -396,5 +373,133 @@ class PlanningController extends Controller
         }
         
         return view('plannings.edit', compact('planning', 'employes', 'detailsParJour'));
+    }
+
+    /**
+     * Récupérer les données des plannings pour le calendrier
+     */
+    public function getCalendarData(Request $request)
+    {
+        // Récupérer les paramètres de la requête
+        $start = $request->input('start');
+        $end = $request->input('end');
+        $departement = $request->input('departement');
+        $employeId = $request->input('employe');
+
+        // Requête de base
+        $query = Planning::with(['employe', 'employe.poste', 'details']);
+        
+        // Filtrer par période
+        if ($start && $end) {
+            $query->where(function($q) use ($start, $end) {
+                $q->whereBetween('date_debut', [$start, $end])
+                  ->orWhereBetween('date_fin', [$start, $end])
+                  ->orWhere(function($q2) use ($start, $end) {
+                      $q2->where('date_debut', '<=', $start)
+                         ->where('date_fin', '>=', $end);
+                  });
+            });
+        }
+        
+        // Filtrer par département
+        if ($departement) {
+            $query->whereHas('employe.poste', function($q) use ($departement) {
+                $q->where('departement', $departement);
+            });
+        }
+        
+        // Filtrer par employé
+        if ($employeId) {
+            $query->where('employe_id', $employeId);
+        }
+        
+        // Récupérer les plannings
+        $plannings = $query->get();
+        
+        // Formater les données pour FullCalendar
+        $events = [];
+        
+        foreach ($plannings as $planning) {
+            // Couleur en fonction du type (planning, congé, etc.)
+            $backgroundColor = '#3788d8'; // Bleu par défaut
+            $borderColor = '#3788d8';
+            $className = 'planning-event';
+            
+            // Données communes à tous les événements
+            $baseEvent = [
+                'id' => $planning->id,
+                'title' => $planning->employe->nom_complet . ' - ' . $planning->titre,
+                'start' => $planning->date_debut->format('Y-m-d'),
+                'end' => $planning->date_fin->format('Y-m-d'),
+                'backgroundColor' => $backgroundColor,
+                'borderColor' => $borderColor,
+                'className' => $className,
+                'extendedProps' => [
+                    'description' => $planning->description,
+                    'employeId' => $planning->employe_id,
+                    'employe' => $planning->employe->nom_complet,
+                    'poste' => $planning->employe->poste->nom,
+                    'departement' => $planning->employe->poste->departement,
+                ]
+            ];
+            
+            // Ajouter l'événement principal (planning sur toute la période)
+            $events[] = $baseEvent;
+        }
+        
+        return response()->json($events);
+    }
+    
+    /**
+     * Récupérer les détails d'un planning spécifique
+     */
+    public function getPlanningData(Planning $planning)
+    {
+        $planning->load(['employe', 'employe.poste', 'details']);
+        
+        // Tableau pour les jours de la semaine
+        $joursLabels = [
+            1 => 'Lundi',
+            2 => 'Mardi',
+            3 => 'Mercredi',
+            4 => 'Jeudi',
+            5 => 'Vendredi',
+            6 => 'Samedi',
+            7 => 'Dimanche'
+        ];
+        
+        // Formater les détails
+        $details = [];
+        foreach ($planning->details as $detail) {
+            $type = 'horaire';
+            if ($detail->jour_repos) {
+                $type = 'repos';
+            } elseif ($detail->jour_entier) {
+                $type = 'jour_entier';
+            }
+            
+            $details[] = [
+                'jour' => $joursLabels[$detail->jour],
+                'type' => $type,
+                'heure_debut' => $detail->heure_debut ? substr($detail->heure_debut, 0, 5) : null,
+                'heure_fin' => $detail->heure_fin ? substr($detail->heure_fin, 0, 5) : null,
+                'note' => $detail->note
+            ];
+        }
+        
+        // Formater la réponse
+        $response = [
+            'id' => $planning->id,
+            'titre' => $planning->titre,
+            'date_debut' => $planning->date_debut->format('d/m/Y'),
+            'date_fin' => $planning->date_fin->format('d/m/Y'),
+            'description' => $planning->description,
+            'employe' => $planning->employe->nom_complet,
+            'poste' => $planning->employe->poste->nom,
+            'departement' => $planning->employe->poste->departement,
+            'details' => $details
+        ];
+        
+        return response()->json($response);
     }
 }

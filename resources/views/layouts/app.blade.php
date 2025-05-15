@@ -86,10 +86,34 @@ use Illuminate\Support\Facades\Route;
                                     <i class="bi bi-briefcase"></i> Postes
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ request()->routeIs('plannings.*') ? 'active' : '' }}" href="{{ route('plannings.create') }}">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle {{ request()->routeIs('plannings.*') ? 'active' : '' }}" href="#" id="planningsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-calendar-week"></i> Plannings
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="planningsDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('plannings.create') }}">
+                                            <i class="bi bi-person me-2"></i> Planning individuel
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('plannings.departement.index') }}">
+                                            <i class="bi bi-building me-2"></i> Planning par département
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('plannings.departement.calendrier') }}">
+                                            <i class="bi bi-calendar-week me-2"></i> Calendrier
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('plannings.export') }}">
+                                            <i class="bi bi-download me-2"></i> Exporter
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle {{ request()->routeIs('presences.*') || request()->routeIs('rapports.biometrique') ? 'active' : '' }}" href="#" id="presencesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
