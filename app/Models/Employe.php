@@ -12,9 +12,8 @@ class Employe extends Model
     use HasFactory;
     
     protected $fillable = [
-        'matricule', 'nom', 'prenom', 'email', 'telephone',
-        'date_naissance', 'date_embauche', 'poste_id',
-        'utilisateur_id', 'statut', 'photo_profil'
+        'nom', 'prenom', 'email', 'telephone', 'date_naissance', 'date_embauche',
+        'poste_id', 'statut', 'photo_profil', 'user_id', 'grade', 'departement'
     ];
 
     protected $casts = [
@@ -82,5 +81,71 @@ class Employe extends Model
         $initialNom = strtoupper(substr($this->nom, 0, 1));
         $initials = $initialPrenom . $initialNom;
         return "https://ui-avatars.com/api/?name={$initials}&background=random&color=fff&size=256";
+    }
+    
+    /**
+     * Accesseur pour le service (département)
+     * Utilise la colonne departement ou simule un service si la colonne est vide
+     */
+    public function getServiceAttribute()
+    {
+        // Si le département est défini, l'utiliser
+        if (!empty($this->departement)) {
+            return (object)[
+                'nom' => $this->departement
+            ];
+        }
+        
+        // Sinon, attribuer un service fictif basé sur l'ID du poste
+        $services = [
+            'Ressources Humaines',
+            'Informatique',
+            'Finance',
+            'Marketing',
+            'Opérations'
+        ];
+        
+        $index = ($this->poste_id ?? 1) % count($services);
+        
+        return (object)[
+            'nom' => $services[$index]
+        ];
+    }
+    
+    /**
+     * Accesseur pour le grade (niveau hiérarchique)
+     * Utilise la colonne grade ou simule un grade si la colonne est vide
+     */
+    public function getGradeAttribute($value)
+    {
+        // Si le grade est déjà défini dans la base de données, l'utiliser
+        if (!empty($value)) {
+            return $value;
+        }
+        
+        // Sinon, calculer le grade en fonction de l'ancienneté
+        if ($this->date_embauche) {
+            $anciennete = $this->date_embauche->diffInYears(now());
+            
+            if ($anciennete >= 10) {
+                return 'Senior';
+            } elseif ($anciennete >= 5) {
+                return 'Confirmé';
+            } elseif ($anciennete >= 2) {
+                return 'Intermédiaire';
+            } else {
+                return 'Junior';
+            }
+        }
+        
+        return 'Non défini';
+    }
+    
+    /**
+     * Accesseur pour la fonction (poste)
+     */
+    public function getFonctionAttribute()
+    {
+        return $this->poste;
     }
 }

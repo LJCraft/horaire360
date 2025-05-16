@@ -92,8 +92,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/rapports/absences', [RapportController::class, 'absences'])->name('rapports.absences');
     Route::get('/rapports/retards', [RapportController::class, 'retards'])->name('rapports.retards');
     Route::get('/rapports/biometrique', [RapportController::class, 'biometrique'])->name('rapports.biometrique');
-    Route::get('/rapports/export/pdf', [RapportController::class, 'exportPdf'])->name('rapports.export.pdf');
-    Route::get('/rapports/export/excel', [RapportController::class, 'exportExcel'])->name('rapports.export.excel');
+    
+    // Nouveaux rapports dynamiques
+    Route::get('/rapports/global-multi-periode', [RapportController::class, 'globalMultiPeriode'])->name('rapports.global-multi-periode');
+    Route::get('/rapports/ponctualite-assiduite', [RapportController::class, 'ponctualiteAssiduite'])->name('rapports.ponctualite-assiduite');
+    
+    // Export des rapports avec options
+    Route::get('/rapports/export-options', [RapportController::class, 'exportOptions'])->name('rapports.export-options');
+    Route::post('/rapports/export-pdf', [RapportController::class, 'exportPdf'])->name('rapports.export-pdf');
+    Route::get('/rapports/export-excel', [RapportController::class, 'exportExcel'])->name('rapports.export-excel');
 
     // Route API pour les données du tableau de bord
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData'])->name('api.dashboard-data');

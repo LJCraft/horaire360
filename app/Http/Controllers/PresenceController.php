@@ -94,35 +94,69 @@ class PresenceController extends Controller
                 'commentaire' => 'nullable|string',
             ]);
     
+            // Récupérer l'employé pour les messages d'erreur
+            $employe = Employe::find($validatedData['employe_id']);
+            $nomEmploye = $employe ? $employe->prenom . ' ' . $employe->nom : 'L\'employé';
+            $dateFormatee = Carbon::parse($validatedData['date'])->format('d/m/Y');
+    
             // Recherche du planning
             $planning = Planning::where('employe_id', $validatedData['employe_id'])
                 ->where('date_debut', '<=', $validatedData['date'])
                 ->where('date_fin', '>=', $validatedData['date'])
                 ->first();
     
-            // Déterminer le retard
-            $retard = false;
-            if ($planning) {
-                // Créer les objets Carbon pour les heures
-                $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut);
-                $heureArrivee = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
+            // Vérifier si un planning existe pour cet employé à cette date
+            if (!$planning) {
+                // Aucun planning défini pour cet employé à cette date
+                Log::warning("Tentative de pointage sans planning défini pour l'employé ID {$validatedData['employe_id']} à la date {$validatedData['date']}");
                 
-                // Ajouter 10 minutes au début du planning
-                $heureDebutPlanning->addMinutes(10);
-                
-                // Comparer les heures
-                $retard = $heureArrivee->gt($heureDebutPlanning);
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', "Impossible d'enregistrer ce pointage : aucun planning n'est défini pour {$nomEmploye} à la date du {$dateFormatee}. Veuillez d'abord créer un planning pour cet employé à cette date.");
             }
     
-            // Ajout des champs de retard
+            // Déterminer le retard
+            $retard = false;
+            // Créer les objets Carbon pour les heures
+            $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut);
+            $heureArrivee = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
+            
+            // Ajouter 10 minutes au début du planning (tolérance)
+            $heureDebutPlanning->addMinutes(10);
+            
+            // Comparer les heures
+            $retard = $heureArrivee->gt($heureDebutPlanning);
+    
+            // Déterminer le départ anticipé
+            $departAnticipe = false;
+            if (!empty($validatedData['heure_depart']) && $planning->heure_fin) {
+                $heureFinPlanning = \Carbon\Carbon::parse($planning->heure_fin);
+                $heureDepart = \Carbon\Carbon::parse($validatedData['heure_depart']);
+                
+                // Soustraire 10 minutes à l'heure de fin (tolérance)
+                $heureFinPlanning->subMinutes(10);
+                
+                // Comparer les heures
+                $departAnticipe = $heureDepart->lt($heureFinPlanning);
+            }
+    
+            // Ajout des champs de retard et départ anticipé
             $validatedData['retard'] = $retard;
-            $validatedData['depart_anticipe'] = false; // On peut ajouter la logique pour le départ anticipé plus tard
+            $validatedData['depart_anticipe'] = $departAnticipe;
     
             // Création de la présence
             $presence = Presence::create($validatedData);
             
+            $message = 'Présence créée avec succès';
+            if ($retard) {
+                $message .= ' (Retard détecté)';
+            }
+            if ($departAnticipe) {
+                $message .= ' (Départ anticipé détecté)';
+            }
+            
             return redirect()->route('presences.index')
-                ->with('success', 'Présence créée avec succès.');
+                ->with('success', $message . '.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de la création de la présence : ' . $e->getMessage());
             Log::error('Trace de la pile : ', $e->getTrace());
@@ -245,26 +279,39 @@ class PresenceController extends Controller
                     ->with('error', 'Une présence existe déjà pour cet employé à cette date.');
             }
             
+            // Récupérer l'employé pour les messages d'erreur
+            $employe = Employe::find($validatedData['employe_id']);
+            $nomEmploye = $employe ? $employe->prenom . ' ' . $employe->nom : 'L\'employé';
+            $dateFormatee = Carbon::parse($validatedData['date'])->format('d/m/Y');
+            
             // Recherche du planning pour déterminer le retard
             $planning = Planning::where('employe_id', $validatedData['employe_id'])
                 ->where('date_debut', '<=', $validatedData['date'])
                 ->where('date_fin', '>=', $validatedData['date'])
                 ->first();
             
+            // Vérifier si un planning existe pour cet employé à cette date
+            if (!$planning) {
+                // Aucun planning défini pour cet employé à cette date
+                Log::warning("Tentative de mise à jour d'un pointage sans planning défini pour l'employé ID {$validatedData['employe_id']} à la date {$validatedData['date']}");
+                
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', "Impossible de mettre à jour ce pointage : aucun planning n'est défini pour {$nomEmploye} à la date du {$dateFormatee}. Veuillez d'abord créer un planning pour cet employé à cette date.");
+            }
+            
             // Déterminer si l'employé est en retard (tolérance de 10 minutes)
             $retard = false;
             $departAnticipe = false;
             
-            if ($planning) {
-                $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut)->addMinutes(10);
-                $heureArriveeCarbon = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
-                $retard = $heureArriveeCarbon > $heureDebutPlanning;
-                
-                if (isset($validatedData['heure_depart']) && $planning->heure_fin) {
-                    $heureFinPlanning = \Carbon\Carbon::parse($planning->heure_fin)->subMinutes(10);
-                    $heureDepartCarbon = \Carbon\Carbon::parse($validatedData['heure_depart']);
-                    $departAnticipe = $heureDepartCarbon < $heureFinPlanning;
-                }
+            $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut)->addMinutes(10);
+            $heureArriveeCarbon = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
+            $retard = $heureArriveeCarbon > $heureDebutPlanning;
+            
+            if (isset($validatedData['heure_depart']) && $planning->heure_fin) {
+                $heureFinPlanning = \Carbon\Carbon::parse($planning->heure_fin)->subMinutes(10);
+                $heureDepartCarbon = \Carbon\Carbon::parse($validatedData['heure_depart']);
+                $departAnticipe = $heureDepartCarbon < $heureFinPlanning;
             }
             
             // Ajout des champs de retard et départ anticipé
@@ -586,6 +633,21 @@ class PresenceController extends Controller
         $isCheckIn = $type === 'check-in';
         $result['debug_info']['is_check_in'] = $isCheckIn;
         $result['debug_info']['type'] = $type;
+        
+        // Vérifier si un planning existe pour cet employé à cette date
+        $planning = Planning::where('employe_id', $data['employee_id'])
+            ->where('date_debut', '<=', $date)
+            ->where('date_fin', '>=', $date)
+            ->first();
+        
+        $result['debug_info']['planning_exists'] = $planning ? true : false;
+        
+        // Refuser le pointage si aucun planning n'est défini
+        if (!$planning) {
+            $result['message'] = "Impossible d'enregistrer le pointage pour {$employe->prenom} {$employe->nom} le {$date} : aucun planning n'est défini pour cet employé à cette date.";
+            $result['debug_info']['action'] = 'rejected_no_planning';
+            return $result;
+        }
         
         // Récupérer la présence existante pour cette date
         $presence = Presence::where('employe_id', $data['employee_id'])

@@ -14,7 +14,64 @@
         <h1 class="h3 mb-0 text-gray-800">
             <i class="fas fa-tachometer-alt me-2"></i>Tableau de bord administrateur
         </h1>
-        <div>
+        <div class="d-flex align-items-center">
+            <!-- Bouton de basculement du mode jour/nuit -->
+            <div class="theme-toggle-wrapper me-3">
+                <button class="theme-toggle-btn rounded-circle p-2 d-flex align-items-center justify-content-center" id="themeToggle" title="Basculer entre le mode jour et nuit">
+                    <i class="bi bi-sun-fill theme-toggle-icon" id="themeIcon"></i>
+                </button>
+            </div>
+            
+            <style>
+                .theme-toggle-btn {
+                    width: 40px;
+                    height: 40px;
+                    border: none;
+                    background: linear-gradient(145deg, #f0f0f0, #e6e6e6);
+                    box-shadow: 5px 5px 10px #d1d1d1, -5px -5px 10px #ffffff;
+                    transition: all 0.3s ease;
+                    cursor: pointer;
+                }
+                
+                [data-bs-theme="dark"] .theme-toggle-btn {
+                    background: linear-gradient(145deg, #1d2c4f, #162340);
+                    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.2), -5px -5px 10px rgba(42, 60, 97, 0.3);
+                }
+                
+                .theme-toggle-btn:hover {
+                    transform: translateY(-2px);
+                }
+                
+                .theme-toggle-btn:active {
+                    transform: translateY(1px);
+                    box-shadow: 3px 3px 6px #d1d1d1, -3px -3px 6px #ffffff;
+                }
+                
+                [data-bs-theme="dark"] .theme-toggle-btn:active {
+                    box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.2), -3px -3px 6px rgba(42, 60, 97, 0.3);
+                }
+                
+                .theme-toggle-icon {
+                    font-size: 1.2rem;
+                    color: #ffc107; /* couleur du soleil */
+                    transition: all 0.3s ease;
+                }
+                
+                [data-bs-theme="dark"] .theme-toggle-icon {
+                    color: #4f8eff; /* couleur de la lune */
+                }
+                
+                /* Animation de rotation lors du changement de thème */
+                .theme-toggle-btn.rotating .theme-toggle-icon {
+                    animation: rotate-icon 0.5s ease-in-out;
+                }
+                
+                @keyframes rotate-icon {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+            
             <button class="btn btn-sm btn-outline-secondary" id="refreshDashboard">
                 <i class="fas fa-sync-alt me-1"></i> Actualiser
             </button>
@@ -341,6 +398,105 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
     console.log('Initialisation des graphiques du tableau de bord...');
+    
+    // Gestion du mode jour/nuit avec animations élégantes
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const htmlElement = document.documentElement;
+    
+    // Vérifier s'il y a une préférence sauvegardée
+    const savedTheme = localStorage.getItem('horaire360-theme');
+    if (savedTheme) {
+        htmlElement.setAttribute('data-bs-theme', savedTheme);
+        updateThemeIcon(savedTheme);
+    }
+    
+    // Fonction pour mettre à jour l'icône selon le thème avec animation
+    function updateThemeIcon(theme) {
+        // Ajouter la classe d'animation
+        themeToggle.classList.add('rotating');
+        
+        // Délai pour permettre à l'animation de se dérouler avant de changer l'icône
+        setTimeout(() => {
+            if (theme === 'dark') {
+                themeIcon.classList.remove('bi-sun-fill');
+                themeIcon.classList.add('bi-moon-stars-fill');
+            } else {
+                themeIcon.classList.remove('bi-moon-stars-fill');
+                themeIcon.classList.add('bi-sun-fill');
+            }
+            
+            // Retirer la classe d'animation après la fin de l'animation
+            setTimeout(() => {
+                themeToggle.classList.remove('rotating');
+            }, 500);
+        }, 100);
+    }
+    
+    // Événement de clic pour basculer le thème avec feedback visuel
+    themeToggle.addEventListener('click', function() {
+        // Déterminer le thème actuel et le nouveau thème
+        const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        // Appliquer le nouveau thème
+        htmlElement.setAttribute('data-bs-theme', newTheme);
+        
+        // Sauvegarder la préférence de l'utilisateur
+        localStorage.setItem('horaire360-theme', newTheme);
+        
+        // Mettre à jour l'icône avec animation
+        updateThemeIcon(newTheme);
+        
+        // Feedback visuel temporaire pour confirmer le changement
+        const feedbackMessage = document.createElement('div');
+        feedbackMessage.className = 'theme-feedback';
+        feedbackMessage.textContent = newTheme === 'dark' ? 'Mode nuit activé' : 'Mode jour activé';
+        document.body.appendChild(feedbackMessage);
+        
+        // Afficher le message avec animation
+        setTimeout(() => {
+            feedbackMessage.classList.add('visible');
+            
+            // Supprimer le message après 2 secondes
+            setTimeout(() => {
+                feedbackMessage.classList.remove('visible');
+                setTimeout(() => {
+                    document.body.removeChild(feedbackMessage);
+                }, 300);
+            }, 2000);
+        }, 10);
+    });
+    
+    // Ajouter le style pour le feedback visuel
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .theme-feedback {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background-color: var(--bs-primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 9999;
+        }
+        
+        .theme-feedback.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        [data-bs-theme="dark"] .theme-feedback {
+            background-color: #4f8eff;
+            color: #ffffff;
+        }
+    `;
+    document.head.appendChild(styleElement);
     
     // Vérification que ApexCharts est bien chargé
     if (typeof ApexCharts === 'undefined') {

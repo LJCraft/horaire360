@@ -154,11 +154,15 @@
         border-color: #28a745 !important;
     }
     .jour-entier-event {
+        background-color: #ffc107 !important;
+        border-color: #ffc107 !important;
+        color: #212529 !important;
         background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent) !important;
         background-size: 1rem 1rem !important;
     }
     .horaire-event {
-        border-style: solid;
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
     }
     
     /* Tooltip personnalisé */

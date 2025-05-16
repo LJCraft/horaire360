@@ -113,7 +113,10 @@
                         <select class="form-select @error('poste_id') is-invalid @enderror" id="poste_id" name="poste_id" required>
                             <option value="">Sélectionner un poste</option>
                             @foreach($postes as $poste)
-                                <option value="{{ $poste->id }}" {{ old('poste_id') == $poste->id ? 'selected' : '' }}>
+                                <option value="{{ $poste->id }}" 
+                                    data-departement="{{ $poste->departement }}" 
+                                    data-grades="{{ $poste->grades_disponibles }}" 
+                                    {{ old('poste_id') == $poste->id ? 'selected' : '' }}>
                                     {{ $poste->nom }} ({{ $poste->departement }})
                                 </option>
                             @endforeach
@@ -122,6 +125,19 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
+                    <div class="col-md-6">
+                        <label for="grade" class="form-label">Grade</label>
+                        <select class="form-select @error('grade') is-invalid @enderror" id="grade" name="grade">
+                            <option value="">Sélectionner un grade</option>
+                            <!-- Les options de grade seront chargées dynamiquement en fonction du poste sélectionné -->
+                        </select>
+                        @error('grade')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <!-- Champ caché pour le département, sera rempli automatiquement en fonction du poste -->
+                        <input type="hidden" id="departement" name="departement" value="{{ old('departement') }}">
+                    </div>
+                </div>
                     <div class="col-md-6">
                         <label class="form-label d-block">Créer un compte utilisateur</label>
                         <div class="form-check form-switch">
@@ -167,6 +183,72 @@
         const emailInput = document.getElementById('email');
         const prenomInput = document.getElementById('prenom');
         const nomInput = document.getElementById('nom');
+        const posteSelect = document.getElementById('poste_id');
+        const departementInput = document.getElementById('departement');
+        
+        const gradeSelect = document.getElementById('grade');
+        
+        // Mettre à jour le département et les grades disponibles lorsque le poste est sélectionné
+        posteSelect.addEventListener('change', function() {
+            const selectedOption = posteSelect.options[posteSelect.selectedIndex];
+            if (selectedOption.value) {
+                const departement = selectedOption.getAttribute('data-departement');
+                departementInput.value = departement;
+                
+                // Récupérer les grades spécifiques au poste sélectionné
+                console.log(`Chargement des grades pour le poste ID: ${selectedOption.value}`);
+                
+                // Vider le select de grade
+                gradeSelect.innerHTML = '<option value="">Sélectionner un grade</option>';
+                
+                // Récupérer les grades disponibles depuis l'attribut data-grades
+                let gradesDisponibles = [];
+                try {
+                    const gradesJson = selectedOption.getAttribute('data-grades');
+                    console.log('Grades JSON:', gradesJson);
+                    
+                    if (gradesJson && gradesJson !== 'null' && gradesJson !== '') {
+                        gradesDisponibles = JSON.parse(gradesJson);
+                        console.log('Grades disponibles pour ce poste:', gradesDisponibles);
+                    } else {
+                        console.log('Aucun grade configuré pour ce poste');
+                    }
+                } catch (error) {
+                    console.error('Erreur lors du parsing des grades:', error);
+                }
+                
+                if (Array.isArray(gradesDisponibles) && gradesDisponibles.length > 0) {
+                    // Ajouter les options de grade disponibles
+                    gradesDisponibles.forEach(grade => {
+                        if (grade) { // Vérifier que le grade n'est pas null ou undefined
+                            const option = document.createElement('option');
+                            option.value = grade;
+                            option.textContent = grade;
+                            gradeSelect.appendChild(option);
+                        }
+                    });
+                    console.log(`${gradesDisponibles.length} grades chargés avec succès`);
+                } else {
+                    // Si aucun grade n'est défini pour ce poste, afficher un message
+                    console.log('Aucun grade disponible pour ce poste');
+                    gradeSelect.innerHTML = '<option value="">Aucun grade disponible pour ce poste</option>';
+                }
+            } else {
+                departementInput.value = '';
+                // Réinitialiser le select de grade
+                gradeSelect.innerHTML = '<option value="">Veuillez d\'abord sélectionner un poste</option>';
+            }
+        });
+        
+        // Initialiser le département et les grades si un poste est déjà sélectionné
+        if (posteSelect.value) {
+            const selectedOption = posteSelect.options[posteSelect.selectedIndex];
+            const departement = selectedOption.getAttribute('data-departement');
+            departementInput.value = departement;
+            
+            // Déclencher l'événement change pour charger les grades
+            posteSelect.dispatchEvent(new Event('change'));
+        }
         const emailFeedback = document.getElementById('email-feedback');
         
         checkEmailBtn.addEventListener('click', function() {

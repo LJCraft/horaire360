@@ -1,4 +1,4 @@
-<!-- @extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Ajouter un pointage')
 
@@ -15,6 +15,13 @@
         </a>
     </div>
 </div>
+
+@if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        <strong><i class="bi bi-exclamation-triangle-fill me-2"></i>Erreur :</strong> {{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+    </div>
+@endif
 
 <div class="card shadow-sm">
     <div class="card-body">
@@ -69,74 +76,16 @@
                     @enderror
                 </div>
                 
-                <div class="col-12 mt-4">
+                <div class="col-12 mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-save"></i> Enregistrer
                     </button>
-                    @if(session('error'))
-    <div class="alert alert-danger" role="alert">
-        {{ session('error') }}
-    </div>
-@endif
                     <a href="{{ route('presences.index') }}" class="btn btn-secondary">
                         <i class="bi bi-x"></i> Annuler
                     </a>
                 </div>
-                <button type="submit" class="btn btn-primary" id="submitBtn">
-    <i class="bi bi-save"></i> Enregistrer
-</button>
             </div>
         </form>
     </div>
 </div>
 @endsection
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const submitBtn = document.getElementById('submitBtn');
-        const form = document.getElementById('presenceForm');
-        
-        if (submitBtn && form) {
-            submitBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('Bouton soumis');
-                
-                // Récupérer les données du formulaire manuellement
-                const formData = {
-                    employe_id: form.querySelector('#employe_id').value,
-                    date: form.querySelector('#date').value,
-                    heure_arrivee: form.querySelector('#heure_arrivee').value,
-                    heure_depart: form.querySelector('#heure_depart').value,
-                    commentaire: form.querySelector('#commentaire').value
-                };
-                
-                // Afficher les données dans un élément visible
-                const debugDiv = document.createElement('div');
-                debugDiv.style.position = 'fixed';
-                debugDiv.style.top = '10px';
-                debugDiv.style.right = '10px';
-                debugDiv.style.backgroundColor = 'white';
-                debugDiv.style.padding = '10px';
-                debugDiv.style.border = '1px solid #ccc';
-                debugDiv.style.zIndex = '9999';
-                
-                let debugText = 'Données du formulaire:\n';
-                for (const [key, value] of Object.entries(formData)) {
-                    debugText += `${key}: ${value}\n`;
-                }
-                
-                debugDiv.textContent = debugText;
-                document.body.appendChild(debugDiv);
-                
-                // Soumettre le formulaire après 5 secondes
-                setTimeout(() => {
-                    form.submit();
-                }, 5000);
-            });
-        }
-    });
-</script> -->
-@if(session('error'))
-    <div class="alert alert-danger mt-4" role="alert">
-        {{ session('error') }}
-    </div>
-@endif

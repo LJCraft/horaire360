@@ -248,22 +248,26 @@ class PlanningDepartementController extends Controller
         
         $postes = $postesQuery->orderBy('departement')->orderBy('nom')->get();
         
-        // Générer des couleurs distinctes pour chaque poste
+        // Couleurs fixes correspondant à la légende
         $colors = [
-            '#4285F4', '#EA4335', '#FBBC05', '#34A853', // Google colors
-            '#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', // Flat UI colors
-            '#607D8B', '#FF5722', '#795548', '#9C27B0', '#673AB7', '#3F51B5', // Material colors
-            '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107', '#FF9800'  // More Material colors
+            'horaire' => '#0d6efd', // Bleu Bootstrap pour horaire normal
+            'repos' => '#28a745',   // Vert Bootstrap pour repos
+            'jour_entier' => '#ffc107' // Jaune Bootstrap pour journée entière
         ];
         
+        // Générer des nuances pour différencier les postes
+        $posteColors = [];
+        $hueStep = 30; // Différence de teinte entre les postes
+        $baseHue = 210; // Teinte de base (bleu)
+        
+        foreach ($postes as $index => $poste) {
+            $hue = ($baseHue + ($index * $hueStep)) % 360;
+            $posteColors[$poste->id] = "hsl({$hue}, 70%, 45%)";
+        }
+        
         $events = [];
-        $colorIndex = 0;
         
         foreach ($postes as $poste) {
-            // Attribuer une couleur à ce poste
-            $posteColor = $colors[$colorIndex % count($colors)];
-            $colorIndex++;
-            
             // Récupérer les IDs des employés de ce poste
             $employeIds = $poste->employes->pluck('id')->toArray();
             
@@ -352,18 +356,19 @@ class PlanningDepartementController extends Controller
                     $count = count($group['employes']);
                     $title = $poste->nom . ' (' . $count . ')';
                     
-                    // Déterminer l'apparence en fonction du type
-                    $backgroundColor = $posteColor;
-                    $borderColor = $posteColor;
+                    // Déterminer le type pour appliquer la couleur correspondante
+                    $type = $group['type'];
+                    
+                    // Appliquer les couleurs selon le type
+                    $backgroundColor = $colors[$type];
+                    $borderColor = $backgroundColor;
                     $textColor = '#FFFFFF';
                     $className = 'poste-event';
                     
-                    if ($group['type'] === 'repos') {
-                        $backgroundColor = '#28a745'; // vert pour repos
-                        $borderColor = '#28a745';
+                    // Ajouter la classe spécifique au type
+                    if ($type === 'repos') {
                         $className .= ' repos-event';
-                    } elseif ($group['type'] === 'jour_entier') {
-                        // Garder la couleur du poste mais ajouter une classe spécifique
+                    } elseif ($type === 'jour_entier') {
                         $className .= ' jour-entier-event';
                     } else {
                         // Pour les horaires spécifiques, ajouter les heures au titre
@@ -384,7 +389,7 @@ class PlanningDepartementController extends Controller
                         'extendedProps' => [
                             'poste' => $poste->nom,
                             'departement' => $poste->departement,
-                            'type' => $group['type'],
+                            'type' => $type,
                             'heure_debut' => $group['heure_debut'],
                             'heure_fin' => $group['heure_fin'],
                             'employes' => $group['employes'],

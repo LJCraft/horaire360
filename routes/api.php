@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\BiometricAttendanceController;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\PosteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,3 +40,6 @@ Route::middleware(['mobile.verify'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 }); 
+
+// Route pour récupérer les grades disponibles pour un poste
+Route::get('/postes/{poste}/grades', [PosteController::class, 'getGradesDisponibles']);

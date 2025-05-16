@@ -16,6 +16,13 @@
     </div>
 </div>
 
+@if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        <strong><i class="bi bi-exclamation-triangle-fill me-2"></i>Erreur :</strong> {{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+    </div>
+@endif
+
 <div class="card shadow-sm">
     <div class="card-body">
         <form action="{{ route('presences.update', $presence) }}" method="POST">
@@ -70,7 +77,7 @@
                     @enderror
                 </div>
                 
-                <div class="col-12 mt-4">
+                <div class="col-12 mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-save"></i> Enregistrer les modifications
                     </button>

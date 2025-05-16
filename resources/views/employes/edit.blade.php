@@ -120,7 +120,10 @@
                         <select class="form-select @error('poste_id') is-invalid @enderror" id="poste_id" name="poste_id" required>
                             <option value="">Sélectionner un poste</option>
                             @foreach($postes as $poste)
-                                <option value="{{ $poste->id }}" {{ old('poste_id', $employe->poste_id) == $poste->id ? 'selected' : '' }}>
+                                <option value="{{ $poste->id }}" 
+                                    data-departement="{{ $poste->departement }}" 
+                                    data-grades="{{ $poste->grades_disponibles }}" 
+                                    {{ old('poste_id', $employe->poste_id) == $poste->id ? 'selected' : '' }}>
                                     {{ $poste->nom }} ({{ $poste->departement }})
                                 </option>
                             @endforeach
@@ -129,6 +132,21 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
+                    <div class="col-md-6">
+                        <label for="grade" class="form-label">Grade</label>
+                        <select class="form-select @error('grade') is-invalid @enderror" id="grade" name="grade">
+                            <option value="">Sélectionner un grade</option>
+                            <!-- Les options de grade seront chargées dynamiquement en fonction du poste sélectionné -->
+                        </select>
+                        @error('grade')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <!-- Champ caché pour le département, sera rempli automatiquement en fonction du poste -->
+                        <input type="hidden" id="departement" name="departement" value="{{ old('departement', $employe->departement) }}">
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="statut" class="form-label">Statut <span class="text-danger">*</span></label>
                         <select class="form-select @error('statut') is-invalid @enderror" id="statut" name="statut" required>
@@ -193,9 +211,9 @@
     // Fonction pour réinitialiser l'image
     function resetImage() {
         document.getElementById('photo_profil').value = '';
-        document.getElementById('preview_image').src = '{{ $employe->photo_profil ? asset('storage/photos/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . substr($employe->prenom, 0, 1) . substr($employe->nom, 0, 1) . '&background=random&color=fff&size=256' }}';
+        document.getElementById('preview_image').src = "{{ $employe->photo_profil ? asset('storage/' . $employe->photo_profil) : 'https://ui-avatars.com/api/?name=' . urlencode($employe->prenom . ' ' . $employe->nom) . '&background=random&color=fff&size=256' }}";
     }
-
+    
     document.getElementById('photo_profil').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
@@ -204,6 +222,114 @@
                 document.getElementById('preview_image').src = e.target.result;
             }
             reader.readAsDataURL(file);
+        }
+    });
+    
+    // Gestion du département et des grades en fonction du poste sélectionné
+    document.addEventListener('DOMContentLoaded', function() {
+        const posteSelect = document.getElementById('poste_id');
+        const departementInput = document.getElementById('departement');
+        const gradeSelect = document.getElementById('grade');
+        const currentGrade = "{{ old('grade', $employe->grade) }}"; // Sauvegarder le grade actuel
+        
+        // Mettre à jour le département et les grades disponibles lorsque le poste est sélectionné
+        posteSelect.addEventListener('change', function() {
+            const selectedOption = posteSelect.options[posteSelect.selectedIndex];
+            if (selectedOption.value) {
+                const departement = selectedOption.getAttribute('data-departement');
+                departementInput.value = departement;
+                
+                // Récupérer les grades spécifiques au poste sélectionné
+                console.log(`Chargement des grades pour le poste ID: ${selectedOption.value}, grade actuel: ${currentGrade}`);
+                
+                // Vider le select de grade
+                gradeSelect.innerHTML = '<option value="">Sélectionner un grade</option>';
+                
+                // Récupérer les grades disponibles depuis l'attribut data-grades
+                let gradesDisponibles = [];
+                try {
+                    const gradesJson = selectedOption.getAttribute('data-grades');
+                    console.log('Grades JSON:', gradesJson);
+                    
+                    if (gradesJson && gradesJson !== 'null' && gradesJson !== '') {
+                        gradesDisponibles = JSON.parse(gradesJson);
+                        console.log('Grades disponibles pour ce poste:', gradesDisponibles);
+                    } else {
+                        console.log('Aucun grade configuré pour ce poste');
+                    }
+                } catch (error) {
+                    console.error('Erreur lors du parsing des grades:', error);
+                }
+                
+                if (Array.isArray(gradesDisponibles) && gradesDisponibles.length > 0) {
+                    let gradeActuelTrouve = false;
+                    
+                    // Ajouter les options de grade disponibles
+                    gradesDisponibles.forEach(grade => {
+                        if (grade) { // Vérifier que le grade n'est pas null ou undefined
+                            const option = document.createElement('option');
+                            option.value = grade;
+                            option.textContent = grade;
+                            if (grade === currentGrade) {
+                                option.selected = true;
+                                gradeActuelTrouve = true;
+                                console.log(`Grade actuel '${currentGrade}' trouvé dans les grades disponibles`);
+                            }
+                            gradeSelect.appendChild(option);
+                        }
+                    });
+                    
+                    console.log(`${gradesDisponibles.length} grades chargés avec succès`);
+                    
+                    // Si le grade actuel n'est pas dans la liste mais existe
+                    if (!gradeActuelTrouve && currentGrade) {
+                        console.log(`Grade actuel '${currentGrade}' non trouvé dans les grades disponibles, l'ajout comme option`);
+                        const option = document.createElement('option');
+                        option.value = currentGrade;
+                        option.textContent = currentGrade + ' (grade actuel)';
+                        option.selected = true;
+                        option.style.fontStyle = 'italic';
+                        gradeSelect.appendChild(option);
+                    }
+                } else {
+                    // Si aucun grade n'est défini pour ce poste, afficher un message
+                    console.log('Aucun grade disponible pour ce poste');
+                    gradeSelect.innerHTML = '<option value="">Aucun grade disponible pour ce poste</option>';
+                    
+                    // Si l'employé a déjà un grade, l'ajouter comme option
+                    if (currentGrade) {
+                        console.log(`Ajout du grade actuel '${currentGrade}' comme seule option`);
+                        const option = document.createElement('option');
+                        option.value = currentGrade;
+                        option.textContent = currentGrade + ' (grade actuel)';
+                        option.selected = true;
+                        gradeSelect.appendChild(option);
+                    }
+                }
+            } else {
+                departementInput.value = '';
+                // Réinitialiser le select de grade
+                gradeSelect.innerHTML = '<option value="">Veuillez d\'abord sélectionner un poste</option>';
+                
+                // Si l'employé a déjà un grade, l'ajouter comme option
+                if (currentGrade) {
+                    const option = document.createElement('option');
+                    option.value = currentGrade;
+                    option.textContent = currentGrade + ' (grade actuel)';
+                    option.selected = true;
+                    gradeSelect.appendChild(option);
+                }
+            }
+        });
+        
+        // Initialiser le département et les grades si un poste est déjà sélectionné
+        if (posteSelect.value) {
+            const selectedOption = posteSelect.options[posteSelect.selectedIndex];
+            const departement = selectedOption.getAttribute('data-departement');
+            departementInput.value = departement;
+            
+            // Déclencher l'événement change pour charger les grades
+            posteSelect.dispatchEvent(new Event('change'));
         }
     });
     

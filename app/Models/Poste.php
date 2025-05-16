@@ -9,7 +9,7 @@ class Poste extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['nom', 'description', 'departement'];
+    protected $fillable = ['nom', 'description', 'departement', 'grades_disponibles'];
     
     /**
      * Relation avec les employés
