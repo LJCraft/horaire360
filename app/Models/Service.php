@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Poste;
 
 class Service extends Model
 {
@@ -31,11 +32,15 @@ class Service extends Model
     ];
 
     /**
-     * Get the department that owns the service.
+     * Get the department name for this service.
+     * 
+     * @return string|null
      */
-    public function departement()
+    public function getDepartementAttribute()
     {
-        return $this->belongsTo(Departement::class);
+        // Récupérer le nom du département à partir de la colonne departement de la table postes
+        $poste = Poste::where('departement', $this->departement_id)->first();
+        return $poste ? $poste->departement : null;
     }
 
     /**

@@ -458,37 +458,9 @@ use Illuminate\Support\Facades\Route;
                                             <i class="bi bi-plus-circle me-2"></i> Ajouter un pointage
                                         </a>
                                     </li>
-                                    <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <a class="dropdown-item" href="{{ route('rapports.biometrique') }}">
                                             <i class="bi bi-phone me-2"></i> Pointages biométriques
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item" href="{{ route('presences.importForm') }}">
-                                            <i class="bi bi-upload me-2"></i> Importer des pointages
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{{ route('presences.template') }}">
-                                            <i class="bi bi-file-earmark-excel me-2"></i> Télécharger le modèle
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item" href="{{ route('presences.export') }}">
-                                            <i class="bi bi-download me-2"></i> Exporter les pointages
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{{ route('presences.export.excel') }}">
-                                            <i class="bi bi-file-earmark-excel me-2"></i> Exporter en Excel
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{{ route('presences.export.pdf') }}">
-                                            <i class="bi bi-file-earmark-pdf me-2"></i> Exporter en PDF
                                         </a>
                                     </li>
                                 </ul>
@@ -681,7 +653,8 @@ use Illuminate\Support\Facades\Route;
     
     @stack('scripts')
     
-    <!-- Scripts Bootstrap -->
+    <!-- jQuery et Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

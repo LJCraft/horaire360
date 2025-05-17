@@ -13,8 +13,10 @@ class Employe extends Model
     
     protected $fillable = [
         'nom', 'prenom', 'email', 'telephone', 'date_naissance', 'date_embauche',
-        'poste_id', 'statut', 'photo_profil', 'user_id', 'grade', 'departement'
+        'poste_id', 'statut', 'photo_profil', 'user_id', 'grade_id', 'departement'
     ];
+
+    protected $with = ['grade', 'poste'];
 
     protected $casts = [
         'date_embauche' => 'datetime',
@@ -46,6 +48,24 @@ class Employe extends Model
     {
         return $this->hasMany(Planning::class);
     }
+
+    /**
+     * Accesseur pour le département
+     */
+    public function getDepartementAttribute()
+    {
+        return $this->poste ? $this->poste->departement : null;
+    }
+    
+    /**
+     * Relation avec le département
+     * Cette relation utilise le modèle Departement qui pointe vers la table postes
+     */
+    public function departement()
+    {
+        // Utiliser le modèle Departement qui pointe vers la table postes
+        return $this->belongsTo(Departement::class, 'departement', 'departement');
+    }
     
     /**
      * Relation avec les présences
@@ -53,6 +73,14 @@ class Employe extends Model
     public function presences()
     {
         return $this->hasMany(Presence::class);
+    }
+
+    /**
+     * Relation avec le grade
+     */
+    public function grade()
+    {
+        return $this->belongsTo(Grade::class);
     }
     
     /**
@@ -84,32 +112,14 @@ class Employe extends Model
     }
     
     /**
-     * Accesseur pour le service (département)
-     * Utilise la colonne departement ou simule un service si la colonne est vide
+     * Relation avec le service (pour compatibilité)
+     * Cette relation est ajoutée pour éviter l'erreur "Call to undefined relationship [service]"
+     * Elle utilise le département du poste au lieu de faire référence à une table services
      */
-    public function getServiceAttribute()
+    public function service()
     {
-        // Si le département est défini, l'utiliser
-        if (!empty($this->departement)) {
-            return (object)[
-                'nom' => $this->departement
-            ];
-        }
-        
-        // Sinon, attribuer un service fictif basé sur l'ID du poste
-        $services = [
-            'Ressources Humaines',
-            'Informatique',
-            'Finance',
-            'Marketing',
-            'Opérations'
-        ];
-        
-        $index = ($this->poste_id ?? 1) % count($services);
-        
-        return (object)[
-            'nom' => $services[$index]
-        ];
+        // Retourner une relation vide qui ne fait pas référence à une table services
+        return $this->belongsTo(Poste::class, 'poste_id')->select(['id', 'departement as nom']);
     }
     
     /**

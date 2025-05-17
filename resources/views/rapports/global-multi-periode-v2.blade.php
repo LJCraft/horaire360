@@ -7,14 +7,14 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h1 class="h2 fw-bold text-primary"><i class="bi bi-clock-history me-2"></i>Rapport Global de Présence</h1>
-            <p class="text-muted">Affichage des heures de pointage pour chaque employé sans calcul ni analyse</p>
+            <p class="text-muted">Affichage des heures de pointage pour chaque employé sans calcul ni évaluation</p>
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group">
-                <a href="{{ route('rapports.export-options', ['type' => 'global-multi-periode']) }}" class="btn btn-outline-primary">
+                <a href="{{ route('rapports.export-pdf', ['type' => 'global-multi-periode-v2']) }}" class="btn btn-outline-primary">
                     <i class="bi bi-file-pdf"></i> PDF
                 </a>
-                <a href="{{ route('rapports.export-options', ['type' => 'global-multi-periode', 'format' => 'excel']) }}" class="btn btn-outline-success">
+                <a href="{{ route('rapports.export-excel', ['type' => 'global-multi-periode-v2']) }}" class="btn btn-outline-success">
                     <i class="bi bi-file-excel"></i> Excel
                 </a>
             </div>
@@ -55,12 +55,11 @@
             <span class="badge bg-primary rounded-pill">{{ count($employes) }} employés</span>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive-container">
-                <div class="table-wrapper">
-                    <table class="table table-hover mb-0 rapport-global-table">
-                        <thead class="table-light sticky-header">
-                            <tr>
-                                <th class="sticky-col">Nom & prénom</th>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 rapport-global-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="sticky-col">Nom & prénom</th>
                             @foreach($jours as $jour)
                             <th class="text-center date-header" colspan="2">{{ \Carbon\Carbon::parse($jour)->format('d-M-Y') }}</th>
                             @endforeach
@@ -99,26 +98,17 @@
                                                         ->where('date', $jour)
                                                         ->first();
                                 @endphp
-                                <td class="text-center pointage-cell">
-                                    @if($presence && $presence->heure_arrivee)
-                                        <span class="pointage-time">{{ \Carbon\Carbon::parse($presence->heure_arrivee)->format('H:i') }}</span>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
+                                <td class="text-center">
+                                    {{ $presence && $presence->heure_arrivee ? \Carbon\Carbon::parse($presence->heure_arrivee)->format('H:i') : '-' }}
                                 </td>
-                                <td class="text-center pointage-cell">
-                                    @if($presence && $presence->heure_depart)
-                                        <span class="pointage-time">{{ \Carbon\Carbon::parse($presence->heure_depart)->format('H:i') }}</span>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
+                                <td class="text-center">
+                                    {{ $presence && $presence->heure_depart ? \Carbon\Carbon::parse($presence->heure_depart)->format('H:i') : '-' }}
                                 </td>
                             @endforeach
                         </tr>
                         @endforeach
                     </tbody>
-                    </table>
-                </div>
+                </table>
             </div>
         </div>
         <div class="card-footer bg-white text-muted small">
@@ -127,7 +117,7 @@
                     <span class="me-3"><i class="bi bi-info-circle me-1"></i> AR: Heure d'arrivée | DP: Heure de départ</span>
                 </div>
                 <div>
-                    <span>Période: {{ $periodeLabel }} | Dernière mise à jour: {{ now()->format('d/m/Y H:i') }}</span>
+                    <span>Dernière mise à jour: {{ now()->format('d/m/Y H:i') }}</span>
                 </div>
             </div>
         </div>
@@ -137,22 +127,7 @@
 
 @push('styles')
 <style>
-    /* Styles pour le tableau responsive avec en-tête fixe et défilement horizontal */
-    .table-responsive-container {
-        position: relative;
-        width: 90%;
-        margin: 0 auto;
-        overflow: hidden;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-    
-    .table-wrapper {
-        overflow-x: auto;
-        max-height: 70vh;
-        padding-bottom: 5px;
-    }
-    
+    /* Styles pour le tableau responsive */
     .rapport-global-table {
         width: 100%;
         border-collapse: separate;
@@ -164,16 +139,6 @@
         padding: 0.75rem;
         vertical-align: middle;
         border-top: 1px solid #dee2e6;
-        white-space: nowrap;
-    }
-    
-    /* Styles pour l'en-tête fixe */
-    .sticky-header {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background-color: #f8f9fa;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     
     /* Style pour la colonne fixe */
@@ -181,83 +146,115 @@
         position: sticky;
         left: 0;
         background-color: #fff;
-        z-index: 9;
+        z-index: 1;
         border-right: 1px solid #dee2e6;
         min-width: 200px;
-        box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05);
     }
     
-    .sticky-header .sticky-col {
+    thead .sticky-col {
         background-color: #f8f9fa;
-        z-index: 11;
-    }
-    
-    /* Amélioration de l'apparence des cellules */
-    .rapport-global-table tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.05);
-    }
-    
-    /* Animation subtile pour le survol */
-    .rapport-global-table tbody tr {
-        transition: background-color 0.2s ease;
+        z-index: 2;
     }
     
     /* Styles pour les en-têtes de date */
-    
     .date-header {
-        background-color: #f8f9fa;
-        font-weight: 600;
-        border-bottom: 2px solid #4e73df;
-        color: #4e73df;
+        background-color: #f1f5f9;
+        font-weight: 500;
+        border-bottom: 1px solid #dee2e6;
     }
     
+    /* Styles pour les sous-en-têtes */
     .sub-header {
+        background-color: #f8f9fa;
+        font-weight: normal;
         font-size: 0.85rem;
-        background-color: #f1f3f9;
     }
     
     .ar-header {
-        color: #2c7be5;
+        border-right: 1px dashed #dee2e6;
     }
     
-    .dp-header {
-        color: #e63757;
-    }
-    
-    .pointage-cell {
-        transition: background-color 0.2s;
-    }
-    
-    .pointage-cell:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .pointage-time {
-        font-weight: 500;
-        font-family: 'Courier New', monospace;
-    }
-    
-    /* Style pour l'avatar avec initiales */
+    /* Style pour les initiales */
     .avatar-initials {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 13px;
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        font-size: 0.8rem;
+        font-weight: 500;
     }
     
-    /* Styles responsifs */
-    @media (max-width: 768px) {
-        .sticky-col {
-            min-width: 180px;
+    /* Styles pour l'impression */
+    @media print {
+        body {
+            font-size: 10pt;
+            color: #000;
         }
         
-        .rapport-global-table th, .rapport-global-table td {
-            padding: 0.5rem;
+        .container-fluid {
+            width: 100%;
+            padding: 0;
+        }
+        
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        .card-header, .card-footer {
+            background-color: #fff !important;
+        }
+        
+        .sticky-col {
+            position: static;
+            background-color: #fff !important;
+            border-right: 1px solid #000;
+        }
+        
+        .date-header, .sub-header {
+            background-color: #f9f9f9 !important;
+            color: #000 !important;
+        }
+        
+        .table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+        
+        .table th, .table td {
+            border: 1px solid #ddd !important;
+            padding: 4px !important;
+        }
+        
+        .avatar-initials {
+            border: 1px solid #ddd;
+            color: #000 !important;
+            background-color: #f9f9f9 !important;
+        }
+        
+        .btn-group, .btn, #periode-precedente, #periode-suivante, #aujourdhui {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 18pt !important;
+            margin-bottom: 10px !important;
+        }
+        
+        h5 {
+            font-size: 12pt !important;
+        }
+        
+        /* Forcer les sauts de page */
+        .page-break {
+            page-break-after: always;
+        }
+        
+        /* Éviter les débordements horizontaux */
+        .table-responsive {
+            overflow-x: visible !important;
         }
     }
 </style>
@@ -269,18 +266,17 @@
         // Variables pour la gestion de la période
         let periode = '{{ $periode }}';
         let dateDebut = '{{ $dateDebut }}';
-        let dateFin = '{{ $dateFin }}';
         
         // Gestion des boutons de période
         const periodeBtns = document.querySelectorAll('.periode-btn');
         periodeBtns.forEach(btn => {
             btn.addEventListener('click', function() {
-                periode = this.dataset.periode;
-                chargerRapport();
+                const nouvellePeriode = this.dataset.periode;
+                window.location.href = `{{ route('rapports.global-multi-periode-v2') }}?periode=${nouvellePeriode}&date=${dateDebut}`;
             });
         });
         
-        // Gestion des boutons de navigation
+        // Gestion de la navigation entre périodes
         document.getElementById('periode-precedente').addEventListener('click', function() {
             naviguerPeriode('precedente');
         });
@@ -290,14 +286,11 @@
         });
         
         document.getElementById('aujourdhui').addEventListener('click', function() {
-            dateDebut = '{{ \Carbon\Carbon::now()->format("Y-m-d") }}';
-            dateFin = dateDebut;
-            chargerRapport();
+            window.location.href = `{{ route('rapports.global-multi-periode-v2') }}?periode=${periode}`;
         });
         
-        // Fonction pour naviguer entre les périodes
         function naviguerPeriode(direction) {
-            const date = new Date(dateDebut);
+            let date = new Date(dateDebut);
             
             if (periode === 'jour') {
                 date.setDate(date.getDate() + (direction === 'precedente' ? -1 : 1));
@@ -305,21 +298,10 @@
                 date.setDate(date.getDate() + (direction === 'precedente' ? -7 : 7));
             } else if (periode === 'mois') {
                 date.setMonth(date.getMonth() + (direction === 'precedente' ? -1 : 1));
-            } else if (periode === 'annee') {
-                date.setFullYear(date.getFullYear() + (direction === 'precedente' ? -1 : 1));
             }
             
-            dateDebut = date.toISOString().split('T')[0];
-            chargerRapport();
-        }
-        
-        // Fonction pour charger le rapport avec les nouveaux paramètres
-        function chargerRapport() {
-            const url = new URL('{{ route("rapports.global-multi-periode") }}', window.location.origin);
-            url.searchParams.append('periode', periode);
-            url.searchParams.append('date_debut', dateDebut);
-            
-            window.location.href = url.toString();
+            const nouvelleDate = date.toISOString().split('T')[0];
+            window.location.href = `{{ route('rapports.global-multi-periode-v2') }}?periode=${periode}&date=${nouvelleDate}`;
         }
     });
 </script>

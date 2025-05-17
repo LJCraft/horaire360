@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Poste;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PosteController extends Controller
 {

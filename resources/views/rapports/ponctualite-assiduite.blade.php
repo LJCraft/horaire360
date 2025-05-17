@@ -1,13 +1,18 @@
 @extends('layouts.app')
 
-@section('title', 'Rapport Ponctualité & Assiduité')
+@section('title', 'Rapport Ponctualité & Assiduité – ' . ucfirst($periode))
+
+@push('scripts')
+<script src="{{ asset('js/rapport-assiduite.js') }}"></script>
+<script src="{{ asset('js/rapport-assiduite-avance.js') }}"></script>
+@endpush
 
 @section('content')
-<div class="container-fluid">
+<div class="container-fluid" id="rapport-container" data-periode="{{ $periode }}" data-date-debut="{{ $dateDebut }}">
     <div class="row mb-4">
         <div class="col-md-8">
             <h1 class="h2 fw-bold text-primary"><i class="bi bi-graph-up me-2"></i>Rapport Ponctualité & Assiduité</h1>
-            <p class="text-muted">Analyse détaillée des indicateurs de performance avec calculs automatisés</p>
+            <p class="text-muted">Analyse détaillée des indicateurs de performance RH avec calculs automatisés</p>
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group shadow-sm">
@@ -48,7 +53,6 @@
                     <button type="button" class="btn btn-outline-primary periode-btn {{ $periode == 'jour' ? 'active' : '' }}" data-periode="jour">Jour</button>
                     <button type="button" class="btn btn-outline-primary periode-btn {{ $periode == 'semaine' ? 'active' : '' }}" data-periode="semaine">Semaine</button>
                     <button type="button" class="btn btn-outline-primary periode-btn {{ $periode == 'mois' ? 'active' : '' }}" data-periode="mois">Mois</button>
-                    <button type="button" class="btn btn-outline-primary periode-btn {{ $periode == 'annee' ? 'active' : '' }}" data-periode="annee">Année</button>
                 </div>
                 <div class="d-flex align-items-center">
                     <button type="button" class="btn btn-sm btn-outline-secondary me-2 shadow-sm" id="periode-precedente" title="Période précédente">
@@ -83,32 +87,36 @@
                     <input type="hidden" name="date_debut" value="{{ $dateDebut }}">
                     
                     <div class="col-md-3">
-                        <label for="service_id" class="form-label fw-medium">Service</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-white"><i class="bi bi-building"></i></span>
-                            <select class="form-select" id="service_id" name="service_id">
-                                <option value="">Tous les services</option>
-                                @foreach($services as $service)
-                                    <option value="{{ $service->id }}" {{ $serviceId == $service->id ? 'selected' : '' }}>
-                                        {{ $service->nom }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
                         <label for="departement_id" class="form-label fw-medium">Département</label>
                         <div class="input-group">
                             <span class="input-group-text bg-white"><i class="bi bi-diagram-3"></i></span>
                             <select class="form-select" id="departement_id" name="departement_id">
                                 <option value="">Tous les départements</option>
                                 @foreach($departements as $departement)
-                                    <option value="{{ $departement->id }}" {{ $departementId == $departement->id ? 'selected' : '' }}>
-                                        {{ $departement->nom }}
+                                    <option value="{{ $departement->departement }}" {{ $departementId == $departement->departement ? 'selected' : '' }}>
+                                        {{ $departement->departement }}
                                     </option>
                                 @endforeach
                             </select>
                         </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="poste_id" class="form-label fw-medium">Poste</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-briefcase"></i></span>
+                            <select class="form-select" id="poste_id" name="poste_id">
+                                <option value="">Tous les postes</option>
+                                @foreach($postes as $poste)
+                                    <option value="{{ $poste->id }}" data-departement="{{ $poste->departement }}" {{ $posteId == $poste->id ? 'selected' : '' }} class="poste-option {{ $poste->departement ? 'dept-'.$poste->departement : 'no-dept' }}">
+                                        {{ $poste->nom }} @if($poste->departement) ({{ $poste->departement }}) @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-text text-muted small"><i class="bi bi-info-circle"></i> Sélectionnez d'abord un département</div>
+                        @if(!empty($departementMessage))
+                        <div class="form-text text-primary small mt-1"><i class="bi bi-check-circle"></i> {{ $departementMessage }}</div>
+                        @endif
                     </div>
                     <div class="col-md-3">
                         <label for="performance" class="form-label fw-medium">Performance</label>
@@ -124,9 +132,15 @@
                         </div>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="afficher_graphiques" name="afficher_graphiques" {{ $afficherGraphiques ? 'checked' : '' }}>
-                            <label class="form-check-label" for="afficher_graphiques"><i class="bi bi-bar-chart-line me-1"></i> Afficher les graphiques</label>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="afficher_graphiques" name="afficher_graphiques" value="1" {{ $afficherGraphiques ? 'checked' : '' }}>
+                            <label class="form-check-label" for="afficher_graphiques">Afficher les graphiques</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="use_ajax" name="use_ajax" value="1" checked>
+                            <label class="form-check-label" for="use_ajax">Mise à jour dynamique des graphiques</label>
+                            <small class="form-text text-muted d-block">Permet de mettre à jour les graphiques sans recharger la page</small>
                         </div>
                     </div>
                     <div class="col-md-12 text-end mt-3">
@@ -154,7 +168,8 @@
                     </button>
                     <ul class="dropdown-menu shadow-sm" aria-labelledby="dropdownMenuButton">
                         <li><a class="dropdown-item sort-link" href="#" data-sort="nom"><i class="bi bi-person me-2"></i>Nom</a></li>
-                        <li><a class="dropdown-item sort-link" href="#" data-sort="service"><i class="bi bi-building me-2"></i>Service</a></li>
+                        <li><a class="dropdown-item sort-link" href="#" data-sort="poste"><i class="bi bi-briefcase me-2"></i>Poste</a></li>
+                        <li><a class="dropdown-item sort-link" href="#" data-sort="grade"><i class="bi bi-award me-2"></i>Grade</a></li>
                         <li><a class="dropdown-item sort-link" href="#" data-sort="jours_travailles"><i class="bi bi-calendar-check me-2"></i>Jours travaillés</a></li>
                         <li><a class="dropdown-item sort-link" href="#" data-sort="ponctualite"><i class="bi bi-clock me-2"></i>Taux de ponctualité</a></li>
                         <li><a class="dropdown-item sort-link" href="#" data-sort="assiduite"><i class="bi bi-calendar-week me-2"></i>Taux d'assiduité</a></li>
@@ -163,22 +178,23 @@
             </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0 rapport-assiduite-table">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="bg-light sticky-col">Employé</th>
-                            <th class="bg-light">Service</th>
+            <div class="table-responsive-container">
+                <div class="table-wrapper">
+                    <table class="table table-hover mb-0 rapport-assiduite-table">
+                        <thead class="table-light sticky-header">
+                            <tr>
+                                <th class="bg-light sticky-col">Employé</th>
+                                <th class="bg-light">Département</th>
                             <th class="bg-light">Grade</th>
-                            <th class="bg-light">Fonction</th>
-                            <th class="text-center bg-light">Jours prévus</th>
-                            <th class="text-center bg-light">Jours travaillés</th>
-                            <th class="text-center bg-light">Heures prévues</th>
-                            <th class="text-center bg-light">Heures effectuées</th>
-                            <th class="text-center bg-light">Heures d'absence</th>
-                            <th class="text-center bg-light">Ponctualité</th>
-                            <th class="text-center bg-light">Assiduité</th>
-                            <th class="bg-light">Observations</th>
+                            <th class="bg-light">Poste</th>
+                            <th class="bg-light text-center">Jours prévus</th>
+                            <th class="bg-light text-center">Jours réalisés</th>
+                            <th class="bg-light text-center">Heures prévues</th>
+                            <th class="bg-light text-center">Heures faites</th>
+                            <th class="bg-light text-center">Heures d'absence</th>
+                            <th class="bg-light text-center">Taux ponctualité</th>
+                            <th class="bg-light text-center">Taux assiduité</th>
+                            <th class="bg-light">Observation RH</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -201,60 +217,46 @@
                                     </div>
                                 </div>
                             </td>
-                            <td>{{ $stat->employe->service->nom ?? '-' }}</td>
-                            <td>{{ $stat->employe->grade ?? '-' }}</td>
-                            <td>{{ $stat->employe->poste->nom ?? '-' }}</td>
-                            <td class="text-center">{{ $stat->jours_prevus }}</td>
-                            <td class="text-center fw-medium">{{ $stat->jours_travailles }}</td>
-                            <td class="text-center">{{ $stat->heures_prevues }}</td>
-                            <td class="text-center fw-medium">{{ $stat->heures_effectuees }}</td>
-                            <td class="text-center {{ $stat->heures_absence > 0 ? 'text-danger' : '' }}">{{ $stat->heures_absence }}</td>
-                            <td class="text-center">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <div class="progress me-2" style="width: 60px; height: 8px;">
-                                        <div class="progress-bar {{ getTauxClass($stat->taux_ponctualite) }}" role="progressbar" style="width: {{ $stat->taux_ponctualite }}%"></div>
-                                    </div>
-                                    <span class="fw-medium">{{ $stat->taux_ponctualite }}%</span>
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <div class="progress me-2" style="width: 60px; height: 8px;">
-                                        <div class="progress-bar {{ getTauxClass($stat->taux_assiduite) }}" role="progressbar" style="width: {{ $stat->taux_assiduite }}%"></div>
-                                    </div>
-                                    <span class="fw-medium">{{ $stat->taux_assiduite }}%</span>
-                                </div>
-                            </td>
+                            <td>{{ $stat->employe->departement ?? 'Non défini' }}</td>
+                            <td>{{ is_object($stat->employe->grade) ? $stat->employe->grade->nom : ($stat->employe->grade ?? 'Non défini') }}</td>
+                            <td>{{ $stat->employe->poste ? $stat->employe->poste->nom : 'Non défini' }}</td>
+                            <td class="text-center">{{ $stat->jours_prevus ?? $stat->jours_travailles }}</td>
+                            <td class="text-center">{{ $stat->jours_realises ?? $stat->jours_travailles }}</td>
+                            <td class="text-center">{{ $stat->heures_prevues ?? ($stat->jours_travailles * 8) }}</td>
+                            <td class="text-center">{{ $stat->heures_effectuees ?? ($stat->jours_travailles * 8) }}</td>
+                            <td class="text-center">{{ $stat->heures_absence ?? 0 }}</td>
+                            <td class="text-center fw-medium">{{ $stat->taux_ponctualite }}%</td>
+                            <td class="text-center fw-medium">{{ $stat->taux_assiduite }}%</td>
                             <td>
-                                @if($stat->taux_ponctualite >= 95 && $stat->taux_assiduite >= 95)
-                                    <span class="badge bg-success"><i class="bi bi-trophy me-1"></i>Excellent</span>
-                                @elseif($stat->taux_ponctualite >= 90 && $stat->taux_assiduite >= 90)
-                                    <span class="badge bg-primary"><i class="bi bi-clock-check me-1"></i>Très ponctuel</span>
-                                @elseif($stat->taux_ponctualite < 80)
-                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Retards fréquents</span>
-                                @elseif($stat->taux_assiduite < 80)
-                                    <span class="badge bg-danger"><i class="bi bi-calendar-x me-1"></i>Absences fréquentes</span>
-                                @else
-                                    <span class="badge bg-secondary"><i class="bi bi-dash-circle me-1"></i>Performance moyenne</span>
-                                @endif
+                                @php
+                                    $observation = '';
+                                    if ($stat->taux_ponctualite < 70) {
+                                        $observation .= 'Problème de ponctualité. ';
+                                    }
+                                    if ($stat->taux_assiduite < 70) {
+                                        $observation .= 'Assiduité insuffisante. ';
+                                    }
+                                    if (isset($stat->jours_realises) && isset($stat->jours_prevus) && $stat->jours_realises < ($stat->jours_prevus * 0.8)) {
+                                        $observation .= 'Absences fréquentes. ';
+                                    } elseif (isset($stat->nombre_retards) && $stat->nombre_retards > 3) {
+                                        $observation .= 'Retards fréquents. ';
+                                    }
+                                    if (empty($observation)) {
+                                        $observation = 'Performance satisfaisante';
+                                    }
+                                @endphp
+                                {{ $observation }}
                             </td>
                         </tr>
                         @endforeach
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
         </div>
         <div class="card-footer bg-white text-muted small">
             <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="me-3"><i class="bi bi-info-circle me-1"></i> Les taux sont calculés automatiquement en fonction des heures de pointage</span>
-                </div>
-                <div>
-                    <span class="badge bg-success me-1">Excellent</span>
-                    <span class="badge bg-primary me-1">Bon</span>
-                    <span class="badge bg-warning text-dark me-1">Moyen</span>
-                    <span class="badge bg-danger">Faible</span>
-                </div>
+                <span><i class="bi bi-info-circle me-1"></i> Les taux sont calculés automatiquement en fonction des heures de pointage</span>
             </div>
         </div>
     </div>
@@ -263,30 +265,22 @@
     @if($afficherGraphiques)
     <div class="row">
         <div class="col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
                     <h5 class="mb-0 text-primary"><i class="bi bi-clock-history me-2"></i>Taux de ponctualité</h5>
-                    <span class="badge bg-light text-primary border">Période: {{ $periodeLabel }}</span>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" id="ponctualiteChart"></div>
-                </div>
-                <div class="card-footer bg-white text-muted small">
-                    <i class="bi bi-info-circle me-1"></i> Pourcentage d'arrivées à l'heure par rapport aux horaires prévus
+                    <div id="ponctualiteChart" class="chart-container" style="height: 300px;"></div>
                 </div>
             </div>
         </div>
         <div class="col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
                     <h5 class="mb-0 text-primary"><i class="bi bi-calendar-check me-2"></i>Taux d'assiduité</h5>
-                    <span class="badge bg-light text-primary border">Période: {{ $periodeLabel }}</span>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" id="assiduiteChart"></div>
-                </div>
-                <div class="card-footer bg-white text-muted small">
-                    <i class="bi bi-info-circle me-1"></i> Pourcentage de jours travaillés par rapport aux jours prévus
+                    <div id="assiduiteChart" class="chart-container" style="height: 300px;"></div>
                 </div>
             </div>
         </div>
@@ -306,10 +300,6 @@
                 <div class="card-footer bg-white text-muted small">
                     <div class="d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-info-circle me-1"></i> Comparaison des taux de ponctualité et d'assiduité pour chaque employé</span>
-                        <span class="text-end">
-                            <span class="badge bg-primary me-1">Ponctualité</span>
-                            <span class="badge bg-success">Assiduité</span>
-                        </span>
                     </div>
                 </div>
             </div>
@@ -321,73 +311,94 @@
 
 @push('styles')
 <style>
-    /* Styles pour le tableau responsive */
+    /* Styles pour le tableau responsive avec en-tête fixe et défilement horizontal */
+    .table-responsive-container {
+        position: relative;
+        width: 90%;
+        margin: 0 auto;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    .table-wrapper {
+        overflow-x: auto;
+        max-height: 70vh;
+        padding-bottom: 5px;
+    }
+    
     .rapport-assiduite-table {
+        width: 100%;
         border-collapse: separate;
+        border-spacing: 0;
         border-spacing: 0;
     }
     
+    .rapport-assiduite-table th,
+    .rapport-assiduite-table td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    
+    /* Styles pour l'en-tête fixe */
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #f8f9fa;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Style pour la colonne fixe */
     .sticky-col {
         position: sticky;
         left: 0;
-        background-color: var(--bs-card-bg);
+        z-index: 9;
+        background-color: #fff;
+        box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .sticky-header .sticky-col {
+        z-index: 11;
+        background-color: #f8f9fa;
+    }
+    
+    /* Amélioration de l'apparence des cellules */
+    .rapport-assiduite-table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    /* Animation subtile pour le survol */
+    .rapport-assiduite-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    /* Style pour la colonne fixe (employé) */
+    .sticky-col {
+        position: sticky;
+        left: 0;
+        background-color: #fff;
         z-index: 1;
-        border-right: 1px solid var(--bs-border-color);
-        min-width: 220px;
-        box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        border-right: 1px solid #dee2e6;
+        min-width: 200px;
     }
     
     [data-bs-theme="dark"] .sticky-col {
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
     }
     
-    .table-responsive {
-        overflow-x: auto;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        max-height: 70vh;
+    /* Styles pour les cercles de progression */
+    .progress-circle {
         position: relative;
-    }
-    
-    /* Styles pour les boutons de période */
-    .periode-btn.active {
-        background-color: #4e73df;
-        color: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    /* Styles pour les cellules du tableau */
-    .rapport-assiduite-table th, .rapport-assiduite-table td {
-        padding: 0.75rem;
-        vertical-align: middle;
-    }
-    
-    .rapport-assiduite-table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        font-weight: 600;
-        color: var(--bs-emphasis-color);
-        border-bottom: 2px solid var(--bs-primary-rgb, #4e73df);
-        background-color: var(--bs-table-striped-bg);
-    }
-    
-    .stat-row:hover {
-        background-color: var(--bs-table-hover-bg);
-        cursor: pointer;
-    }
-    
-    /* Style pour l'avatar avec initiales */
-    .avatar-initials {
-        width: 32px;
-        height: 32px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
+        background-color: #f1f1f1;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 13px;
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin: 0 auto;
     }
     
     /* Styles pour les graphiques */
@@ -433,374 +444,349 @@
     .dark-mode .table-hover tbody tr:hover {
         background-color: rgba(255, 255, 255, 0.075);
     }
+    /* Styles pour l'impression */
+    @media print {
+        body {
+            font-size: 9pt;
+            color: #000;
+        }
+        
+        .container-fluid {
+            width: 100%;
+            padding: 0;
+        }
+        
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+            margin-bottom: 10px !important;
+        }
+        
+        .card-header, .card-footer {
+            background-color: #fff !important;
+            padding: 8px !important;
+        }
+        
+        .sticky-col {
+            position: static;
+            background-color: #fff !important;
+            border-right: 1px solid #000;
+        }
+        
+        .table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 8pt !important;
+        }
+        
+        .table th, .table td {
+            border: 1px solid #ddd !important;
+            padding: 3px !important;
+        }
+        
+        .avatar-initials {
+            border: 1px solid #ddd;
+            color: #000 !important;
+            background-color: #f9f9f9 !important;
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 7pt !important;
+        }
+        
+        .progress-circle {
+            width: 24px !important;
+            height: 24px !important;
+        }
+        
+        .progress-circle span {
+            font-size: 7pt !important;
+        }
+        
+        .progress-circle::before {
+            display: none !important;
+        }
+        
+        .progress-circle.excellent span::before {
+            content: '★ ';
+            color: #000;
+        }
+        
+        .progress-circle.bon span::before {
+            content: '✓ ';
+            color: #000;
+        }
+        
+        .progress-circle.moyen span::before {
+            content: '⚠ ';
+            color: #000;
+        }
+        
+        .progress-circle.faible span::before {
+            content: '✗ ';
+            color: #000;
+        }
+        
+        .btn-group, .btn, .dropdown, #filtresCollapse, .graphiques-container {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 14pt !important;
+            margin-bottom: 8px !important;
+        }
+        
+        h5 {
+            font-size: 10pt !important;
+        }
+        
+        /* Forcer les sauts de page */
+        .page-break {
+            page-break-after: always;
+        }
+        
+        /* Éviter les débordements horizontaux */
+        .table-responsive {
+            overflow-x: visible !important;
+        }
+    }
 </style>
 @endpush
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.35.3/dist/apexcharts.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Variables pour la gestion de la période
-        let periode = '{{ $periode }}';
-        let dateDebut = '{{ $dateDebut }}';
+    // Filtrer les postes en fonction du département sélectionné
+    $(document).ready(function() {
+        // Récupérer les postes par département
+        const postesByDepartement = {!! $postesByDepartementJson !!};
         
-        // Gestion des boutons de période
-        const periodeBtns = document.querySelectorAll('.periode-btn');
-        periodeBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                periode = this.dataset.periode;
-                chargerRapport();
-            });
-        });
-        
-        // Gestion des boutons de navigation
-        document.getElementById('periode-precedente').addEventListener('click', function() {
-            naviguerPeriode('precedente');
-        });
-        
-        document.getElementById('periode-suivante').addEventListener('click', function() {
-            naviguerPeriode('suivante');
-        });
-        
-        document.getElementById('aujourdhui').addEventListener('click', function() {
-            dateDebut = '{{ \Carbon\Carbon::now()->format("Y-m-d") }}';
-            chargerRapport();
-        });
-        
-        // Gestion du tri
-        document.querySelectorAll('.sort-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const sortBy = this.dataset.sort;
-                const url = new URL(window.location.href);
-                url.searchParams.set('sort_by', sortBy);
-                
-                // Inverser l'ordre si on clique sur la même colonne
-                if (url.searchParams.get('sort_by') === sortBy) {
-                    const currentOrder = url.searchParams.get('sort_order') || 'asc';
-                    url.searchParams.set('sort_order', currentOrder === 'asc' ? 'desc' : 'asc');
-                } else {
-                    url.searchParams.set('sort_order', 'asc');
-                }
-                
-                window.location.href = url.toString();
-            });
-        });
-        
-        // Fonction pour naviguer entre les périodes
-        function naviguerPeriode(direction) {
-            const date = new Date(dateDebut);
+        // Fonction pour filtrer les postes
+        function filtrerPostes() {
+            const departementId = $('#departement_id').val();
+            const posteSelect = $('#poste_id');
+            const selectedPosteId = '{{ $posteId }}';
+            const posteInfoDiv = $('.form-text.text-muted.small').first();
             
-            if (periode === 'jour') {
-                date.setDate(date.getDate() + (direction === 'precedente' ? -1 : 1));
-            } else if (periode === 'semaine') {
-                date.setDate(date.getDate() + (direction === 'precedente' ? -7 : 7));
-            } else if (periode === 'mois') {
-                date.setMonth(date.getMonth() + (direction === 'precedente' ? -1 : 1));
-            } else if (periode === 'annee') {
-                date.setFullYear(date.getFullYear() + (direction === 'precedente' ? -1 : 1));
-            }
+            // Vider la liste des postes
+            posteSelect.empty();
             
-            dateDebut = date.toISOString().split('T')[0];
-            chargerRapport();
-        }
-        
-        // Fonction pour charger le rapport avec les nouveaux paramètres
-        function chargerRapport() {
-            const url = new URL('{{ route("rapports.ponctualite-assiduite") }}', window.location.origin);
-            url.searchParams.append('periode', periode);
-            url.searchParams.append('date_debut', dateDebut);
+            // Ajouter l'option par défaut
+            posteSelect.append('<option value="">Tous les postes</option>');
             
-            // Conserver les autres filtres
-            const serviceId = document.getElementById('service_id').value;
-            if (serviceId) url.searchParams.append('service_id', serviceId);
-            
-            const departementId = document.getElementById('departement_id').value;
-            if (departementId) url.searchParams.append('departement_id', departementId);
-            
-            const performance = document.getElementById('performance').value;
-            if (performance) url.searchParams.append('performance', performance);
-            
-            const afficherGraphiques = document.getElementById('afficher_graphiques').checked;
-            if (afficherGraphiques) url.searchParams.append('afficher_graphiques', '1');
-            
-            window.location.href = url.toString();
-        }
-        
-        // Initialisation des graphiques si nécessaire
-        @if($afficherGraphiques)
-        // Les données pour les graphiques sont préparées dans le contrôleur
-        
-        initCharts();
-        @endif
-        
-        // Fonction pour initialiser les graphiques
-        function initCharts() {
-            // Données pour les graphiques
-            const employes = @json($employesNoms);
-            const tauxPonctualite = @json($tauxPonctualiteData);
-            const tauxAssiduite = @json($tauxAssiduiteData);
-            
-            // Configuration du graphique de ponctualité
-            const ponctualiteOptions = {
-                series: [{
-                    name: 'Taux de ponctualité',
-                    data: tauxPonctualite
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 350,
-                    toolbar: {
-                        show: true,
-                        tools: {
-                            download: true,
-                            selection: true,
-                            zoom: true,
-                            zoomin: true,
-                            zoomout: true,
-                            pan: true,
-                            reset: true
-                        }
-                    },
-                    animations: {
-                        enabled: true,
-                        easing: 'easeinout',
-                        speed: 800
-                    }
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: true,
-                        dataLabels: {
-                            position: 'top',
-                        },
-                        borderRadius: 4,
-                        barHeight: '70%'
-                    }
-                },
-                colors: ['#4e73df'],
-                dataLabels: {
-                    enabled: true,
-                    formatter: function (val) {
-                        return val + "%";
-                    },
-                    offsetX: 20,
-                    style: {
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        colors: ['#000']
-                    }
-                },
-                xaxis: {
-                    categories: employes,
-                    labels: {
-                        formatter: function (val) {
-                            return val + "%";
-                        }
-                    },
-                    max: 100
-                },
-                yaxis: {
-                    labels: {
-                        show: true,
-                        style: {
-                            fontWeight: 'medium'
-                        }
-                    }
-                },
-                tooltip: {
-                    y: {
-                        formatter: function (val) {
-                            return val + "%";
-                        }
-                    },
-                    theme: 'light',
-                    marker: {
-                        show: true
-                    }
-                },
-                grid: {
-                    borderColor: '#e0e0e0',
-                    strokeDashArray: 4,
-                    xaxis: {
-                        lines: {
-                            show: true
-                        }
-                    }
-                }
-            };
-            
-            // Initialisation du graphique de ponctualité
-            const ponctualiteChart = new ApexCharts(document.querySelector("#ponctualiteChart"), ponctualiteOptions);
-            ponctualiteChart.render();
-            
-            // Configuration du graphique d'assiduité
-            const assiduiteOptions = {
-                series: [{
-                    name: 'Taux d\'assiduité',
-                    data: tauxAssiduite
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 350,
-                    toolbar: {
-                        show: true,
-                        tools: {
-                            download: true,
-                            selection: false,
-                            zoom: false,
-                            zoomin: false,
-                            zoomout: false,
-                            pan: false,
-                            reset: false
-                        }
-                    },
-                    animations: {
-                        enabled: true,
-                        easing: 'easeinout',
-                        speed: 800,
-                        animateGradually: {
-                            enabled: true,
-                            delay: 150
-                        },
-                        dynamicAnimation: {
-                            enabled: true,
-                            speed: 350
-                        }
-                    }
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: false,
-                        columnWidth: '70%',
-                        borderRadius: 5,
-                        dataLabels: {
-                            position: 'top'
-                        }
-                    }
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
-                    },
-                    offsetY: -20,
-                    style: {
-                        fontSize: '12px',
-                        colors: ["#304758"]
-                    }
-                },
-                xaxis: {
-                    categories: Object.values(employes),
-                    labels: {
-                        rotate: -45,
-                        style: {
-                            fontSize: '12px'
-                        }
-                    }
-                },
-                yaxis: {
-                    max: 100,
-                    title: {
-                        text: 'Taux d\'assiduité (%)'
-                    }
-                },
-                fill: {
-                    type: 'gradient',
-                    gradient: {
-                        shade: 'light',
-                        type: "vertical",
-                        shadeIntensity: 0.25,
-                        gradientToColors: undefined,
-                        inverseColors: true,
-                        opacityFrom: 1,
-                        opacityTo: 0.85,
-                        stops: [50, 100]
-                    }
-                },
-                colors: ['#1cc88a']
-            };
-            
-            const assiduiteChart = new ApexCharts(document.getElementById('assiduiteChart'), assiduiteOptions);
-            assiduiteChart.render();
-        }
-        
-        // Synchronisation avec le mode sombre global de l'application
-        function updateChartTheme() {
-            // Vérifier le thème actuel
-            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
-            
-            // Mettre à jour les graphiques si nécessaire
-            if (window.ponctualiteChart) {
-                ponctualiteChart.updateOptions({
-                    theme: {
-                        mode: currentTheme === 'dark' ? 'dark' : 'light',
-                        palette: 'palette1'
-                    },
-                    grid: {
-                        borderColor: currentTheme === 'dark' ? '#2a3c61' : '#e0e0e0'
-                    },
-                    xaxis: {
-                        labels: {
-                            style: {
-                                colors: currentTheme === 'dark' ? '#a3b8d9' : '#718096'
-                            }
-                        }
-                    },
-                    yaxis: {
-                        labels: {
-                            style: {
-                                colors: currentTheme === 'dark' ? '#a3b8d9' : '#718096'
-                            }
-                        }
-                    }
+            // Si un département est sélectionné, ajouter les postes correspondants
+            if (departementId && postesByDepartement[departementId]) {
+                $.each(postesByDepartement[departementId], function(index, poste) {
+                    const selected = (poste.id == selectedPosteId) ? 'selected' : '';
+                    posteSelect.append(`<option value="${poste.id}" ${selected}>${poste.nom}</option>`);
                 });
-            }
-            
-            if (window.assiduiteChart) {
-                assiduiteChart.updateOptions({
-                    theme: {
-                        mode: currentTheme === 'dark' ? 'dark' : 'light',
-                        palette: 'palette1'
-                    },
-                    grid: {
-                        borderColor: currentTheme === 'dark' ? '#2a3c61' : '#e0e0e0'
-                    },
-                    xaxis: {
-                        labels: {
-                            style: {
-                                colors: currentTheme === 'dark' ? '#a3b8d9' : '#718096'
-                            }
-                        }
-                    },
-                    yaxis: {
-                        labels: {
-                            style: {
-                                colors: currentTheme === 'dark' ? '#a3b8d9' : '#718096'
-                            }
-                        }
-                    }
-                });
+                posteSelect.prop('disabled', false);
+                
+                // Mettre à jour le message d'information
+                posteInfoDiv.html(`<i class="bi bi-info-circle"></i> Affichage des postes du département : ${departementId}`);
+                posteInfoDiv.removeClass('text-muted').addClass('text-primary');
+            } else if (!departementId) {
+                // Si aucun département n'est sélectionné, ajouter tous les postes
+                @foreach($postes as $poste)
+                    const selected = ({{ $poste->id }} == selectedPosteId) ? 'selected' : '';
+                    posteSelect.append(`<option value="{{ $poste->id }}" data-departement="{{ $poste->departement }}" ${selected}>{{ $poste->nom }} @if($poste->departement) ({{ $poste->departement }}) @endif</option>`);
+                @endforeach
+                posteSelect.prop('disabled', false);
+                
+                // Réinitialiser le message d'information
+                posteInfoDiv.html(`<i class="bi bi-info-circle"></i> Sélectionnez d'abord un département`);
+                posteInfoDiv.removeClass('text-primary').addClass('text-muted');
+            } else {
+                // Si le département n'a pas de postes
+                posteSelect.prop('disabled', true);
+                posteInfoDiv.html(`<i class="bi bi-exclamation-circle"></i> Aucun poste disponible pour ce département`);
+                posteInfoDiv.removeClass('text-primary').addClass('text-warning');
             }
         }
         
-        // Observer les changements de thème
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.attributeName === 'data-bs-theme') {
-                    updateChartTheme();
-                }
-            });
-        });
+        // Filtrer les postes au chargement de la page
+        filtrerPostes();
         
-        // Observer les changements d'attribut sur l'élément HTML
-        observer.observe(document.documentElement, { attributes: true });
-        
-        // Appliquer le thème initial aux graphiques
-        updateChartTheme();
-        }
+        // Filtrer les postes lorsque le département change
+        $('#departement_id').on('change', filtrerPostes);
     });
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.35.3/dist/apexcharts.min.js"></script>
+
+<!-- Script pour gérer la navigation entre les périodes -->
+<script>
+$(document).ready(function() {
+    // Gérer les boutons de sélection de période (jour, semaine, mois)
+    $('.periode-btn').on('click', function() {
+        const nouvellePeriode = $(this).data('periode');
+        const dateDebut = $('input[name="date_debut"]').val();
+        
+        // Rediriger vers la même page avec la nouvelle période
+        window.location.href = `{{ route('rapports.ponctualite-assiduite') }}?periode=${nouvellePeriode}&date_debut=${dateDebut}`;
+    });
+    
+    // Gérer le bouton "Aujourd'hui"
+    $('#aujourdhui').on('click', function() {
+        const periode = $('input[name="periode"]').val();
+        const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+        
+        window.location.href = `{{ route('rapports.ponctualite-assiduite') }}?periode=${periode}&date_debut=${today}`;
+    });
+    
+    // Gérer les boutons de navigation (précédent/suivant)
+    $('#periode-precedente, #periode-suivante').on('click', function() {
+        const direction = $(this).attr('id') === 'periode-precedente' ? -1 : 1;
+        const periode = $('input[name="periode"]').val();
+        const dateDebutActuelle = $('input[name="date_debut"]').val();
+        
+        // Calculer la nouvelle date de début en fonction de la période
+        let dateObj = new Date(dateDebutActuelle);
+        
+        switch(periode) {
+            case 'jour':
+                dateObj.setDate(dateObj.getDate() + direction);
+                break;
+            case 'semaine':
+                dateObj.setDate(dateObj.getDate() + (direction * 7));
+                break;
+            case 'mois':
+                dateObj.setMonth(dateObj.getMonth() + direction);
+                break;
+        }
+        
+        const nouvelleDate = dateObj.toISOString().split('T')[0]; // Format YYYY-MM-DD
+        window.location.href = `{{ route('rapports.ponctualite-assiduite') }}?periode=${periode}&date_debut=${nouvelleDate}`;
+    });
+});
+</script>
+
+<script>
+// Données pour les graphiques (disponibles pour le script externe)
+window.rapportData = {
+    employes: @json($employesNoms),
+    tauxPonctualite: @json($tauxPonctualiteData),
+    tauxAssiduite: @json($tauxAssiduiteData),
+    periode: '{{ $periode }}',
+    dateDebut: '{{ $dateDebut }}',
+    periodeLabel: '{{ $periodeLabel }}'
+};
+
+// Script d'initialisation pour connecter le JavaScript existant avec la page
+$(document).ready(function() {
+    // Initialisation des graphiques si nécessaire
+    if (typeof initRapportAssiduite === 'function') {
+        initRapportAssiduite();
+    } else if (window.ApexCharts && window.rapportData) {
+        // Initialisation de secours pour les graphiques
+        if (document.getElementById('graphique-ponctualite')) {
+            new ApexCharts(document.getElementById('graphique-ponctualite'), {
+                series: [{
+                    name: 'Taux de ponctualité',
+                    data: window.rapportData.tauxPonctualite
+                }],
+                chart: { type: 'bar', height: 350 },
+                plotOptions: { bar: { horizontal: false, columnWidth: '70%' } },
+                dataLabels: { 
+                    enabled: true,
+                    formatter: function(val) { return val + '%'; }
+                },
+                xaxis: { categories: window.rapportData.employes },
+                yaxis: { min: 0, max: 100 },
+                colors: ['#4e73df']
+            }).render();
+        }
+        
+        if (document.getElementById('graphique-assiduite')) {
+            new ApexCharts(document.getElementById('graphique-assiduite'), {
+                series: [{
+                    name: 'Taux d\'assiduité',
+                    data: window.rapportData.tauxAssiduite
+                }],
+                chart: { type: 'bar', height: 350 },
+                plotOptions: { bar: { horizontal: false, columnWidth: '70%' } },
+                dataLabels: { 
+                    enabled: true,
+                    formatter: function(val) { return val + '%'; }
+                },
+                xaxis: { categories: window.rapportData.employes },
+                yaxis: { min: 0, max: 100 },
+                colors: ['#1cc88a']
+            }).render();
+        }
+    }
+    
+    // SOLUTION SIMPLE POUR LE FILTRAGE DES POSTES PAR DÉPARTEMENT
+    function filtrerPostesParDepartement() {
+        var departementSelectionne = $('#departement_id').val();
+        var messageElement = $('.form-text.small').first();
+        var compteurPostesVisibles = 0;
+        
+        // Afficher/masquer les options en fonction du département sélectionné
+        $('#poste_id option').each(function() {
+            // Ignorer l'option "Tous les postes"
+            if ($(this).val() === '') {
+                $(this).show();
+                return;
+            }
+            
+            var departementPoste = $(this).data('departement');
+            
+            // Si aucun département n'est sélectionné OU si le département correspond
+            if (!departementSelectionne || departementSelectionne === '' || departementPoste === departementSelectionne) {
+                $(this).show();
+                compteurPostesVisibles++;
+            } else {
+                $(this).hide();
+                // Si l'option cachée est sélectionnée, réinitialiser la sélection
+                if ($(this).is(':selected')) {
+                    $('#poste_id').val('');
+                }
+            }
+        });
+        
+        // Mettre à jour le message
+        if (departementSelectionne && departementSelectionne !== '') {
+            if (compteurPostesVisibles > 0) {
+                messageElement.html(`<i class="bi bi-info-circle"></i> Affichage des postes du département : ${departementSelectionne} (${compteurPostesVisibles} postes)`);
+                messageElement.removeClass('text-muted text-warning').addClass('text-primary');
+            } else {
+                messageElement.html(`<i class="bi bi-exclamation-circle"></i> Aucun poste disponible pour ce département`);
+                messageElement.removeClass('text-muted text-primary').addClass('text-warning');
+            }
+        } else {
+            messageElement.html(`<i class="bi bi-info-circle"></i> Sélectionnez d'abord un département`);
+            messageElement.removeClass('text-primary text-warning').addClass('text-muted');
+        }
+    }
+    
+    // Appliquer le filtrage lors du changement de département
+    $('#departement_id').on('change', filtrerPostesParDepartement);
+    
+    // Appliquer le filtrage initial
+    filtrerPostesParDepartement();
+    
+    // Gérer les boutons de sélection de période (jour, semaine, mois)
+    $('.periode-btn').on('click', function() {
+        const nouvellePeriode = $(this).data('periode');
+        const dateDebut = $('input[name="date_debut"]').val();
+        window.location.href = `{{ route('rapports.ponctualite-assiduite') }}?periode=${nouvellePeriode}&date_debut=${dateDebut}`;
+    });
+    
+    // Gérer les boutons de navigation (précédent, suivant)
+    $('#periode-precedente, #periode-suivante').on('click', function() {
+        const direction = $(this).attr('id') === 'periode-precedente' ? 'prev' : 'next';
+        const periodeActuelle = $('input[name="periode"]').val();
+        const dateActuelle = $('input[name="date_debut"]').val();
+        window.location.href = `{{ route('rapports.ponctualite-assiduite') }}?periode=${periodeActuelle}&date_debut=${dateActuelle}&direction=${direction}`;
+    });
+    
+    // Gérer le bouton "Aujourd'hui"
+    $('#periode-aujourdhui').on('click', function() {
+        const periodeActuelle = $('input[name="periode"]').val();
+        window.location.href = `{{ route('rapports.ponctualite-assiduite') }}?periode=${periodeActuelle}`;
+    });
+});
+</script>
+<script src="{{ asset('js/rapport-assiduite.js') }}"></script>
 @endpush
 
 @php

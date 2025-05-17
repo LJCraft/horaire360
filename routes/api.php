@@ -43,3 +43,6 @@ Route::middleware(['mobile.verify'])->group(function () {
 
 // Route pour récupérer les grades disponibles pour un poste
 Route::get('/postes/{poste}/grades', [PosteController::class, 'getGradesDisponibles']);
+
+// Route pour récupérer les données du rapport de ponctualité et d'assiduité
+Route::get('/rapport-data', [\App\Http\Controllers\Api\RapportController::class, 'getRapportData']);

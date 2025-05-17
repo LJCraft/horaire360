@@ -23,12 +23,12 @@ function getTauxClass($taux) {
     
     <div class="rapport-info">
         <p><strong>Période:</strong> {{ $periodeLabel ?? ($dateDebut ? date('d/m/Y', strtotime($dateDebut)) : 'Début') . ' - ' . ($dateFin ? date('d/m/Y', strtotime($dateFin)) : 'Aujourd\'hui') }}</p>
+        <p><strong>Nombre d'employés:</strong> {{ count($statistiques) }}</p>
+        <p><strong>Date d'édition:</strong> {{ now()->format('d/m/Y H:i') }}</p>
     </div>
     
-    <h2>Statistiques individuelles</h2>
-    
     @if(count($statistiques) > 0)
-        <table>
+        <table class="table">
             <thead>
                 <tr>
                     <th class="employe-col">Employé</th>
@@ -36,11 +36,9 @@ function getTauxClass($taux) {
                     <th>Grade</th>
                     <th>Poste</th>
                     <th class="numeric-col">Jours prévus</th>
-                    <th class="numeric-col">Jours travaillés</th>
-                    <th class="numeric-col">Retards</th>
-                    <th class="numeric-col">Départs anticipés</th>
+                    <th class="numeric-col">Jours réalisés</th>
                     <th class="numeric-col">Heures prévues</th>
-                    <th class="numeric-col">Heures travaillées</th>
+                    <th class="numeric-col">Heures faites</th>
                     <th class="numeric-col">Heures absence</th>
                     <th class="numeric-col">Taux ponctualité</th>
                     <th class="numeric-col">Taux assiduité</th>
@@ -63,43 +61,13 @@ function getTauxClass($taux) {
                         is_object($stat->employe->poste) ? $stat->employe->poste->nom : 
                         (is_string($stat->employe->poste) ? $stat->employe->poste : 'Non défini') 
                     }}</td>
-                    <td class="numeric-col">{{ $stat->jours_prevus ?? 'N/A' }}</td>
-                    <td class="numeric-col">{{ $stat->jours_travailles ?? 'N/A' }}</td>
-                    <td class="numeric-col">{{ isset($stat->nombre_retards) ? $stat->nombre_retards : 'N/A' }}</td>
-                    <td class="numeric-col">{{ isset($stat->nombre_departs_anticipes) ? $stat->nombre_departs_anticipes : 'N/A' }}</td>
-                    <td class="numeric-col">{{ $stat->heures_prevues ?? 'N/A' }}</td>
-                    <td class="numeric-col">{{ $stat->heures_travaillees ?? $stat->heures_effectuees ?? 0 }}</td>
-                    <td class="numeric-col">{{ $stat->heures_absence ?? ($stat->heures_prevues ?? 0) - ($stat->heures_travaillees ?? $stat->heures_effectuees ?? 0) }}</td>
-                    <td class="numeric-col taux-col {{ getTauxClass($stat->taux_ponctualite) }}">{{ number_format($stat->taux_ponctualite, 1) }}%</td>
-                    <td class="numeric-col taux-col {{ getTauxClass($stat->taux_assiduite) }}">{{ number_format($stat->taux_assiduite, 1) }}%</td>
-                    <td class="observation-col">
-                        @php
-                            $observation = '';
-                            
-                            // Vérifier si nombre_retards existe avant de l'utiliser
-                            if (isset($stat->nombre_retards) && $stat->nombre_retards > 3) {
-                                $observation .= 'Retards fréquents. ';
-                            }
-                            
-                            if ($stat->taux_ponctualite < 70) {
-                                $observation .= 'Problème de ponctualité. ';
-                            }
-                            
-                            if ($stat->taux_assiduite < 70) {
-                                $observation .= 'Assiduité insuffisante. ';
-                            }
-                            
-                            echo $observation ?: 'Performance satisfaisante';
-                        @endphp
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @else
-        <p>Aucune donnée disponible pour la période sélectionnée.</p>
-    @endif
-    
+                    <td class="numeric-col">{{ $stat->jours_prevus ?? $stat->heures_prevues / 8 }}</td>
+                    <td class="numeric-col">{{ $stat->jours_realises ?? $stat->jours_travailles }}</td>
+                    <td class="numeric-col">{{ $stat->heures_prevues }}</td>
+                    <td class="numeric-col">{{ $stat->heures_faites ?? $stat->heures_travaillees ?? $stat->heures_effectuees }}</td>
+                    <td class="numeric-col">{{ $stat->heures_absence ?? ($stat->heures_prevues - ($stat->heures_faites ?? $stat->heures_travaillees ?? $stat->heures_effectuees ?? 0)) }}</td>
+                    <td class="numeric-col taux-col {{ getTauxClass($stat->taux_ponctualite) }}">
+                        {{ number_format($stat->taux_ponctualite, 1) }}%
     <h2>Statistiques globales</h2>
     
     <div class="stats-container">
@@ -125,8 +93,8 @@ function getTauxClass($taux) {
                     }
                     
                     // Calculer les moyennes des taux
-                    $tauxPonctualiteMoyen = $totalEmployes > 0 ? round($statistiques->sum('taux_ponctualite') / $totalEmployes, 1) : 0;
-                    $tauxAssiduiteMoyen = $totalEmployes > 0 ? round($statistiques->sum('taux_assiduite') / $totalEmployes, 1) : 0;
+                    $moyennePonctualite = $statistiques->count() > 0 ? round($statistiques->sum('taux_ponctualite') / $statistiques->count()) : 0;
+                    $moyenneAssiduite = $statistiques->count() > 0 ? round($statistiques->sum('taux_assiduite') / $statistiques->count()) : 0;
                 @endphp
                 <th>Nombre d'employés</th>
                 <td>{{ $totalEmployes }}</td>
@@ -135,9 +103,9 @@ function getTauxClass($taux) {
                 <th>Total départs anticipés</th>
                 <td>{{ $totalDepartsAnticipes }}</td>
                 <th>Taux moyen de ponctualité</th>
-                <td class="taux-col {{ getTauxClass($tauxPonctualiteMoyen) }}">{{ $tauxPonctualiteMoyen }}%</td>
+                <td class="taux-col {{ getTauxClass($moyennePonctualite) }}">{{ $moyennePonctualite }}%</td>
                 <th>Taux moyen d'assiduité</th>
-                <td class="taux-col {{ getTauxClass($tauxAssiduiteMoyen) }}">{{ $tauxAssiduiteMoyen }}%</td>
+                <td class="taux-col {{ getTauxClass($moyenneAssiduite) }}">{{ $moyenneAssiduite }}%</td>
             </tr>
         </table>
     </div>
@@ -148,10 +116,9 @@ function getTauxClass($taux) {
             <li>Excellent (≥ 90%): Performance optimale</li>
             <li>Bon (≥ 80%): Performance satisfaisante</li>
             <li>Moyen (≥ 70%): Amélioration nécessaire</li>
-            <li>Faible (< 70%): Performance insuffisante</li>
+            <li>Faible (< 70%): Intervention requise</li>
         </ul>
-        
-        <p><strong>Notes explicatives:</strong></p>
+        <p><strong>Notes:</strong></p>
         <ul>
             <li>Le taux de ponctualité est calculé comme le pourcentage de jours sans retard par rapport au nombre total de jours travaillés.</li>
             <li>Le taux d'assiduité est calculé comme le pourcentage d'heures faites par rapport aux heures prévues.</li>
@@ -191,113 +158,113 @@ function getTauxClass($taux) {
     .rapport-info p {
         margin: 3px 0;
     }
-
+    
     table {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 15px;
         font-size: 7pt;
     }
-
+    
     table, th, td {
         border: 1px solid #ddd;
     }
-
+    
     th, td {
         padding: 3px;
         text-align: left;
     }
-
+    
     th {
         background-color: #f2f2f2;
         font-weight: bold;
     }
-
+    
     .employe-col {
         width: 12%;
         font-weight: bold;
     }
-
+    
     .numeric-col {
         text-align: center;
         width: 6%;
     }
-
+    
     .taux-col {
         font-weight: bold;
     }
-
+    
     .taux-col.excellent {
         background-color: #d4edda;
         color: #155724;
     }
-
+    
     .taux-col.bon {
         background-color: #d1ecf1;
         color: #0c5460;
     }
-
+    
     .taux-col.moyen {
         background-color: #fff3cd;
         color: #856404;
     }
-
+    
     .taux-col.faible {
         background-color: #f8d7da;
         color: #721c24;
     }
-
+    
     .observation-col {
         width: 15%;
         font-size: 6pt;
     }
-
+    
     .summary {
         margin-top: 20px;
         border: 1px solid #ddd;
         padding: 10px;
         background-color: #f9f9f9;
     }
-
+    
     .summary-stats {
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
     }
-
+    
     .summary-item {
         width: 48%;
         margin-bottom: 5px;
     }
-
+    
     .summary-label {
         font-weight: bold;
     }
-
+    
     .summary-value {
         margin-left: 5px;
     }
-
+    
     .summary-value.excellent {
         color: #155724;
         font-weight: bold;
     }
-
+    
     .summary-value.bon {
         color: #0c5460;
         font-weight: bold;
     }
-
+    
     .summary-value.moyen {
         color: #856404;
         font-weight: bold;
     }
-
+    
     .summary-value.faible {
         color: #721c24;
         font-weight: bold;
     }
-
+    
     .footer-notes {
         font-size: 7pt;
         color: #666;
@@ -305,24 +272,39 @@ function getTauxClass($taux) {
         padding-top: 10px;
         margin-top: 20px;
     }
-
+    
     .footer-notes ul {
         margin: 5px 0;
         padding-left: 20px;
     }
-
+    
     .footer-notes li {
         margin-bottom: 2px;
     }
-
+    
     /* Gestion des sauts de page */
     .page-break {
         page-break-after: always;
     }
-
+    
     /* Pour éviter les sauts de page au milieu des lignes */
     tr {
         page-break-inside: avoid;
     }
 </style>
 @endsection
+
+@php
+// Fonction helper pour déterminer la classe CSS en fonction du taux
+function getTauxClass($taux) {
+    if ($taux >= 90) {
+        return 'excellent';
+    } elseif ($taux >= 80) {
+        return 'bon';
+    } elseif ($taux >= 70) {
+        return 'moyen';
+    } else {
+        return 'faible';
+    }
+}
+@endphp

@@ -3,16 +3,18 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Presence;
 use App\Models\Employe;
 use App\Models\Poste;
 use App\Models\Planning;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
-use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Schema;
-// Pas de modèle Departement séparé, les départements sont dans la table postes
+use Illuminate\Support\Facades\Log;
+use App\Models\Service;
+use App\Models\Grade;
 
 class RapportController extends Controller
 {
@@ -405,25 +407,57 @@ class RapportController extends Controller
 
     /**
      * Afficher le formulaire d'options d'exportation
-     *
+     * 
      * @param Request $request
      * @return \Illuminate\Http\Response
      */
     public function exportOptions(Request $request)
     {
-        $type = $request->input('type', 'presences');
-        $dateDebut = $request->input('date_debut', Carbon::now()->format('Y-m-d'));
-        $employeId = $request->input('employe_id');
-        $departementId = $request->input('departement');
-        $serviceId = $request->input('service');
-        $periode = $request->input('periode', 'mois');
+        $type = $request->type ?? 'presences';
+        $date = $request->date ?? now()->format('Y-m-d');
+        $periode = $request->periode ?? 'mois';
+        $employeId = $request->employe_id ?? null;
+        $departementId = $request->departement_id ?? null;
+        $posteId = $request->poste_id ?? null;
+        $gradeId = $request->grade_id ?? null;
+        $jours = 0; // Définir la variable $jours pour éviter l'erreur
         
         // Récupérer les données nécessaires pour le formulaire
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->get();
         
-        // Récupérer les départements depuis la table postes
-        $departements = DB::table('postes')->select('departement')->distinct()->orderBy('departement')->get();
-        $services = $departements; // Utiliser les départements comme services puisqu'ils correspondent dans l'application
+        // Récupérer les postes pour les filtres avec leur département
+        $postes = Poste::select('id', 'nom', 'departement')
+            ->orderBy('departement')
+            ->orderBy('nom')
+            ->get();
+        
+        // Récupérer les départements uniques à partir des postes
+        $departements = DB::table('postes')
+            ->select('departement')
+            ->distinct()
+            ->whereNotNull('departement')
+            ->orderBy('departement')
+            ->get();
+            
+        // Organiser les postes par département pour le filtrage dynamique
+        $postesByDepartement = [];
+        foreach ($postes as $poste) {
+            if (!empty($poste->departement)) {
+                if (!isset($postesByDepartement[$poste->departement])) {
+                    $postesByDepartement[$poste->departement] = [];
+                }
+                $postesByDepartement[$poste->departement][] = [
+                    'id' => $poste->id,
+                    'nom' => $poste->nom
+                ];
+            }
+        }
+        
+        // Convertir en JSON pour utilisation dans JavaScript
+        $postesByDepartementJson = json_encode($postesByDepartement);
+        
+        // Récupérer les grades
+        $grades = Grade::all(); // Ne pas trier car la colonne 'nom' n'existe pas
         
         // Déterminer le libellé du type de rapport
         $typeLabel = '';
@@ -453,14 +487,18 @@ class RapportController extends Controller
         return view('rapports.export-options', compact(
             'type',
             'typeLabel',
-            'dateDebut',
-            'employeId',
-            'departementId',
-            'serviceId',
+            'date',
             'periode',
             'employes',
             'departements',
-            'services'
+            'postes',
+            'postesByDepartementJson',
+            'grades',
+            'jours',
+            'employeId',
+            'departementId',
+            'posteId',
+            'gradeId'
         ));
     }
     
@@ -474,14 +512,15 @@ class RapportController extends Controller
     {
         $type = $request->input('type', 'presences');
         $periode = $request->input('periode', 'mois');
-        $dateDebutStr = $request->input('date_debut');
+        $dateStr = $request->input('date');
         $format = $request->input('format', 'pdf');
         $employeId = $request->input('employe_id');
         $departementId = $request->input('departement_id');
-        $serviceId = $request->input('service_id');
+        $posteId = $request->input('poste_id');
+        $gradeId = $request->input('grade_id');
         
         // Si aucune date n'est spécifiée, utiliser la date actuelle
-        $dateDebut = $dateDebutStr ? Carbon::parse($dateDebutStr) : Carbon::now();
+        $dateDebut = $dateStr ? Carbon::parse($dateStr) : Carbon::now();
         
         // Déterminer la plage de dates en fonction de la période
         switch ($periode) {
@@ -529,14 +568,16 @@ class RapportController extends Controller
                 }
                 
                 if ($departementId) {
-                    $query->whereHas('departement', function($q) use ($departementId) {
-                        $q->where('id', $departementId);
+                    // Utiliser la relation avec le poste pour filtrer par département
+                    $query->whereHas('poste', function($q) use ($departementId) {
+                        $q->where('departement', $departementId);
                     });
                 }
                 
                 if ($serviceId) {
-                    $query->whereHas('service', function($q) use ($serviceId) {
-                        $q->where('id', $serviceId);
+                    // Remplacer la référence au service par une référence au département du poste
+                    $query->whereHas('poste', function($q) use ($serviceId) {
+                        $q->where('departement', $serviceId);
                     });
                 }
                 
@@ -605,8 +646,9 @@ class RapportController extends Controller
                 if ($departementId || $serviceId) {
                     $query->whereHas('employe', function($q) use ($departementId, $serviceId) {
                         if ($departementId) {
-                            $q->whereHas('departement', function($q2) use ($departementId) {
-                                $q2->where('id', $departementId);
+                            // Utiliser la relation avec le poste pour filtrer par département
+                            $q->whereHas('poste', function($q2) use ($departementId) {
+                                $q2->where('departement', $departementId);
                             });
                         }
                         
@@ -677,8 +719,9 @@ class RapportController extends Controller
                 if ($departementId || $serviceId) {
                     $query->whereHas('employe', function($q) use ($departementId, $serviceId) {
                         if ($departementId) {
-                            $q->whereHas('departement', function($q2) use ($departementId) {
-                                $q2->where('id', $departementId);
+                            // Utiliser la relation avec le poste pour filtrer par département
+                            $q->whereHas('poste', function($q2) use ($departementId) {
+                                $q2->where('departement', $departementId);
                             });
                         }
                         
@@ -719,7 +762,7 @@ class RapportController extends Controller
                 
             case 'ponctualite-assiduite':
                 // Récupérer les données du rapport de ponctualité et assiduité
-                $statistiques = $this->getStatistiquesPonctualiteAssiduite($dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d'), $employeId, $departementId, $serviceId);
+                $statistiques = $this->getStatistiquesPonctualiteAssiduiteV2($dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d'), $employeId, $departementId, $posteId, $gradeId);
                 
                 $data = [
                     'statistiques' => $statistiques,
@@ -748,8 +791,9 @@ class RapportController extends Controller
                 if ($departementId || $serviceId) {
                     $query->whereHas('employe', function($q) use ($departementId, $serviceId) {
                         if ($departementId) {
-                            $q->whereHas('departement', function($q2) use ($departementId) {
-                                $q2->where('id', $departementId);
+                            // Utiliser la relation avec le poste pour filtrer par département
+                            $q->whereHas('poste', function($q2) use ($departementId) {
+                                $q2->where('departement', $departementId);
                             });
                         }
                         
@@ -806,10 +850,30 @@ class RapportController extends Controller
                 
             case 'global-multi-periode':
                 // Récupérer les données du rapport global
-                $employes = $this->getEmployesWithPresences($dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d'), $employeId, $departementId, $serviceId);
+                $employes = $this->getEmployesWithPresences($dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d'), $employeId, $departementId, null, $posteId, $gradeId);
+                
+                // Générer la liste des jours entre les dates de début et de fin
+                $jours = [];
+                $period = new \DatePeriod(
+                    $dateDebut,
+                    new \DateInterval('P1D'),
+                    $dateFin->modify('+1 day')
+                );
+                
+                foreach ($period as $date) {
+                    $jours[] = $date->format('Y-m-d');
+                }
+                
+                // Récupérer les présences pour tous les employés
+                $presences = Presence::whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')])
+                    ->whereIn('employe_id', $employes->pluck('id')->toArray())
+                    ->get()
+                    ->groupBy('employe_id');
                 
                 $data = [
                     'employes' => $employes,
+                    'presences' => $presences,
+                    'jours' => $jours,
                     'dateDebut' => $dateDebut->format('Y-m-d'),
                     'dateFin' => $dateFin->format('Y-m-d'),
                     'periode' => $periode,
@@ -1130,6 +1194,153 @@ class RapportController extends Controller
     }
     
     /**
+     * Exporter le rapport global multi-période en PDF
+     */
+    public function exportGlobalMultiPeriodePdf(Request $request)
+    {
+        $request->validate([
+            'date' => 'required|date',
+            'periode' => 'required|in:jour,semaine,mois',
+        ]);
+
+        $date = $request->date;
+        $periode = $request->periode;
+        
+        // Déterminer les dates de début et de fin en fonction de la période
+        $dateObj = Carbon::parse($date);
+        $dateDebut = $dateObj->copy();
+        $dateFin = $dateObj->copy();
+        
+        switch ($periode) {
+            case 'jour':
+                // Rien à faire, la date reste la même
+                $periodeLabel = 'Journalier - ' . $dateObj->format('d/m/Y');
+                break;
+            case 'semaine':
+                $dateDebut->startOfWeek();
+                $dateFin->endOfWeek();
+                $periodeLabel = 'Hebdomadaire - Semaine ' . $dateObj->weekOfYear . ' (' . $dateDebut->format('d/m/Y') . ' - ' . $dateFin->format('d/m/Y') . ')';
+                break;
+            case 'mois':
+                $dateDebut->startOfMonth();
+                $dateFin->endOfMonth();
+                $periodeLabel = 'Mensuel - ' . $dateObj->format('F Y');
+                break;
+            default:
+                return redirect()->back()->with('error', 'Période non valide');
+        }
+        
+        // Récupérer les employés actifs
+        $employes = Employe::where('statut', 'actif')
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->get();
+        
+        // Récupérer les présences pour la période
+        $presences = Presence::whereBetween('date', [
+                $dateDebut->format('Y-m-d'), 
+                $dateFin->format('Y-m-d')
+            ])
+            ->get();
+        
+        // Générer la liste des jours pour la période
+        $jours = [];
+        $period = CarbonPeriod::create($dateDebut, $dateFin);
+        foreach ($period as $date) {
+            $jours[] = $date->format('Y-m-d');
+        }
+        
+        $titre = "Rapport Global de Présence - " . ucfirst($periode);
+        
+        $pdf = PDF::loadView('rapports.pdf.global-multi-periode', compact(
+            'employes', 
+            'presences', 
+            'jours',
+            'dateDebut', 
+            'dateFin', 
+            'titre',
+            'periode',
+            'periodeLabel'
+        ));
+        
+        $pdf->setPaper('a4', 'landscape');
+        
+        return $pdf->download('rapport_global_presence_' . $periode . '_' . now()->format('Y-m-d') . '.pdf');
+    }
+    
+    /**
+     * Exporter le rapport de ponctualité et assiduité en PDF
+     */
+    public function exportPonctualiteAssiduitePdf(Request $request)
+    {
+        $request->validate([
+            'date' => 'required|date',
+            'periode' => 'required|in:jour,semaine,mois',
+            'employe_id' => 'nullable|exists:employes,id',
+            'departement_id' => 'nullable|exists:departements,id',
+            'service_id' => 'nullable|exists:services,id',
+        ]);
+
+        $date = $request->date;
+        $periode = $request->periode;
+        $employeId = $request->employe_id;
+        $departementId = $request->departement_id;
+        $serviceId = $request->service_id;
+        
+        // Déterminer les dates de début et de fin en fonction de la période
+        $dateObj = Carbon::parse($date);
+        $dateDebut = $dateObj->copy();
+        $dateFin = $dateObj->copy();
+        
+        switch ($periode) {
+            case 'jour':
+                // Rien à faire, la date reste la même
+                $periodeLabel = 'Journalier - ' . $dateObj->format('d/m/Y');
+                break;
+            case 'semaine':
+                $dateDebut->startOfWeek();
+                $dateFin->endOfWeek();
+                $periodeLabel = 'Hebdomadaire - Semaine ' . $dateObj->weekOfYear . ' (' . $dateDebut->format('d/m/Y') . ' - ' . $dateFin->format('d/m/Y') . ')';
+                break;
+            case 'mois':
+                $dateDebut->startOfMonth();
+                $dateFin->endOfMonth();
+                $periodeLabel = 'Mensuel - ' . $dateObj->format('F Y');
+                break;
+            default:
+                return redirect()->back()->with('error', 'Période non valide');
+        }
+        
+        // Récupérer les statistiques de ponctualité et assiduité
+        $statistiques = $this->getStatistiquesPonctualiteAssiduiteV2($dateDebut, $dateFin, $employeId, $departementId, $serviceId);
+        
+        // Calculer les moyennes
+        $moyennePonctualite = $statistiques->avg('taux_ponctualite');
+        $moyenneAssiduite = $statistiques->avg('taux_assiduite');
+        $totalRetards = $statistiques->sum('nombre_retards');
+        $totalDepartsAnticipes = $statistiques->sum('nombre_departs_anticipes');
+        
+        $titre = "Rapport Ponctualité & Assiduité - " . ucfirst($periode);
+        
+        $pdf = PDF::loadView('rapports.pdf.ponctualite-assiduite', compact(
+            'statistiques',
+            'moyennePonctualite',
+            'moyenneAssiduite',
+            'totalRetards',
+            'totalDepartsAnticipes',
+            'dateDebut',
+            'dateFin',
+            'titre',
+            'periode',
+            'periodeLabel'
+        ));
+        
+        $pdf->setPaper('a4', 'landscape');
+        
+        return $pdf->download('rapport_ponctualite_assiduite_' . $periode . '_' . now()->format('Y-m-d') . '.pdf');
+    }
+
+    /**
      * Rapport Global - Vue Multi-Période
      */
     public function globalMultiPeriode(Request $request)
@@ -1202,8 +1413,8 @@ class RapportController extends Controller
         $request->validate([
             'periode' => 'nullable|in:jour,semaine,mois,annee',
             'date_debut' => 'nullable|date',
-            'service_id' => 'nullable|exists:services,id',
-            'departement_id' => 'nullable|exists:departements,id',
+            'poste_id' => 'nullable|exists:postes,id',
+            'departement_id' => 'nullable',
             'performance' => 'nullable|in:excellent,bon,moyen,faible',
             'afficher_graphiques' => 'nullable',
             'sort_by' => 'nullable|in:nom,service,jours_travailles,ponctualite,assiduite',
@@ -1212,12 +1423,19 @@ class RapportController extends Controller
 
         $periode = $request->periode ?? 'mois';
         $dateDebut = $request->date_debut ? Carbon::parse($request->date_debut) : Carbon::now();
-        $serviceId = $request->service_id;
+        $employeId = $request->employe_id;
+        $posteId = $request->poste_id;
         $departementId = $request->departement_id;
         $performance = $request->performance;
         $afficherGraphiques = $request->has('afficher_graphiques');
         $sortBy = $request->sort_by ?? 'nom';
         $sortOrder = $request->sort_order ?? 'asc';
+        
+        // Message d'information pour le département sélectionné
+        $departementMessage = '';
+        if ($departementId) {
+            $departementMessage = 'Affichage des postes du département : ' . $departementId;
+        }
         
         // Déterminer la plage de dates en fonction de la période
         switch ($periode) {
@@ -1245,37 +1463,60 @@ class RapportController extends Controller
         // Récupérer tous les employés actifs avec filtres
         $query = Employe::where('statut', 'actif');
         
-        // Comme nous n'avons pas les colonnes service et departement,
-        // nous allons simplement filtrer par poste_id si nécessaire
-        if ($serviceId || $departementId) {
-            // Pour une démo, nous pourrions filtrer par poste_id, mais
-            // nous allons laisser tous les employés pour l'instant
+        // Filtrer par poste et département si spécifiés
+        if ($posteId) {
+            $query->where('poste_id', $posteId);
+        }
+        if ($departementId) {
+            // Filtrer par le département du poste au lieu d'utiliser departement_id
+            $query->whereHas('poste', function($q) use ($departementId) {
+                $q->where('departement', $departementId);
+            });
         }
         
-        $employes = $query->with(['poste'])
+        $employes = $query->with(['poste', 'grade'])
                          ->orderBy('nom')
                          ->orderBy('prenom')
                          ->get();
+
+        // Ajouter un grade par défaut pour les employés sans grade
+        $employes = $employes->map(function ($employe) {
+            if (!$employe->grade) {
+                $employe->grade = (object)['nom' => 'Non défini'];
+            }
+            return $employe;
+        });
         
-        // Récupérer les postes pour les filtres
-        $postes = Poste::orderBy('nom')->get();
+        // Récupérer les postes pour les filtres avec leur département
+        $postes = Poste::select('id', 'nom', 'departement')
+            ->orderBy('departement')
+            ->orderBy('nom')
+            ->get();
         
-        // Créer des collections pour les services et départements
-        // Comme nous n'avons pas ces tables, nous allons utiliser des données statiques
-        $services = collect([
-            (object)['id' => 'rh', 'nom' => 'Ressources Humaines'],
-            (object)['id' => 'it', 'nom' => 'Informatique'],
-            (object)['id' => 'finance', 'nom' => 'Finance'],
-            (object)['id' => 'marketing', 'nom' => 'Marketing'],
-            (object)['id' => 'operations', 'nom' => 'Opérations']
-        ]);
+        // Récupérer les départements uniques à partir des postes
+        $departements = DB::table('postes')
+            ->select('departement')
+            ->distinct()
+            ->whereNotNull('departement')
+            ->orderBy('departement')
+            ->get();
+            
+        // Organiser les postes par département pour le filtrage dynamique
+        $postesByDepartement = [];
+        foreach ($postes as $poste) {
+            if (!empty($poste->departement)) {
+                if (!isset($postesByDepartement[$poste->departement])) {
+                    $postesByDepartement[$poste->departement] = [];
+                }
+                $postesByDepartement[$poste->departement][] = [
+                    'id' => $poste->id,
+                    'nom' => $poste->nom
+                ];
+            }
+        }
         
-        // Pour la compatibilité avec le code existant, on utilise la même structure pour les départements
-        $departements = collect([
-            (object)['id' => 'direction', 'nom' => 'Direction'],
-            (object)['id' => 'administration', 'nom' => 'Administration'],
-            (object)['id' => 'production', 'nom' => 'Production']
-        ]);
+        // Convertir en JSON pour utilisation dans JavaScript
+        $postesByDepartementJson = json_encode($postesByDepartement);
         
         // Calculer les statistiques pour chaque employé
         $statistiques = collect();
@@ -1348,10 +1589,15 @@ class RapportController extends Controller
             $statistiques = $statistiques->sortBy(function ($item) use ($sortOrder) {
                 return $sortOrder == 'asc' ? $item->employe->nom : -1;
             });
-        } elseif ($sortBy == 'service') {
+        } elseif ($sortBy == 'poste') {
             $statistiques = $statistiques->sortBy(function ($item) use ($sortOrder) {
-                $serviceName = $item->employe->service ? $item->employe->service->nom : 'ZZZ';
-                return $sortOrder == 'asc' ? $serviceName : -1;
+                $posteName = $item->employe->poste ? $item->employe->poste->nom : 'ZZZ';
+                return $sortOrder == 'asc' ? $posteName : -1;
+            });
+        } elseif ($sortBy == 'grade') {
+            $statistiques = $statistiques->sortBy(function ($item) use ($sortOrder) {
+                $gradeName = $item->employe->grade ? $item->employe->grade->nom : 'ZZZ';
+                return $sortOrder == 'asc' ? $gradeName : -1;
             });
         } elseif ($sortBy == 'jours_travailles') {
             $statistiques = $statistiques->sortBy(function ($item) use ($sortOrder) {
@@ -1379,20 +1625,26 @@ class RapportController extends Controller
         }
         
         return view('rapports.ponctualite-assiduite', compact(
-            'periode',
+            'statistiques',
             'dateDebut',
             'dateFin',
             'periodeLabel',
-            'serviceId',
+            'periode',
+            'employes',
+            'postes',
+            'departements',
+            'postesByDepartementJson',
+            'employeId',
             'departementId',
+            'posteId',
             'performance',
             'afficherGraphiques',
-            'services',
-            'departements',
-            'statistiques',
             'employesNoms',
             'tauxPonctualiteData',
-            'tauxAssiduiteData'
+            'tauxAssiduiteData',
+            'sortBy',
+            'sortOrder',
+            'departementMessage'
         ));
     }
     
@@ -1705,9 +1957,9 @@ class RapportController extends Controller
         
         // Filtrer par département ou service si spécifié
         if ($departementId) {
-            // Si la relation existe dans votre modèle
-            $query->whereHas('departement', function($q) use ($departementId) {
-                $q->where('id', $departementId);
+            // Utiliser la relation avec le poste pour filtrer par département
+            $query->whereHas('poste', function($q) use ($departementId) {
+                $q->where('departement', $departementId);
             });
         }
         
@@ -1792,16 +2044,136 @@ class RapportController extends Controller
     }
     
     /**
+     * Récupérer les statistiques de ponctualité et assiduité pour une période donnée (Version 2)
+     *
+     * @param string|null $dateDebut Date de début au format Y-m-d
+     * @param string|null $dateFin Date de fin au format Y-m-d
+     * @param int|null $employeId ID de l'employé (optionnel)
+     * @param int|null $departementId ID du département (optionnel)
+     * @param int|null $posteId ID du poste (optionnel)
+     * @param int|null $gradeId ID du grade (optionnel)
+     * @return \Illuminate\Support\Collection Collection de statistiques par employé
+     */
+    private function getStatistiquesPonctualiteAssiduiteV2($dateDebut = null, $dateFin = null, $employeId = null, $departementId = null, $posteId = null, $gradeId = null)
+    {
+        // Convertir les dates si elles sont fournies
+        $dateDebut = $dateDebut ? (is_string($dateDebut) ? \Carbon\Carbon::parse($dateDebut) : $dateDebut) : \Carbon\Carbon::now()->startOfMonth();
+        $dateFin = $dateFin ? (is_string($dateFin) ? \Carbon\Carbon::parse($dateFin) : $dateFin) : \Carbon\Carbon::now()->endOfMonth();
+        
+        // Requête de base pour les employés
+        $query = \App\Models\Employe::where('statut', 'actif');
+        
+        // Filtrer par employé si spécifié
+        if ($employeId) {
+            $query->where('id', $employeId);
+        }
+        
+        // Filtrer par département, poste ou grade si spécifié
+        if ($departementId) {
+            $query->whereHas('poste', function($q) use ($departementId) {
+                $q->where('departement', $departementId);
+            });
+        }
+        
+        if ($posteId) {
+            $query->where('poste_id', $posteId);
+        }
+        
+        if ($gradeId) {
+            $query->where('grade_id', $gradeId);
+        }
+        
+        // Récupérer les employés avec leurs relations
+        $employes = $query->with(['poste', 'service', 'grade'])->get();
+        
+        // Calculer les statistiques pour chaque employé
+        $statistiques = collect();
+        
+        foreach ($employes as $employe) {
+            // Jours prévus selon le planning
+            $joursOuvrables = $this->calculerJoursOuvrables($employe->id, $dateDebut, $dateFin);
+            
+            // Récupérer les présences de l'employé
+            $presences = \App\Models\Presence::where('employe_id', $employe->id)
+                               ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')])
+                               ->get();
+            
+            $joursTravailles = $presences->count();
+            $joursRealises = $joursTravailles; // Alias pour la compatibilité
+            $retards = $presences->where('retard', true)->count();
+            $departsAnticipes = $presences->where('depart_anticipe', true)->count();
+            
+            // Calculer les heures
+            $heuresPrevues = $joursOuvrables * 8; // 8 heures par jour par défaut
+            $heuresEffectuees = 0;
+            $heuresTravaillees = 0;
+            $heuresFaites = 0; // Alias pour la compatibilité
+            
+            foreach ($presences as $presence) {
+                if ($presence->heure_arrivee && $presence->heure_depart) {
+                    $debut = \Carbon\Carbon::parse($presence->heure_arrivee);
+                    $fin = \Carbon\Carbon::parse($presence->heure_depart);
+                    if ($fin < $debut) {
+                        $fin->addDay();
+                    }
+                    $heuresEffectuees += $debut->diffInHours($fin);
+                    $heuresTravaillees += $debut->diffInHours($fin);
+                    $heuresFaites += $debut->diffInHours($fin);
+                }
+            }
+            
+            $heuresAbsence = max(0, $heuresPrevues - $heuresEffectuees);
+            
+            // Calculer les taux
+            $tauxPonctualite = $joursTravailles > 0 ? round(100 - (($retards / $joursTravailles) * 100), 1) : 0;
+            $tauxAssiduite = $joursOuvrables > 0 ? round(($joursTravailles / $joursOuvrables) * 100, 1) : 0;
+            
+            // Déterminer la performance
+            $performance = '';
+            if ($tauxPonctualite >= 90 && $tauxAssiduite >= 90) {
+                $performance = 'excellent';
+            } elseif ($tauxPonctualite >= 80 && $tauxAssiduite >= 80) {
+                $performance = 'bon';
+            } elseif ($tauxPonctualite >= 70 && $tauxAssiduite >= 70) {
+                $performance = 'moyen';
+            } else {
+                $performance = 'faible';
+            }
+            
+            $statistiques->push((object)[
+                'employe' => $employe,
+                'jours_prevus' => $joursOuvrables,
+                'jours_travailles' => $joursTravailles,
+                'jours_realises' => $joursRealises,
+                'heures_prevues' => $heuresPrevues,
+                'heures_effectuees' => $heuresEffectuees,
+                'heures_travaillees' => $heuresTravaillees,
+                'heures_faites' => $heuresFaites,
+                'heures_absence' => $heuresAbsence,
+                'taux_ponctualite' => $tauxPonctualite,
+                'taux_assiduite' => $tauxAssiduite,
+                'nombre_retards' => $retards,
+                'nombre_departs_anticipes' => $departsAnticipes,
+                'performance' => $performance
+            ]);
+        }
+        
+        return $statistiques;
+    }
+    
+    /**
      * Récupérer les employés avec leurs présences pour une période donnée
      *
      * @param string|null $dateDebut Date de début au format Y-m-d
      * @param string|null $dateFin Date de fin au format Y-m-d
      * @param int|null $employeId ID de l'employé (optionnel)
      * @param int|null $departementId ID du département (optionnel)
-     * @param int|null $serviceId ID du service (optionnel)
+     * @param int|null $serviceId ID du service (optionnel, maintenu pour compatibilité)
+     * @param int|null $posteId ID du poste (optionnel)
+     * @param int|null $gradeId ID du grade (optionnel)
      * @return \Illuminate\Database\Eloquent\Collection Collection d'employés avec leurs présences
      */
-    private function getEmployesWithPresences($dateDebut = null, $dateFin = null, $employeId = null, $departementId = null, $serviceId = null)
+    private function getEmployesWithPresences($dateDebut = null, $dateFin = null, $employeId = null, $departementId = null, $serviceId = null, $posteId = null, $gradeId = null)
     {
         // Convertir les dates si elles sont fournies
         $dateDebut = $dateDebut ? \Carbon\Carbon::parse($dateDebut) : \Carbon\Carbon::now()->startOfMonth();
@@ -1815,20 +2187,26 @@ class RapportController extends Controller
             $query->where('id', $employeId);
         }
         
-        // Filtrer par département ou service si spécifié
-        // Note: Ces filtres dépendent de la structure de votre base de données
+        // Filtrer par département, poste ou grade si spécifié
         if ($departementId) {
-            // Si la relation existe dans votre modèle
-            $query->whereHas('departement', function($q) use ($departementId) {
-                $q->where('id', $departementId);
+            $query->whereHas('poste', function($q) use ($departementId) {
+                $q->where('departement', $departementId);
             });
         }
         
+        // Maintenu pour compatibilité
         if ($serviceId) {
-            // Si la relation existe dans votre modèle
             $query->whereHas('service', function($q) use ($serviceId) {
                 $q->where('id', $serviceId);
             });
+        }
+        
+        if ($posteId) {
+            $query->where('poste_id', $posteId);
+        }
+        
+        if ($gradeId) {
+            $query->where('grade_id', $gradeId);
         }
         
         // Récupérer les employés avec leurs présences pour la période spécifiée

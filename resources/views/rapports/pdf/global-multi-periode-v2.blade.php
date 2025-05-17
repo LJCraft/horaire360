@@ -4,86 +4,12 @@
 
 @section('content')
 <div class="container">
-    <h1>Rapport Global de Présence – {{ $periodeLabel ?? $titre }}</h1>
+    <h1>Rapport Global de Présence – {{ $periodeLabel }}</h1>
     
     <div class="rapport-info">
-        <p><strong>Période:</strong> {{ $periodeLabel ?? ($dateDebut ? date('d/m/Y', strtotime($dateDebut)) : 'Début') . ' - ' . ($dateFin ? date('d/m/Y', strtotime($dateFin)) : 'Aujourd\'hui') }}</p>
+        <p><strong>Période:</strong> {{ $periodeLabel }}</p>
         <p><strong>Nombre d'employés:</strong> {{ count($employes) }}</p>
         <p><strong>Date d'édition:</strong> {{ now()->format('d/m/Y H:i') }}</p>
-    </div>
-    
-@section('styles')
-<style>
-    body {
-        font-family: 'DejaVu Sans', Arial, sans-serif;
-        font-size: 10pt;
-        line-height: 1.3;
-        color: #333;
-    }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            color: #333;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .footer {
-            text-align: center;
-            font-size: 10px;
-            color: #666;
-            margin-top: 30px;
-        }
-        .text-success {
-            color: #28a745;
-        }
-        .text-warning {
-            color: #ffc107;
-        }
-        .text-danger {
-            color: #dc3545;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .text-right {
-            text-align: right;
-        }
-        .employee-section {
-            margin-bottom: 30px;
-            page-break-inside: avoid;
-        }
-        .employee-header {
-            background-color: #eef2ff;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .employee-name {
-            font-weight: bold;
-            font-size: 14px;
-            color: #4e73df;
-        }
-        .employee-info {
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>{{ $titre }}</h1>
-        <p>Période : {{ $dateDebut ? date('d/m/Y', strtotime($dateDebut)) : 'Début' }} - {{ $dateFin ? date('d/m/Y', strtotime($dateFin)) : 'Aujourd\'hui' }}</p>
     </div>
     
     <table class="table">
@@ -106,7 +32,6 @@
             @foreach($employes as $employe)
             <tr>
                 <td class="employe-col">{{ $employe->nom }} {{ $employe->prenom }}</td>
-        
                 @foreach($jours as $jour)
                     @php
                         $presence = $presences->where('employe_id', $employe->id)
@@ -134,6 +59,13 @@
 
 @section('styles')
 <style>
+    body {
+        font-family: 'DejaVu Sans', Arial, sans-serif;
+        font-size: 10pt;
+        line-height: 1.3;
+        color: #333;
+    }
+    
     h1 {
         font-size: 16pt;
         color: #2c3e50;
