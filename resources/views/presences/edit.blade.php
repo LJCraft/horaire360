@@ -69,7 +69,31 @@
                     @enderror
                 </div>
                 
-                <div class="col-md-12">
+                <div class="col-md-6">
+                    <label for="source_pointage" class="form-label">Source du pointage</label>
+                    <div class="d-flex">
+                        <div class="form-check me-4">
+                            <input class="form-check-input" type="radio" name="source_pointage" id="source_manuel" value="manuel" {{ old('source_pointage', $presence->source_pointage ?? 'manuel') == 'manuel' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="source_manuel">
+                                <i class="bi bi-person-fill"></i> Manuel
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="source_pointage" id="source_biometrique" value="biometrique" {{ old('source_pointage', $presence->source_pointage ?? 'manuel') == 'biometrique' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="source_biometrique">
+                                <i class="bi bi-fingerprint"></i> Biométrique
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-text small">
+                        La source du pointage détermine quels critères de pointage seront appliqués.
+                    </div>
+                    @error('source_pointage')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+                
+                <div class="col-md-6">
                     <label for="commentaire" class="form-label">Commentaire</label>
                     <textarea class="form-control @error('commentaire') is-invalid @enderror" id="commentaire" name="commentaire" rows="3">{{ old('commentaire', $presence->commentaire) }}</textarea>
                     @error('commentaire')

@@ -1,174 +1,107 @@
 @extends('rapports.pdf.layouts.master')
 
-@section('title', 'Rapport Global de Présence – ' . ucfirst($periode))
-
 @section('content')
-<div class="container">
-    <h1>Rapport Global de Présence – {{ $periodeLabel ?? $titre }}</h1>
+    <h2>Rapport Global de Présence – {{ $periodeLabel ?? $titre }}</h2>
     
     <div class="rapport-info">
-        <p><strong>Période:</strong> {{ $periodeLabel ?? ($dateDebut ? date('d/m/Y', strtotime($dateDebut)) : 'Début') . ' - ' . ($dateFin ? date('d/m/Y', strtotime($dateFin)) : 'Aujourd\'hui') }}</p>
+        @php
+            // Utiliser directement les dates fournies par le contrôleur
+            $dateFinAffichage = \Carbon\Carbon::parse($dateFin)->copy();
+            $periodeAffichage = ($dateDebut ? \Carbon\Carbon::parse($dateDebut)->format('d/m/Y') : 'Début') . ' - ' . 
+                               ($dateFinAffichage ? $dateFinAffichage->format('d/m/Y') : 'Aujourd\'hui');
+        @endphp
+        <p><strong>Période:</strong> {{ $periodeLabel ?? $periodeAffichage }}</p>
         <p><strong>Nombre d'employés:</strong> {{ count($employes) }}</p>
-        <p><strong>Date d'édition:</strong> {{ now()->format('d/m/Y H:i') }}</p>
     </div>
     
-@section('styles')
-<style>
-    body {
-        font-family: 'DejaVu Sans', Arial, sans-serif;
-        font-size: 10pt;
-        line-height: 1.3;
-        color: #333;
-    }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            color: #333;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .footer {
-            text-align: center;
-            font-size: 10px;
-            color: #666;
-            margin-top: 30px;
-        }
-        .text-success {
-            color: #28a745;
-        }
-        .text-warning {
-            color: #ffc107;
-        }
-        .text-danger {
-            color: #dc3545;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .text-right {
-            text-align: right;
-        }
-        .employee-section {
-            margin-bottom: 30px;
-            page-break-inside: avoid;
-        }
-        .employee-header {
-            background-color: #eef2ff;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .employee-name {
-            font-weight: bold;
-            font-size: 14px;
-            color: #4e73df;
-        }
-        .employee-info {
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>{{ $titre }}</h1>
-        <p>Période : {{ $dateDebut ? date('d/m/Y', strtotime($dateDebut)) : 'Début' }} - {{ $dateFin ? date('d/m/Y', strtotime($dateFin)) : 'Aujourd\'hui' }}</p>
+    <div style="overflow-x: auto;">
+        <table class="table-striped">
+            <thead>
+                <tr>
+                    <th class="employe-col">Employé</th>
+                    @foreach($jours as $jour)
+                    <th colspan="2" class="date-col">{{ \Carbon\Carbon::parse($jour)->format('d-M') }}</th>
+                    @endforeach
+                </tr>
+                <tr>
+                    <th></th>
+                    @foreach($jours as $jour)
+                    <th class="ar-col">AR</th>
+                    <th class="dp-col">DP</th>
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($employes as $employe)
+                <tr>
+                    <td class="employe-col">{{ $employe->nom }} {{ $employe->prenom }}</td>
+            
+                    @foreach($jours as $jour)
+                        @php
+                            $presence = $presences->where('employe_id', $employe->id)
+                                                ->where('date', $jour)
+                                                ->first();
+                            
+                            // Vérifier si c'est un jour de repos selon le planning
+                            $jourSemaine = \Carbon\Carbon::parse($jour)->dayOfWeek;
+                            $estRepos = false;
+                            
+                            // Vérifier dans les plannings si ce jour est marqué comme repos
+                            $planning = \App\Models\Planning::where('employe_id', $employe->id)
+                                ->where(function($query) use ($jour) {
+                                    $query->where('date_debut', '<=', $jour)
+                                          ->where('date_fin', '>=', $jour);
+                                })
+                                ->first();
+                                
+                            if ($planning) {
+                                // Vérifier si ce jour de la semaine est un jour de repos dans le planning
+                                $joursSemaine = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+                                $jourNom = $joursSemaine[$jourSemaine];
+                                
+                                if ($planning->{$jourNom . '_repos'} === 1) {
+                                    $estRepos = true;
+                                }
+                            }
+                        @endphp
+                        
+                        @if($estRepos)
+                            <td class="ar-col">R</td>
+                            <td class="dp-col">R</td>
+                        @else
+                            <td class="ar-col">
+                                {{ $presence && $presence->heure_arrivee ? \Carbon\Carbon::parse($presence->heure_arrivee)->format('H:i') : '-' }}
+                            </td>
+                            <td class="dp-col">
+                                {{ $presence && $presence->heure_depart ? \Carbon\Carbon::parse($presence->heure_depart)->format('H:i') : '-' }}
+                            </td>
+                        @endif
+                    @endforeach
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
     
-    <table class="table">
-        <thead>
-            <tr>
-                <th class="employe-col">Employé</th>
-                @foreach($jours as $jour)
-                <th colspan="2" class="date-col">{{ \Carbon\Carbon::parse($jour)->format('d-M-Y') }}</th>
-                @endforeach
-            </tr>
-            <tr>
-                <th></th>
-                @foreach($jours as $jour)
-                <th class="ar-col">AR</th>
-                <th class="dp-col">DP</th>
-                @endforeach
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($employes as $employe)
-            <tr>
-                <td class="employe-col">{{ $employe->nom }} {{ $employe->prenom }}</td>
-        
-                @foreach($jours as $jour)
-                    @php
-                        $presence = $presences->where('employe_id', $employe->id)
-                                            ->where('date', $jour)
-                                            ->first();
-                    @endphp
-                    <td class="ar-col">
-                        {{ $presence && $presence->heure_arrivee ? \Carbon\Carbon::parse($presence->heure_arrivee)->format('H:i') : '-' }}
-                    </td>
-                    <td class="dp-col">
-                        {{ $presence && $presence->heure_depart ? \Carbon\Carbon::parse($presence->heure_depart)->format('H:i') : '-' }}
-                    </td>
-                @endforeach
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+    <div class="page-break"></div>
     
-    <div class="footer-notes">
-        <p><strong>Légende:</strong> AR: Heure d'arrivée | DP: Heure de départ | - : Aucun pointage</p>
-        <p>Ce rapport présente uniquement les heures de pointage sans analyse ni calcul.</p>
-    </div>
-</div>
+    <h2>Notes et informations</h2>
+    <ul>
+        <li><strong>Légende:</strong> AR: Heure d'arrivée | DP: Heure de départ | R : Jour de repos selon le planning | - : Aucun pointage</li>
+        <li>Ce rapport présente uniquement les heures de pointage sans analyse ni calcul.</li>
+        <li>Période analysée : du {{ \Carbon\Carbon::parse($dateDebut)->format('d/m/Y') }} au {{ \Carbon\Carbon::parse($dateFin)->format('d/m/Y') }}</li>
+    </ul>
 @endsection
 
 @section('styles')
 <style>
-    h1 {
-        font-size: 16pt;
-        color: #2c3e50;
-        margin-bottom: 15px;
-        text-align: center;
-    }
-    
     .rapport-info {
-        margin-bottom: 20px;
-        font-size: 9pt;
+        margin-bottom: 15px;
+        font-size: 8pt;
     }
     
     .rapport-info p {
         margin: 3px 0;
-    }
-    
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-        font-size: 8pt;
-    }
-    
-    table, th, td {
-        border: 1px solid #ddd;
-    }
-    
-    th, td {
-        padding: 4px;
-        text-align: center;
-    }
-    
-    th {
-        background-color: #f2f2f2;
-        font-weight: bold;
     }
     
     .employe-col {
@@ -178,23 +111,17 @@
     }
     
     .date-col {
-        font-size: 7pt;
+        font-size: 6pt;
         background-color: #e9ecef;
     }
     
     .ar-col, .dp-col {
-        width: 5%;
+        width: 4%;
+        font-size: 6pt;
     }
     
     .ar-col {
         background-color: #f8f9fa;
-    }
-    
-    .footer-notes {
-        font-size: 8pt;
-        color: #666;
-        border-top: 1px solid #eee;
-        padding-top: 10px;
     }
     
     /* Gestion des sauts de page */

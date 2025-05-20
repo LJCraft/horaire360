@@ -11,6 +11,7 @@ use App\Http\Controllers\RapportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TestController;
+use App\Http\Controllers\CriterePointageController;
 
 
 /*
@@ -31,6 +32,11 @@ Auth::routes();
 
 // Groupe de routes protégées par l'authentification
 Route::middleware(['auth'])->group(function () {
+    // Route home (redirige vers le dashboard)
+    Route::get('/home', function() {
+        return redirect()->route('dashboard');
+    })->name('home');
+    
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/admin', [DashboardController::class, 'adminDashboard'])->name('dashboard.admin');
@@ -85,6 +91,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/presences/export/pdf', [PresenceController::class, 'exportPdf'])->name('presences.export.pdf');
     // Resource route (must be after all other custom routes)
     Route::resource('presences', PresenceController::class);
+    
+    // Routes pour les critères de pointage
+    Route::resource('criteres-pointage', CriterePointageController::class);
+    Route::post('/criteres-pointage/get-planning', [CriterePointageController::class, 'getPlanning'])->name('criteres-pointage.get-planning');
     
     // Routes pour les rapports (itération 4)
     Route::get('/rapports', [RapportController::class, 'index'])->name('rapports.index');

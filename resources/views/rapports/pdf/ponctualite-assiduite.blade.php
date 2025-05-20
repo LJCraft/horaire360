@@ -28,6 +28,7 @@ function getTauxClass($taux) {
     <h2>Statistiques individuelles</h2>
     
     @if(count($statistiques) > 0)
+        <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
@@ -96,6 +97,7 @@ function getTauxClass($taux) {
                 @endforeach
             </tbody>
         </table>
+        </div>
     @else
         <p>Aucune donnée disponible pour la période sélectionnée.</p>
     @endif
@@ -103,6 +105,7 @@ function getTauxClass($taux) {
     <h2>Statistiques globales</h2>
     
     <div class="stats-container">
+        <div style="overflow-x: auto;">
         <table>
             <tr>
                 @php
@@ -140,6 +143,7 @@ function getTauxClass($taux) {
                 <td class="taux-col {{ getTauxClass($tauxAssiduiteMoyen) }}">{{ $tauxAssiduiteMoyen }}%</td>
             </tr>
         </table>
+        </div>
     </div>
     
     <div class="footer-notes">
@@ -162,11 +166,19 @@ function getTauxClass($taux) {
 
 @section('styles')
 <style>
+    /* Styles pour format A4 */
+    @page {
+        size: A4 portrait;
+        margin: 1.5cm 1cm;
+    }
+    
     body {
         font-family: 'DejaVu Sans', Arial, sans-serif;
         font-size: 9pt;
         line-height: 1.3;
         color: #333;
+        width: 100%;
+        background: white;
     }
     
     h1 {
@@ -197,6 +209,9 @@ function getTauxClass($taux) {
         border-collapse: collapse;
         margin-bottom: 15px;
         font-size: 7pt;
+        table-layout: fixed;
+        max-width: 100%;
+        overflow-wrap: break-word;
     }
 
     table, th, td {
@@ -204,8 +219,11 @@ function getTauxClass($taux) {
     }
 
     th, td {
-        padding: 3px;
+        padding: 2px;
         text-align: left;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
 
     th {
@@ -214,13 +232,13 @@ function getTauxClass($taux) {
     }
 
     .employe-col {
-        width: 12%;
+        width: 10%;
         font-weight: bold;
     }
 
     .numeric-col {
         text-align: center;
-        width: 6%;
+        width: 5%;
     }
 
     .taux-col {
@@ -248,7 +266,7 @@ function getTauxClass($taux) {
     }
 
     .observation-col {
-        width: 15%;
+        width: 12%;
         font-size: 6pt;
     }
 
@@ -323,6 +341,32 @@ function getTauxClass($taux) {
     /* Pour éviter les sauts de page au milieu des lignes */
     tr {
         page-break-inside: avoid;
+    }
+    
+    /* Styles pour impression */
+    @media print {
+        body {
+            width: 21cm;
+            height: 29.7cm;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            padding: 10px;
+        }
+        
+        table {
+            page-break-inside: auto;
+        }
+        
+        thead {
+            display: table-header-group;
+        }
+        
+        tfoot {
+            display: table-footer-group;
+        }
     }
 </style>
 @endsection

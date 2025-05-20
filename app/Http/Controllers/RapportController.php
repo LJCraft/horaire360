@@ -529,7 +529,9 @@ class RapportController extends Controller
                 $periodeLabel = 'Journalier - ' . $dateDebut->format('d/m/Y');
                 break;
             case 'semaine':
-                $dateDebut = $dateDebut->startOfWeek();
+                // Toujours commencer au lundi de la semaine courante
+                $dateDebut = $dateDebut->copy()->startOfWeek();
+                // Toujours terminer au dimanche de la même semaine
                 $dateFin = $dateDebut->copy()->endOfWeek();
                 $periodeLabel = 'Hebdomadaire - Semaine du ' . $dateDebut->format('d/m/Y') . ' au ' . $dateFin->format('d/m/Y');
                 break;

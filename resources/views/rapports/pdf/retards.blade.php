@@ -4,23 +4,20 @@
     <!-- Statistiques générales -->
     <h2>Statistiques générales</h2>
     <div class="stats-container">
-        <table>
-            <tr>
-                <td style="width: 50%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #e74c3c;">{{ $totalRetards }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Nombre total de retards</p>
-                </td>
-                <td style="width: 50%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #f39c12;">{{ round($totalRetards / max(1, count($retardsParEmploye)), 1) }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Moyenne de retards par employé</p>
-                </td>
-            </tr>
-        </table>
+        <div class="stat-box" style="width: 45%;">
+            <h3 class="text-danger">{{ $totalRetards }}</h3>
+            <p>Nombre total de retards</p>
+        </div>
+        <div class="stat-box" style="width: 45%;">
+            <h3 class="text-warning">{{ round($totalRetards / max(1, count($retardsParEmploye)), 1) }}</h3>
+            <p>Moyenne de retards par employé</p>
+        </div>
     </div>
 
     <!-- Tableau des retards par employé -->
     <h2>Retards par employé</h2>
     @if(count($retardsParEmploye) > 0)
+        <div style="overflow-x: auto;">
         <table class="table-striped">
             <thead>
                 <tr>
@@ -54,6 +51,7 @@
     <!-- Liste détaillée des retards -->
     <h2>Liste détaillée des retards</h2>
     @if(count($retards) > 0)
+        <div style="overflow-x: auto;">
         <table class="table-striped">
             <thead>
                 <tr>

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Presence;
 use App\Models\Planning;
 use App\Models\Employe;
+use App\Models\CriterePointage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
@@ -83,17 +84,40 @@ class BiometricAttendanceController extends Controller
                 ->first();
                 
             if ($planningDetail && !$planningDetail->jour_repos) {
-                // Calculer si l'employé est en retard
+                // Récupérer les critères de pointage applicables
+                $employe = Employe::find($data['employee_id']);
+                $critere = CriterePointage::getCritereApplicable($employe, $date);
+                
+                // Utiliser les critères configurés ou les valeurs par défaut
+                $toleranceAvant = $critere ? $critere->tolerance_avant : 10;
+                $toleranceApres = $critere ? $critere->tolerance_apres : 10;
+                $nombrePointages = $critere ? $critere->nombre_pointages : 2;
+                
                 $heureArrivee = Carbon::parse($time);
                 $heureDebutPlanning = Carbon::parse($planningDetail->heure_debut);
                 
-                // Tolérance de 10 minutes
-                $heureDebutAvecTolerance = (clone $heureDebutPlanning)->addMinutes(10);
-                
-                if ($heureArrivee->gt($heureDebutAvecTolerance)) {
-                    $retard = true;
-                    $minutesRetard = $heureArrivee->diffInMinutes($heureDebutPlanning);
-                    $commentaire = "Retard de {$minutesRetard} minutes";
+                if ($nombrePointages == 1) {
+                    // Si un seul pointage est requis, on vérifie que le pointage est dans la plage
+                    // [heure début - tolérance] -> [heure fin + tolérance]
+                    $heureFinPlanning = Carbon::parse($planningDetail->heure_fin);
+                    $debutPlage = (clone $heureDebutPlanning)->subMinutes($toleranceAvant);
+                    $finPlage = (clone $heureFinPlanning)->addMinutes($toleranceApres);
+                    
+                    if (!($heureArrivee->gte($debutPlage) && $heureArrivee->lte($finPlage))) {
+                        $retard = true;
+                        $commentaire = "Pointage hors plage autorisée";
+                    }
+                } else {
+                    // Si deux pointages sont requis, on vérifie que l'arrivée est dans la plage
+                    // [heure début - tolérance] -> [heure début + tolérance]
+                    $debutPlage = (clone $heureDebutPlanning)->subMinutes($toleranceAvant);
+                    $finPlage = (clone $heureDebutPlanning)->addMinutes($toleranceApres);
+                    
+                    if (!($heureArrivee->gte($debutPlage) && $heureArrivee->lte($finPlage))) {
+                        $retard = true;
+                        $minutesRetard = $heureArrivee->diffInMinutes($heureDebutPlanning);
+                        $commentaire = "Retard de {$minutesRetard} minutes";
+                    }
                 }
             }
         }
@@ -105,6 +129,7 @@ class BiometricAttendanceController extends Controller
         $presence->heure_arrivee = $time;
         $presence->retard = $retard;
         $presence->commentaire = $commentaire;
+        $presence->source_pointage = 'biometrique';
         
         // Stocker les données biométriques et de localisation
         $metaData = [
@@ -117,6 +142,19 @@ class BiometricAttendanceController extends Controller
         ];
         
         $presence->meta_data = json_encode($metaData);
+        
+        // Calculer les heures prévues et faites
+        $employe = Employe::find($data['employee_id']);
+        $critere = CriterePointage::getCritereApplicable($employe, $date);
+        
+        if ($critere && $critere->nombre_pointages == 1 && !$retard) {
+            // Si un seul pointage est requis et l'employé n'est pas en retard,
+            // on calcule les heures prévues et faites
+            $heures = $presence->calculerHeures();
+            $presence->heures_prevues = $heures['heures_prevues'];
+            $presence->heures_faites = $heures['heures_faites'];
+        }
+        
         $presence->save();
 
         return response()->json([
@@ -193,33 +231,43 @@ class BiometricAttendanceController extends Controller
             ->first();
             
         $departAnticipe = false;
+        $commentaire = null;
         
-        if ($planning) {
+        // Récupérer les critères de pointage applicables
+        $employe = Employe::find($data['employee_id']);
+        $critere = CriterePointage::getCritereApplicable($employe, $date);
+        
+        // Si un seul pointage est requis, pas de départ anticipé
+        if ($critere && $critere->nombre_pointages == 1) {
+            $departAnticipe = false;
+        } else if ($planning) {
             // Récupérer le détail du planning pour ce jour de la semaine
             $planningDetail = $planning->details()
                 ->where('jour', $jourSemaine)
                 ->first();
                 
             if ($planningDetail && !$planningDetail->jour_repos) {
-                // Calculer si l'employé part en avance
+                // Utiliser les critères configurés ou les valeurs par défaut
+                $toleranceAvant = $critere ? $critere->tolerance_avant : 10;
+                $toleranceApres = $critere ? $critere->tolerance_apres : 10;
+                
+                // Calculer si l'employé est parti avant l'heure prévue
                 $heureDepart = Carbon::parse($time);
                 $heureFinPlanning = Carbon::parse($planningDetail->heure_fin);
                 
-                // Tolérance de 10 minutes
-                $heureFinAvecTolerance = (clone $heureFinPlanning)->subMinutes(10);
+                // Pour deux pointages, on vérifie que le départ est dans la plage
+                // [heure fin - tolérance] -> [heure fin + tolérance]
+                $debutPlage = (clone $heureFinPlanning)->subMinutes($toleranceApres);
+                $finPlage = (clone $heureFinPlanning)->addMinutes($toleranceApres);
                 
-                if ($heureDepart->lt($heureFinAvecTolerance)) {
+                if (!($heureDepart->gte($debutPlage) && $heureDepart->lte($finPlage))) {
                     $departAnticipe = true;
-                    $minutesAvance = $heureDepart->diffInMinutes($heureFinPlanning);
-                    
-                    // Ajouter un commentaire sur le départ anticipé
-                    $commentaireExistant = $presence->commentaire ?? '';
-                    $presence->commentaire = $commentaireExistant . ($commentaireExistant ? ' | ' : '') . "Départ anticipé de {$minutesAvance} minutes";
+                    $minutesAvance = $heureFinPlanning->diffInMinutes($heureDepart);
+                    $commentaire = "Départ anticipé de {$minutesAvance} minutes";
                 }
             }
         }
 
-        // Mettre à jour les données biométriques et de localisation
         $metaData = json_decode($presence->meta_data ?? '{}', true);
         $metaData['checkout'] = [
             'location' => $data['location'],

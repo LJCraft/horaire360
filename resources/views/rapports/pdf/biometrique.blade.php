@@ -4,25 +4,22 @@
     <!-- Statistiques des pointages biométriques -->
     <h2>Statistiques des pointages biométriques</h2>
     <div class="stats-container">
-        <table>
-            <tr>
-                <td style="width: 33%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #3498db;">{{ $totalPointages ?? count($pointages) }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Pointages biométriques</p>
-                </td>
-                <td style="width: 33%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #27ae60;">{{ $scoreMoyenBiometrique ?? 'N/A' }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Score biométrique moyen</p>
-                </td>
-                <td style="width: 33%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #f39c12;">{{ count($pointages->groupBy('employe_id')) }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Employés concernés</p>
-                </td>
-            </tr>
-        </table>
+        <div class="stat-box" style="width: 30%;">
+            <h3 class="text-info">{{ $totalPointages ?? count($pointages) }}</h3>
+            <p>Pointages biométriques</p>
+        </div>
+        <div class="stat-box" style="width: 30%;">
+            <h3 class="text-success">{{ $scoreMoyenBiometrique ?? 'N/A' }}</h3>
+            <p>Score biométrique moyen</p>
+        </div>
+        <div class="stat-box" style="width: 30%;">
+            <h3 class="text-warning">{{ count($pointages->groupBy('employe_id')) }}</h3>
+            <p>Employés concernés</p>
+        </div>
     </div>
     
-    <table>
+    <div style="overflow-x: auto;">
+    <table class="table-striped">
         <thead>
             <tr>
                 <th>ID</th>
@@ -65,5 +62,6 @@
             @endforelse
         </tbody>
     </table>
+    </div>
     
 @endsection

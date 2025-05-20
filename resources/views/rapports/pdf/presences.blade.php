@@ -2,26 +2,27 @@
 
 @section('content')
         <!-- Statistiques -->
-        <div style="margin-bottom: 20px;">
-            <div class="stats-box">
+        <div class="stats-container">
+            <div class="stat-box">
                 <h3>{{ $totalPresences }}</h3>
                 <p>Présences totales</p>
             </div>
-            <div class="stats-box">
+            <div class="stat-box">
                 <h3 class="text-warning">{{ $totalRetards }}</h3>
                 <p>Retards</p>
             </div>
-            <div class="stats-box">
+            <div class="stat-box">
                 <h3 class="text-danger">{{ $totalDepartsAnticipes }}</h3>
                 <p>Départs anticipés</p>
             </div>
-            <div class="stats-box">
+            <div class="stat-box">
                 <h3 class="text-success">{{ $pourcentageAssiduite }}%</h3>
                 <p>Taux d'assiduité</p>
             </div>
         </div>
         
         <h2>Liste détaillée des présences</h2>
+        <div style="overflow-x: auto;">
         <table class="table-striped">
             <thead>
                 <tr>
@@ -86,6 +87,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
         
         <div class="page-break"></div>
         
@@ -98,19 +100,5 @@
         </ul>
     </div>
 
-    <footer>
-        <p>Rapport généré par Horaire360 - Système de gestion des plannings et présences</p>
-    </footer>
-    
-    <script type="text/php">
-        if (isset($pdf)) {
-            $text = "Page {PAGE_NUM} / {PAGE_COUNT}";
-            $size = 10;
-            $font = $fontMetrics->getFont("DejaVu Sans");
-            $width = $fontMetrics->get_text_width($text, $font, $size) / 2;
-            $x = ($pdf->get_width() - $width) - 20;
-            $y = $pdf->get_height() - 20;
-            $pdf->page_text($x, $y, $text, $font, $size);
-        }
-    </script>
+    <!-- Le footer est déjà inclus dans le layout master -->
 @endsection
