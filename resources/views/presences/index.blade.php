@@ -76,6 +76,14 @@
                     <option value="0" {{ (isset($departAnticipe) && $departAnticipe == '0') ? 'selected' : '' }}>Non</option>
                 </select>
             </div>
+            <div class="col-md-2">
+                <label for="source_pointage" class="form-label">Source</label>
+                <select class="form-select" id="source_pointage" name="source_pointage">
+                    <option value="">Toutes</option>
+                    <option value="manuel" {{ (isset($sourcePointage) && $sourcePointage == 'manuel') ? 'selected' : '' }}>Manuel</option>
+                    <option value="biometrique" {{ (isset($sourcePointage) && $sourcePointage == 'biometrique') ? 'selected' : '' }}>Biométrique</option>
+                </select>
+            </div>
             <div class="col-md-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-search"></i> Filtrer
@@ -97,6 +105,7 @@
                         <th>Heure de départ</th>
                         <th>Durée</th>
                         <th>Statut</th>
+                        <th>Source</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -132,6 +141,13 @@
                                 
                                 @if($presence->depart_anticipe && $presence->heure_depart)
                                     <span class="badge bg-warning">Départ anticipé</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($presence->source_pointage === 'biometrique')
+                                    <span class="badge bg-info"><i class="bi bi-fingerprint me-1"></i> Biométrique</span>
+                                @else
+                                    <span class="badge bg-secondary"><i class="bi bi-person-fill me-1"></i> Manuel</span>
                                 @endif
                             </td>
                             <td>

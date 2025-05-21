@@ -182,7 +182,7 @@ return [
          * Package Service Providers...
          */
         Barryvdh\DomPDF\ServiceProvider::class,
-        Laravel\Pail\PailServiceProvider::class,
+        // Laravel\Pail\PailServiceProvider::class,
         Laravel\Sail\SailServiceProvider::class,
         Laravel\Sanctum\SanctumServiceProvider::class,
         Laravel\Tinker\TinkerServiceProvider::class,

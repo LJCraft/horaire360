@@ -2,16 +2,28 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $titre ?? 'Rapport' }} - Horaire360</title>
     <style>
+        /* Styles pour format A4 */
+        @page {
+            size: A4 portrait;
+            margin: 2cm 1.5cm;
+        }
         body {
             font-family: 'DejaVu Sans', sans-serif;
             margin: 0;
             padding: 0;
             color: #333;
+            width: 100%;
+            font-size: 9pt;
+            line-height: 1.2;
+            background: white;
         }
         .container {
-            padding: 20px;
+            padding: 10px;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         header {
             padding: 10px 20px;
@@ -41,53 +53,59 @@
             font-size: 12px;
         }
         h1 {
-            font-size: 24px;
-            margin: 0 0 5px 0;
+            font-size: 18px;
+            margin: 0 0 3px 0;
             color: #2980b9;
         }
         h2 {
-            font-size: 18px;
-            margin: 15px 0 10px 0;
+            font-size: 14px;
+            margin: 10px 0 8px 0;
             color: #3498db;
             border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+            padding-bottom: 3px;
         }
         h3 {
-            font-size: 16px;
-            margin: 10px 0;
+            font-size: 12px;
+            margin: 8px 0;
             color: #555;
         }
         .subtitle {
-            font-size: 14px;
+            font-size: 11px;
             color: #777;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
         .periode-badge {
             display: inline-block;
             background-color: #3498db;
             color: white;
-            padding: 3px 8px;
+            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 12px;
-            margin-top: 5px;
+            font-size: 9px;
+            margin-top: 3px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
+            table-layout: fixed;
+            max-width: 100%;
+            overflow-wrap: break-word;
         }
         table th {
             background-color: #f8f9fa;
-            padding: 8px;
+            padding: 4px;
             border: 1px solid #ddd;
             font-weight: bold;
             text-align: left;
-            font-size: 12px;
+            font-size: 8px;
         }
         table td {
-            padding: 8px;
+            padding: 3px;
             border: 1px solid #ddd;
-            font-size: 12px;
+            font-size: 8px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
         }
         .table-striped tr:nth-child(even) {
             background-color: #f2f2f2;
@@ -96,25 +114,27 @@
             display: flex;
             flex-wrap: wrap;
             margin-bottom: 20px;
+            width: 100%;
+            box-sizing: border-box;
         }
         .stat-box {
             width: 22%;
             margin-right: 3%;
-            padding: 10px;
+            padding: 6px;
             background-color: #f8f9fa;
             border: 1px solid #ddd;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            border-radius: 3px;
+            margin-bottom: 6px;
             text-align: center;
         }
         .stat-box h3 {
             margin: 0;
-            font-size: 24px;
+            font-size: 16px;
             color: #2980b9;
         }
         .stat-box p {
-            margin: 5px 0 0 0;
-            font-size: 12px;
+            margin: 3px 0 0 0;
+            font-size: 8px;
             color: #777;
         }
         .text-danger {
@@ -135,26 +155,60 @@
         footer {
             position: fixed;
             bottom: 0;
+            left: 0;
+            right: 0;
             width: 100%;
             text-align: center;
-            font-size: 10px;
+            font-size: 8px;
             color: #777;
-            padding: 10px 0;
+            padding: 5px 0;
             border-top: 1px solid #ddd;
+            background-color: white;
         }
         .footer-page {
-            font-size: 10px;
+            font-size: 8px;
             text-align: right;
-            margin-top: 10px;
+            margin-top: 5px;
             color: #777;
+        }
+        
+        /* Styles pour impression */
+        @media print {
+            body {
+                width: 21cm;
+                height: 29.7cm;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            table {
+                page-break-inside: auto;
+            }
+            
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            
+            thead {
+                display: table-header-group;
+            }
+            
+            tfoot {
+                display: table-footer-group;
+            }
         }
     </style>
 </head>
 <body>
     <header>
         <div class="logo-container">
-            <!-- Logo texte simple au lieu d'une image pour éviter les problèmes avec DomPDF -->
-            <div style="font-size: 24px; font-weight: bold; color: #3498db;">H360</div>
+            <!-- Utilisation du logo SVG de l'application -->
+            <img src="{{ public_path('assets/icons/logo.svg') }}" alt="Horaire360" style="max-height: 40px; max-width: 100%;">
         </div>
         <div class="header-content">
             <h1>{{ $titre ?? 'Rapport' }}</h1>
@@ -184,5 +238,28 @@
         </p>
         <div class="footer-page">Page <span class="page">1</span></div>
     </footer>
+    
+    <script type="text/php">
+        if (isset($pdf)) {
+            $text = "Page {PAGE_NUM} / {PAGE_COUNT}";
+            $size = 8;
+            $font = $fontMetrics->getFont("DejaVu Sans");
+            $width = $fontMetrics->get_text_width($text, $font, $size) / 2;
+            $x = ($pdf->get_width() - $width) - 15;
+            $y = $pdf->get_height() - 15;
+            
+            // Ajouter une callback pour chaque page
+            $pdf->page_script('
+                // Afficher le numéro de page sur chaque page
+                $font = $fontMetrics->getFont("DejaVu Sans");
+                $size = 8;
+                $text = "Page " . $PAGE_NUM . " / " . $PAGE_COUNT;
+                $width = $fontMetrics->getTextWidth($text, $font, $size);
+                $x = ($pdf->get_width() - $width) - 15;
+                $y = $pdf->get_height() - 15;
+                $pdf->text($x, $y, $text, $font, $size);
+            ');
+        }
+    </script>
 </body>
 </html>

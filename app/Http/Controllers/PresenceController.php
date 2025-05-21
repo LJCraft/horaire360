@@ -27,6 +27,7 @@ class PresenceController extends Controller
         $date = $request->query('date');
         $retard = $request->query('retard');
         $departAnticipe = $request->query('depart_anticipe');
+        $sourcePointage = $request->query('source_pointage');
         
         // Filtrage par employé pour les utilisateurs non admin
         if (!auth()->user()->is_admin && auth()->user()->employe) {
@@ -61,13 +62,18 @@ class PresenceController extends Controller
             $presencesQuery->where('depart_anticipe', $departAnticipe);
         }
         
+        // Filtre par source de pointage
+        if ($sourcePointage !== null && $sourcePointage !== '') {
+            $presencesQuery->where('source_pointage', $sourcePointage);
+        }
+        
         // Récupération des présences
         $presences = $presencesQuery->orderBy('date', 'desc')->orderBy('heure_arrivee')->paginate(15);
         
         // Récupération des employés pour le filtre
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         
-        return view('presences.index', compact('presences', 'employes', 'employe', 'date', 'retard', 'departAnticipe'));
+        return view('presences.index', compact('presences', 'employes', 'employe', 'date', 'retard', 'departAnticipe', 'sourcePointage'));
     }
     
     /**
@@ -92,7 +98,11 @@ class PresenceController extends Controller
                 'heure_arrivee' => 'required|date_format:H:i',
                 'heure_depart' => 'nullable|date_format:H:i',
                 'commentaire' => 'nullable|string',
+                'source_pointage' => 'nullable|in:biometrique,manuel',
             ]);
+            
+            // Définir la source de pointage (manuel par défaut)
+            $validatedData['source_pointage'] = $request->input('source_pointage', 'manuel');
     
             // Récupérer l'employé pour les messages d'erreur
             $employe = Employe::find($validatedData['employe_id']);
@@ -264,7 +274,11 @@ class PresenceController extends Controller
             'heure_arrivee' => 'required|date_format:H:i',
             'heure_depart' => 'nullable|date_format:H:i',
             'commentaire' => 'nullable|string',
+            'source_pointage' => 'nullable|in:biometrique,manuel',
         ]);
+        
+        // Définir la source de pointage (conserver l'existante ou utiliser manuel par défaut)
+        $validatedData['source_pointage'] = $request->input('source_pointage', $presence->source_pointage ?? 'manuel');
         
         try {
             // Vérifier si une présence existe déjà pour cette date et cet employé (sauf celle-ci)
@@ -673,8 +687,10 @@ class PresenceController extends Controller
                 $presence->employe_id = $data['employee_id'];
                 $presence->date = $date;
                 $presence->heure_arrivee = $time;
+                $presence->source_pointage = 'biometrique';
                 
                 // Vérifier si l'employé est en retard par rapport au planning
+                // en utilisant les critères de pointage configurés
                 $this->checkForLateness($presence, $timestamp);
                 
                 $result['debug_info']['action'] = 'create_new_checkin';
@@ -682,6 +698,7 @@ class PresenceController extends Controller
             // Sinon, mettre à jour l'existant si on ne l'ignore pas
             else if (!$skipExisting) {
                 $presence->heure_arrivee = $time;
+                $presence->source_pointage = 'biometrique';
                 $this->checkForLateness($presence, $timestamp);
                 
                 $result['debug_info']['action'] = 'update_existing_checkin';
@@ -705,6 +722,7 @@ class PresenceController extends Controller
 
             // Mettre à jour l'heure de départ
             $presence->heure_depart = $time;
+            $presence->source_pointage = 'biometrique';
 
             // Vérifier si l'employé part en avance par rapport au planning
             $this->checkForEarlyDeparture($presence, $timestamp);
@@ -793,6 +811,7 @@ class PresenceController extends Controller
 
     /**
      * Vérifie si l'employé est arrivé en retard par rapport à son planning
+     * en utilisant les critères de pointage configurés
      */
     private function checkForLateness($presence, $timestamp)
     {
@@ -814,20 +833,60 @@ class PresenceController extends Controller
                     ->first();
                     
                 if ($planningDetail && !$planningDetail->jour_repos) {
+                    // Récupérer les critères de pointage applicables
+                    $employe = Employe::find($presence->employe_id);
+                    $sourcePointage = $presence->source_pointage ?? 'manuel';
+                    $critere = CriterePointage::getCritereApplicable($employe, $date, $sourcePointage);
+                    
+                    // Utiliser les critères configurés ou les valeurs par défaut
+                    $toleranceAvant = $critere ? $critere->tolerance_avant : 10;
+                    $toleranceApres = $critere ? $critere->tolerance_apres : 10;
+                    $nombrePointages = $critere ? $critere->nombre_pointages : 2;
+                    
                     // Calculer si l'employé est en retard
                     $heureArrivee = Carbon::parse($presence->heure_arrivee);
                     $heureDebutPlanning = Carbon::parse($planningDetail->heure_debut);
                     
-                    // Tolérance de 10 minutes
-                    $heureDebutAvecTolerance = (clone $heureDebutPlanning)->addMinutes(10);
-                    
-                    if ($heureArrivee->gt($heureDebutAvecTolerance)) {
-                        $presence->retard = true;
-                        $minutesRetard = $heureArrivee->diffInMinutes($heureDebutPlanning);
-                        $presence->commentaire = "Retard de {$minutesRetard} minutes (importé)";
+                    if ($nombrePointages == 1) {
+                        // Si un seul pointage est requis, on vérifie que le pointage est dans la plage
+                        // [heure début - tolérance] -> [heure fin + tolérance]
+                        $heureFinPlanning = Carbon::parse($planningDetail->heure_fin);
+                        $debutPlage = (clone $heureDebutPlanning)->subMinutes($toleranceAvant);
+                        $finPlage = (clone $heureFinPlanning)->addMinutes($toleranceApres);
+                        
+                        $presence->retard = !($heureArrivee->gte($debutPlage) && $heureArrivee->lte($finPlage));
+                        
+                        if ($presence->retard) {
+                            $presence->commentaire = "Pointage hors plage autorisée (source: {$sourcePointage})";
+                        }
                     } else {
-                        $presence->retard = false;
+                        // Si deux pointages sont requis, on vérifie que l'arrivée est dans la plage
+                        // [heure début - tolérance] -> [heure début + tolérance]
+                        $debutPlage = (clone $heureDebutPlanning)->subMinutes($toleranceAvant);
+                        $finPlage = (clone $heureDebutPlanning)->addMinutes($toleranceApres);
+                        
+                        $presence->retard = !($heureArrivee->gte($debutPlage) && $heureArrivee->lte($finPlage));
+                        
+                        if ($presence->retard) {
+                            $minutesRetard = $heureArrivee->gt($heureDebutPlanning) ? 
+                                $heureArrivee->diffInMinutes($heureDebutPlanning) : 
+                                0;
+                            $presence->commentaire = "Retard de {$minutesRetard} minutes (source: {$sourcePointage})";
+                        }
                     }
+                    
+                    // Enregistrer les informations sur le critère utilisé
+                    $metaData = json_decode($presence->meta_data ?? '{}', true);
+                    $metaData['critere_applique'] = $critere ? [
+                        'id' => $critere->id,
+                        'niveau' => $critere->niveau,
+                        'nombre_pointages' => $critere->nombre_pointages,
+                        'tolerance_avant' => $critere->tolerance_avant,
+                        'tolerance_apres' => $critere->tolerance_apres,
+                        'source_pointage' => $critere->source_pointage
+                    ] : 'default';
+                    $presence->meta_data = json_encode($metaData);
+                    
                 } else {
                     // Pas de planning pour ce jour ou jour de repos
                     $presence->retard = false;
@@ -845,44 +904,84 @@ class PresenceController extends Controller
 
     /**
      * Vérifie si l'employé est parti en avance par rapport à son planning
+     * en utilisant les critères de pointage configurés
      */
     private function checkForEarlyDeparture($presence, $timestamp)
     {
-        $jourSemaine = $timestamp->dayOfWeekIso;
-        $date = $timestamp->toDateString();
-        
-        // Trouver le planning actif pour cet employé
-        $planning = Planning::where('employe_id', $presence->employe_id)
-            ->where('date_debut', '<=', $date)
-            ->where('date_fin', '>=', $date)
-            ->where('statut', 'actif')
-            ->first();
+        try {
+            $jourSemaine = $timestamp->dayOfWeekIso;
+            $date = $timestamp->toDateString();
             
-        if ($planning) {
-            // Récupérer le détail du planning pour ce jour de la semaine
-            $planningDetail = $planning->details()
-                ->where('jour', $jourSemaine)
+            // Trouver le planning actif pour cet employé
+            $planning = Planning::where('employe_id', $presence->employe_id)
+                ->where('date_debut', '<=', $date)
+                ->where('date_fin', '>=', $date)
+                ->where('statut', 'actif')
                 ->first();
                 
-            if ($planningDetail && !$planningDetail->jour_repos) {
-                // Calculer si l'employé part en avance
-                $heureDepart = Carbon::parse($presence->heure_depart);
-                $heureFinPlanning = Carbon::parse($planningDetail->heure_fin);
-                
-                // Tolérance de 10 minutes
-                $heureFinAvecTolerance = (clone $heureFinPlanning)->subMinutes(10);
-                
-                if ($heureDepart->lt($heureFinAvecTolerance)) {
-                    $presence->depart_anticipe = true;
-                    $minutesAvance = $heureDepart->diffInMinutes($heureFinPlanning);
+            if ($planning) {
+                // Récupérer le détail du planning pour ce jour de la semaine
+                $planningDetail = $planning->details()
+                    ->where('jour', $jourSemaine)
+                    ->first();
                     
-                    // Ajouter un commentaire sur le départ anticipé
-                    $commentaireExistant = $presence->commentaire ?? '';
-                    $presence->commentaire = $commentaireExistant . 
-                        ($commentaireExistant ? ' | ' : '') . 
-                        "Départ anticipé de {$minutesAvance} minutes (importé)";
+                if ($planningDetail && !$planningDetail->jour_repos) {
+                    // Récupérer les critères de pointage applicables
+                    $employe = Employe::find($presence->employe_id);
+                    $sourcePointage = $presence->source_pointage ?? 'manuel';
+                    $critere = CriterePointage::getCritereApplicable($employe, $date, $sourcePointage);
+                    
+                    // Utiliser les critères configurés ou les valeurs par défaut
+                    $toleranceAvant = $critere ? $critere->tolerance_avant : 10;
+                    $toleranceApres = $critere ? $critere->tolerance_apres : 10;
+                    $nombrePointages = $critere ? $critere->nombre_pointages : 2;
+                    
+                    // Si un seul pointage est requis, pas de départ anticipé
+                    if ($nombrePointages == 1) {
+                        $presence->depart_anticipe = false;
+                        return;
+                    }
+                    
+                    // Calculer si l'employé part en avance
+                    $heureDepart = Carbon::parse($presence->heure_depart);
+                    $heureFinPlanning = Carbon::parse($planningDetail->heure_fin);
+                    
+                    // Pour deux pointages, on vérifie que le départ est dans la plage
+                    // [heure fin - tolérance] -> [heure fin + tolérance]
+                    $debutPlage = (clone $heureFinPlanning)->subMinutes($toleranceApres);
+                    $finPlage = (clone $heureFinPlanning)->addMinutes($toleranceApres);
+                    
+                    $presence->depart_anticipe = !($heureDepart->gte($debutPlage) && $heureDepart->lte($finPlage));
+                    
+                    if ($presence->depart_anticipe && $heureDepart->lt($heureFinPlanning)) {
+                        $minutesAvance = $heureDepart->diffInMinutes($heureFinPlanning);
+                        
+                        // Ajouter un commentaire sur le départ anticipé
+                        $commentaireExistant = $presence->commentaire ?? '';
+                        $presence->commentaire = $commentaireExistant . 
+                            ($commentaireExistant ? ' | ' : '') . 
+                            "Départ anticipé de {$minutesAvance} minutes (source: {$sourcePointage})";
+                    }
+                    
+                    // Mettre à jour les métadonnées avec les informations du critère
+                    $metaData = json_decode($presence->meta_data ?? '{}', true);
+                    if (!isset($metaData['critere_applique'])) {
+                        $metaData['critere_applique'] = $critere ? [
+                            'id' => $critere->id,
+                            'niveau' => $critere->niveau,
+                            'nombre_pointages' => $critere->nombre_pointages,
+                            'tolerance_avant' => $critere->tolerance_avant,
+                            'tolerance_apres' => $critere->tolerance_apres,
+                            'source_pointage' => $critere->source_pointage
+                        ] : 'default';
+                        $presence->meta_data = json_encode($metaData);
+                    }
                 }
             }
+        } catch (\Exception $e) {
+            // En cas d'erreur, ne pas marquer comme départ anticipé
+            \Log::error("Erreur lors de la vérification du départ anticipé: " . $e->getMessage());
+            $presence->depart_anticipe = false;
         }
     }
 

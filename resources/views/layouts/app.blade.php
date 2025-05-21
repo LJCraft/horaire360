@@ -463,6 +463,12 @@ use Illuminate\Support\Facades\Route;
                                             <i class="bi bi-phone me-2"></i> Pointages biométriques
                                         </a>
                                     </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('criteres-pointage.index') }}">
+                                            <i class="bi bi-sliders me-2"></i> Configuration des critères
+                                        </a>
+                                    </li>
                                 </ul>
                             </li>
                             <li class="nav-item">

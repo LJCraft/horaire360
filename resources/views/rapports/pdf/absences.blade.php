@@ -4,27 +4,24 @@
     <!-- Statistiques générales -->
     <h2>Statistiques générales</h2>
     <div class="stats-container">
-        <table>
-            <tr>
-                <td style="width: 33%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #3498db;">{{ $totalJoursOuvrables }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Jours ouvrables</p>
-                </td>
-                <td style="width: 33%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #e74c3c;">{{ $totalAbsences }}</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Jours d'absence</p>
-                </td>
-                <td style="width: 33%; text-align: center; border: 1px solid #ddd; padding: 10px;">
-                    <h3 style="margin: 0; font-size: 20px; color: #f39c12;">{{ $tauxGlobalAbsenteisme }}%</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #777;">Taux d'absentéisme</p>
-                </td>
-            </tr>
-        </table>
+        <div class="stat-box" style="width: 30%;">
+            <h3 class="text-info">{{ $totalJoursOuvrables }}</h3>
+            <p>Jours ouvrables</p>
+        </div>
+        <div class="stat-box" style="width: 30%;">
+            <h3 class="text-danger">{{ $totalAbsences }}</h3>
+            <p>Jours d'absence</p>
+        </div>
+        <div class="stat-box" style="width: 30%;">
+            <h3 class="text-warning">{{ $tauxGlobalAbsenteisme }}%</h3>
+            <p>Taux d'absentéisme</p>
+        </div>
     </div>
 
     <!-- Tableau des absences par employé -->
     <h2>Absences par employé</h2>
     @if(count($absences) > 0)
+        <div style="overflow-x: auto;">
         <table class="table-striped">
             <thead>
                 <tr>
@@ -47,6 +44,7 @@
                 @endforeach
             </tbody>
         </table>
+        </div>
     @else
         <p>Aucune absence n'a été enregistrée pour la période sélectionnée.</p>
     @endif

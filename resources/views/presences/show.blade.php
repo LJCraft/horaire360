@@ -69,6 +69,16 @@
                             </td>
                         </tr>
                         <tr>
+                            <th>Source du pointage</th>
+                            <td>
+                                @if($presence->source_pointage === 'biometrique')
+                                    <span class="badge bg-info"><i class="bi bi-fingerprint me-1"></i> Biométrique</span>
+                                @else
+                                    <span class="badge bg-secondary"><i class="bi bi-person-fill me-1"></i> Manuel</span>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
                             <th>Commentaire</th>
                             <td>{{ $presence->commentaire ?: 'Aucun commentaire' }}</td>
                         </tr>
