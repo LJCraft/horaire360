@@ -477,8 +477,8 @@ use Illuminate\Support\Facades\Route;
                             </li>
                             @else
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                                    <i class="bi bi-house"></i> Accueil
+                                <a class="nav-link {{ request()->routeIs('dashboard.*') ? 'active' : '' }}" href="{{ route('dashboard.employe', auth()->user()->employe) }}">
+                                    <i class="bi bi-house"></i> Tableau de bord 
                                 </a>
                             </li>
                             <li class="nav-item">

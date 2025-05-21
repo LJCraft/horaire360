@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Poste;
+use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        
     }
 
     /**
@@ -21,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+         Schema::defaultStringLength(191);
         // Ajouter un validateur personnalisé pour vérifier l'existence d'un département
         Validator::extend('departement_exists', function ($attribute, $value, $parameters, $validator) {
             // Vérifier si le département existe dans la table postes

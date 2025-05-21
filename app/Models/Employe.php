@@ -12,7 +12,7 @@ class Employe extends Model
     use HasFactory;
     
     protected $fillable = [
-        'nom', 'prenom', 'email', 'telephone', 'date_naissance', 'date_embauche',
+        'matricule','nom', 'prenom', 'email', 'telephone', 'date_naissance', 'date_embauche',
         'poste_id', 'statut', 'photo_profil', 'user_id', 'grade_id', 'departement'
     ];
 
