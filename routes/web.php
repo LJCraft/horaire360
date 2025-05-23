@@ -54,6 +54,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Gestion des postes
     Route::resource('postes', PosteController::class);
+    Route::get('/postes/by-departement', [PosteController::class, 'getPostesByDepartement'])->name('postes.by-departement');
     
     // Création d'un compte utilisateur pour un employé
     Route::get('/users/create-from-employee/{employe}', [UserController::class, 'redirectToCreateFromEmployee'])->name('users.redirect-create-from-employee');
@@ -93,24 +94,51 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('presences', PresenceController::class);
     
     // Routes pour les critères de pointage
-    Route::resource('criteres-pointage', CriterePointageController::class);
-    Route::post('/criteres-pointage/get-planning', [CriterePointageController::class, 'getPlanning'])->name('criteres-pointage.get-planning');
+    // Route personnalisée pour l'édition des critères de pointage
+    Route::get('/criteres-pointage/edit/{id}', [CriterePointageController::class, 'edit'])->name('criteres-pointage.edit-custom');
     
-    // Routes pour les rapports (itération 4)
+    // Route personnalisée pour la mise à jour des critères de pointage
+    Route::put('/criteres-pointage/update/{id}', [CriterePointageController::class, 'update'])->name('criteres-pointage.update-custom');
+    
+    // Route personnalisée pour afficher les détails d'un critère de pointage
+    Route::get('/criteres-pointage/{id}', [CriterePointageController::class, 'show'])->name('criteres-pointage.show-custom');
+    
+    // Routes de redirection pour intercepter les tentatives d'accès aux routes problematiques
+    Route::get('/criteres-pointage/{id}/edit', function($id) {
+        return redirect()->route('criteres-pointage.edit-custom', $id);
+    });
+    
+    Route::put('/criteres-pointage/{id}', function($id) {
+        return redirect()->route('criteres-pointage.update-custom', $id);
+    });
+    
+    // Resource route pour les critères de pointage (except edit et update pour éviter les conflits)
+    Route::resource('criteres-pointage', CriterePointageController::class)->except(['edit', 'update']);
+    Route::post('/criteres-pointage/get-planning', [CriterePointageController::class, 'getPlanning'])->name('criteres-pointage.get-planning');
+    Route::post('/criteres-pointage/get-employes-departement', [CriterePointageController::class, 'getEmployesDepartement'])->name('criteres-pointage.get-employes-departement');
+    Route::post('/criteres-pointage/get-postes-departement', [CriterePointageController::class, 'getPostesDepartement'])->name('criteres-pointage.get-postes-departement');
+    Route::post('/criteres-pointage/get-grades-poste', [CriterePointageController::class, 'getGradesPoste'])->name('criteres-pointage.get-grades-poste');
+    Route::post('/criteres-pointage/get-critere-employe', [CriterePointageController::class, 'getCritereEmploye'])->name('criteres-pointage.get-critere-employe');
+    
+    // Routes pour les rapports
     Route::get('/rapports', [RapportController::class, 'index'])->name('rapports.index');
     Route::get('/rapports/presences', [RapportController::class, 'presences'])->name('rapports.presences');
     Route::get('/rapports/absences', [RapportController::class, 'absences'])->name('rapports.absences');
     Route::get('/rapports/retards', [RapportController::class, 'retards'])->name('rapports.retards');
-    Route::get('/rapports/biometrique', [RapportController::class, 'biometrique'])->name('rapports.biometrique');
-    
-    // Nouveaux rapports dynamiques
-    Route::get('/rapports/global-multi-periode', [RapportController::class, 'globalMultiPeriode'])->name('rapports.global-multi-periode');
     Route::get('/rapports/ponctualite-assiduite', [RapportController::class, 'ponctualiteAssiduite'])->name('rapports.ponctualite-assiduite');
-    
-    // Export des rapports avec options
+    Route::get('/rapports/biometrique', [RapportController::class, 'biometrique'])->name('rapports.biometrique');
+    Route::get('/rapports/heures-supplementaires', [RapportController::class, 'heuresSupplementaires'])->name('rapports.heures-supplementaires');
+    Route::get('/rapports/global-multi-periode', [RapportController::class, 'globalMultiPeriode'])->name('rapports.global-multi-periode');
     Route::get('/rapports/export-options', [RapportController::class, 'exportOptions'])->name('rapports.export-options');
+    
+    // Export PDF
     Route::post('/rapports/export-pdf', [RapportController::class, 'exportPdf'])->name('rapports.export-pdf');
-    Route::get('/rapports/export-excel', [RapportController::class, 'exportExcel'])->name('rapports.export-excel');
+    Route::get('/rapports/presences/pdf', [RapportController::class, 'exportPresencesPdf'])->name('rapports.presences.pdf');
+    Route::get('/rapports/absences/pdf', [RapportController::class, 'exportAbsencesPdf'])->name('rapports.absences.pdf');
+    Route::get('/rapports/retards/pdf', [RapportController::class, 'exportRetardsPdf'])->name('rapports.retards.pdf');
+    Route::get('/rapports/ponctualite-assiduite/pdf', [RapportController::class, 'exportPonctualiteAssiduitePdf'])->name('rapports.ponctualite-assiduite.pdf');
+    Route::get('/rapports/biometrique/pdf', [RapportController::class, 'exportBiometriquePdf'])->name('rapports.biometrique.pdf');
+    Route::get('/rapports/heures-supplementaires/pdf', [RapportController::class, 'exportHeuresSupplementairesPdf'])->name('rapports.heures-supplementaires.pdf');
 
     // Route API pour les données du tableau de bord
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData'])->name('api.dashboard-data');

@@ -93,11 +93,11 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-primary"><i class="bi bi-file-earmark-bar-graph me-2"></i>Rapports disponibles</h5>
-                    <span class="badge bg-primary rounded-pill">2 rapports</span>
+                    <span class="badge bg-primary rounded-pill">3 rapports</span>
                 </div>
                 <div class="card-body p-4">
                     <div class="row justify-content-center">
-                        <div class="col-md-5 mb-4">
+                        <div class="col-md-4 mb-4">
                             <a href="{{ route('rapports.global-multi-periode') }}" class="text-decoration-none">
                                 <div class="card h-100 border-0 shadow hover-shadow transition-all">
                                     <div class="card-body text-center p-4">
@@ -120,7 +120,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-5 mb-4">
+                        <div class="col-md-4 mb-4">
                             <a href="{{ route('rapports.ponctualite-assiduite') }}" class="text-decoration-none">
                                 <div class="card h-100 border-0 shadow hover-shadow transition-all">
                                     <div class="card-body text-center p-4">
@@ -137,6 +137,29 @@
                                     </div>
                                     <div class="card-footer bg-transparent border-0 text-center p-3">
                                         <span class="btn btn-info text-white">
+                                            <i class="bi bi-arrow-right"></i> Consulter le rapport
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <a href="{{ route('rapports.heures-supplementaires') }}" class="text-decoration-none">
+                                <div class="card h-100 border-0 shadow hover-shadow transition-all">
+                                    <div class="card-body text-center p-4">
+                                        <div class="rounded-circle bg-warning bg-opacity-10 mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                                            <i class="bi bi-clock-history text-warning fs-1"></i>
+                                        </div>
+                                        <h4 class="fw-bold text-warning">Heures supplémentaires</h4>
+                                        <p class="text-muted mb-3">Suivi détaillé des heures supplémentaires par employé et département</p>
+                                        <ul class="list-unstyled text-start">
+                                            <li class="mb-2"><i class="bi bi-check-circle-fill text-warning me-2"></i> Calcul automatique selon les critères</li>
+                                            <li class="mb-2"><i class="bi bi-check-circle-fill text-warning me-2"></i> Filtres par département et période</li>
+                                            <li><i class="bi bi-check-circle-fill text-warning me-2"></i> Export PDF</li>
+                                        </ul>
+                                    </div>
+                                    <div class="card-footer bg-transparent border-0 text-center p-3">
+                                        <span class="btn btn-warning text-white">
                                             <i class="bi bi-arrow-right"></i> Consulter le rapport
                                         </span>
                                     </div>

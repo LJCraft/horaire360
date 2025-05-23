@@ -27,6 +27,7 @@ class Presence extends Model
         'source_pointage', // 'biometrique' ou 'manuel'
         'heures_prevues',
         'heures_faites',
+        'heures_supplementaires',
     ];
     
     /**
@@ -43,6 +44,7 @@ class Presence extends Model
         'meta_data' => 'json',
         'heures_prevues' => 'float',
         'heures_faites' => 'float',
+        'heures_supplementaires' => 'integer',
     ];
     
     /**

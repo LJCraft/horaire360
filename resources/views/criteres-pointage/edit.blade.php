@@ -24,7 +24,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('criteres-pointage.update', $criterePointage) }}" method="POST">
+                    <form action="/criteres-pointage/update/{{ $criterePointage->id }}" method="POST">
                         @csrf
                         @method('PUT')
                         
@@ -40,10 +40,18 @@
                                             <div class="form-control-plaintext">
                                                 @if ($criterePointage->niveau === 'individuel')
                                                     <span class="badge bg-info">Individuel</span>
-                                                    <p class="mb-0 mt-2">Employé : {{ $criterePointage->employe->nom }} {{ $criterePointage->employe->prenom }}</p>
+                                                    @if ($criterePointage->employe)
+                                                        <p class="mb-0 mt-2">Employé : {{ $criterePointage->employe->nom }} {{ $criterePointage->employe->prenom }}</p>
+                                                    @else
+                                                        <p class="mb-0 mt-2">Employé : Non défini</p>
+                                                    @endif
                                                 @else
                                                     <span class="badge bg-primary">Départemental</span>
-                                                    <p class="mb-0 mt-2">Département : {{ $criterePointage->departement->nom }}</p>
+                                                    @if ($criterePointage->departement)
+                                                        <p class="mb-0 mt-2">Département : {{ $criterePointage->departement->nom }}</p>
+                                                    @else
+                                                        <p class="mb-0 mt-2">Département : Non défini</p>
+                                                    @endif
                                                 @endif
                                             </div>
                                         </div>
@@ -118,7 +126,7 @@
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                             <div class="form-text">
-                                                Cette durée sera déduite du temps de travail pour le calcul des heures.
+                                                Durée de pause non décomptée du temps de travail (0 = pas de pause).
                                             </div>
                                         </div>
                                         
@@ -139,6 +147,42 @@
                                         
                                         <div class="mb-3">
                                             <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="calcul_heures_sup" name="calcul_heures_sup" value="1" {{ $criterePointage->calcul_heures_sup ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="calcul_heures_sup">Activer le calcul des heures supplémentaires</label>
+                                            </div>
+                                            <div class="form-text">
+                                                Permet de comptabiliser automatiquement les heures supplémentaires.
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="seuil_heures_sup" class="form-label">Seuil des heures supplémentaires (minutes)</label>
+                                            <input type="number" class="form-control @error('seuil_heures_sup') is-invalid @enderror" id="seuil_heures_sup" name="seuil_heures_sup" value="{{ old('seuil_heures_sup', $criterePointage->seuil_heures_sup) }}" min="0" max="240">
+                                            @error('seuil_heures_sup')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                            <div class="form-text">
+                                                Durée minimale au-delà de l'heure de fin prévue pour comptabiliser des heures supplémentaires.
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="priorite" class="form-label">Priorité du critère</label>
+                                            <select class="form-select @error('priorite') is-invalid @enderror" id="priorite" name="priorite">
+                                                <option value="1" {{ old('priorite', $criterePointage->priorite) == 1 ? 'selected' : '' }}>Haute (1)</option>
+                                                <option value="2" {{ old('priorite', $criterePointage->priorite) == 2 ? 'selected' : '' }}>Normale (2)</option>
+                                                <option value="3" {{ old('priorite', $criterePointage->priorite) == 3 ? 'selected' : '' }}>Basse (3)</option>
+                                            </select>
+                                            @error('priorite')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                            <div class="form-text">
+                                                En cas de chevauchement de critères, celui avec la priorité la plus haute sera appliqué.
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" id="actif" name="actif" {{ $criterePointage->actif ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="actif">Critère actif</label>
                                             </div>
@@ -150,6 +194,25 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        @if ($criterePointage->niveau === 'departemental')
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Options avancées</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="appliquer_aux_individuels" name="appliquer_aux_individuels" value="1">
+                                    <label class="form-check-label" for="appliquer_aux_individuels">
+                                        Appliquer ces modifications aux critères individuels du département
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Si cette option est activée, les modifications seront appliquées à tous les critères individuels des employés du département pour la même période.
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                         
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-secondary me-2" onclick="window.location.href='{{ route('criteres-pointage.index') }}'">Annuler</button>

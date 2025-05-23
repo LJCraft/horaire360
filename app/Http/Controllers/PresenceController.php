@@ -153,6 +153,18 @@ class PresenceController extends Controller
             // Ajout des champs de retard et départ anticipé
             $validatedData['retard'] = $retard;
             $validatedData['depart_anticipe'] = $departAnticipe;
+            
+            // Calcul des heures supplémentaires
+            $validatedData['heures_supplementaires'] = 0;
+            if (!empty($validatedData['heure_depart']) && $planning->heure_fin) {
+                $heuresSupplementaires = $this->calculerHeuresSupplementaires(
+                    $validatedData['employe_id'],
+                    $validatedData['date'],
+                    $validatedData['heure_depart'],
+                    $planning->heure_fin
+                );
+                $validatedData['heures_supplementaires'] = $heuresSupplementaires;
+            }
     
             // Création de la présence
             $presence = Presence::create($validatedData);
@@ -332,6 +344,18 @@ class PresenceController extends Controller
             $validatedData['retard'] = $retard;
             $validatedData['depart_anticipe'] = $departAnticipe;
             
+            // Calcul des heures supplémentaires
+            $validatedData['heures_supplementaires'] = 0;
+            if (isset($validatedData['heure_depart']) && $planning->heure_fin) {
+                $heuresSupplementaires = $this->calculerHeuresSupplementaires(
+                    $validatedData['employe_id'],
+                    $validatedData['date'],
+                    $validatedData['heure_depart'],
+                    $planning->heure_fin
+                );
+                $validatedData['heures_supplementaires'] = $heuresSupplementaires;
+            }
+            
             // Mise à jour de la présence
             $presence->update($validatedData);
             
@@ -344,6 +368,101 @@ class PresenceController extends Controller
                 ->withInput()
                 ->with('error', 'Une erreur est survenue lors de la mise à jour de la présence.');
         }
+    }
+    
+    /**
+     * Calculer les heures supplémentaires en fonction des critères de pointage
+     * 
+     * @param int $employeId ID de l'employé
+     * @param string $date Date du pointage au format Y-m-d
+     * @param string $heureDepart Heure de départ au format H:i
+     * @param string $heureFinPrevue Heure de fin prévue au format H:i
+     * @return int Nombre de minutes d'heures supplémentaires
+     */
+    private function calculerHeuresSupplementaires($employeId, $date, $heureDepart, $heureFinPrevue)
+    {
+        // Convertir les heures en objets Carbon
+        $heureFinPrevueCarbon = \Carbon\Carbon::parse($heureFinPrevue);
+        $heureDepartCarbon = \Carbon\Carbon::parse($heureDepart);
+        
+        // Si l'employé est parti avant l'heure de fin prévue, pas d'heures supplémentaires
+        if ($heureDepartCarbon <= $heureFinPrevueCarbon) {
+            return 0;
+        }
+        
+        // Rechercher les critères de pointage applicables pour cet employé et cette date
+        $criterePointage = $this->getCriterePointage($employeId, $date);
+        
+        // Si aucun critère n'est trouvé ou si le calcul des heures supplémentaires n'est pas activé
+        if (!$criterePointage || !$criterePointage->calcul_heures_sup) {
+            return 0;
+        }
+        
+        // Calculer la différence en minutes entre l'heure de départ et l'heure de fin prévue
+        $differenceMinutes = $heureDepartCarbon->diffInMinutes($heureFinPrevueCarbon);
+        
+        // Vérifier si la différence dépasse le seuil configuré
+        if ($differenceMinutes <= $criterePointage->seuil_heures_sup) {
+            return 0;
+        }
+        
+        // Retourner le nombre de minutes d'heures supplémentaires
+        return $differenceMinutes;
+    }
+    
+    /**
+     * Récupérer le critère de pointage applicable pour un employé et une date
+     * 
+     * @param int $employeId ID de l'employé
+     * @param string $date Date au format Y-m-d
+     * @return \App\Models\CriterePointage|null Critère de pointage applicable ou null si aucun
+     */
+    private function getCriterePointage($employeId, $date)
+    {
+        // Convertir la date en objet Carbon
+        $dateCarbon = \Carbon\Carbon::parse($date);
+        
+        // Déterminer la période (jour, semaine, mois)
+        $jourSemaine = $dateCarbon->dayOfWeek; // 0 (dimanche) à 6 (samedi)
+        $semaine = $dateCarbon->weekOfYear;
+        $mois = $dateCarbon->month;
+        
+        // Récupérer l'employé pour connaître son département
+        $employe = \App\Models\Employe::with('poste.departement')->find($employeId);
+        $departementId = $employe->poste->departement->id ?? null;
+        
+        // Rechercher les critères de pointage applicables par ordre de priorité
+        
+        // 1. Critère individuel pour cette date spécifique
+        $critereIndividuel = \App\Models\CriterePointage::where('employe_id', $employeId)
+            ->where('niveau', 'individuel')
+            ->where('date_debut', '<=', $date)
+            ->where('date_fin', '>=', $date)
+            ->where('actif', true)
+            ->orderBy('priorite')
+            ->first();
+            
+        if ($critereIndividuel) {
+            return $critereIndividuel;
+        }
+        
+        // 2. Critère départemental pour cette date spécifique
+        if ($departementId) {
+            $critereDepartemental = \App\Models\CriterePointage::where('departement_id', $departementId)
+                ->where('niveau', 'departemental')
+                ->where('date_debut', '<=', $date)
+                ->where('date_fin', '>=', $date)
+                ->where('actif', true)
+                ->orderBy('priorite')
+                ->first();
+                
+            if ($critereDepartemental) {
+                return $critereDepartemental;
+            }
+        }
+        
+        // Aucun critère applicable trouvé
+        return null;
     }
     
     /**
@@ -726,6 +845,18 @@ class PresenceController extends Controller
 
             // Vérifier si l'employé part en avance par rapport au planning
             $this->checkForEarlyDeparture($presence, $timestamp);
+            
+            // Calculer les heures supplémentaires si le planning a une heure de fin
+            if ($planning && $planning->heure_fin) {
+                $heuresSupplementaires = $this->calculerHeuresSupplementaires(
+                    $data['employee_id'],
+                    $date,
+                    $time,
+                    $planning->heure_fin
+                );
+                $presence->heures_supplementaires = $heuresSupplementaires;
+                $result['debug_info']['overtime_minutes'] = $heuresSupplementaires;
+            }
             
             $result['debug_info']['action'] = 'update_with_checkout';
         }

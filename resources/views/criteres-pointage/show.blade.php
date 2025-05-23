@@ -12,7 +12,7 @@
                         <i class="fas fa-info-circle me-2"></i> Détails du critère de pointage
                     </h5>
                     <div>
-                        <a href="{{ route('criteres-pointage.edit', $criterePointage) }}" class="btn btn-light btn-sm me-2">
+                        <a href="/criteres-pointage/edit/{{ $criterePointage->id }}" class="btn btn-light btn-sm me-2">
                             <i class="fas fa-edit"></i> Modifier
                         </a>
                         <a href="{{ route('criteres-pointage.index') }}" class="btn btn-light btn-sm">
@@ -45,9 +45,17 @@
                                                 <th>Cible</th>
                                                 <td>
                                                     @if ($criterePointage->niveau === 'individuel')
-                                                        {{ $criterePointage->employe->nom }} {{ $criterePointage->employe->prenom }}
+                                                        @if ($criterePointage->employe)
+                                                            {{ $criterePointage->employe->nom }} {{ $criterePointage->employe->prenom }}
+                                                        @else
+                                                            Non défini
+                                                        @endif
                                                     @else
-                                                        {{ $criterePointage->departement->nom }}
+                                                        @if ($criterePointage->departement)
+                                                            {{ $criterePointage->departement->nom }}
+                                                        @else
+                                                            Non défini
+                                                        @endif
                                                     @endif
                                                 </td>
                                             </tr>
@@ -83,7 +91,13 @@
                                             </tr>
                                             <tr>
                                                 <th>Créé par</th>
-                                                <td>{{ $criterePointage->createur->name }}</td>
+                                                <td>
+                                                    @if ($criterePointage->createur)
+                                                        {{ $criterePointage->createur->name }}
+                                                    @else
+                                                        Non défini
+                                                    @endif
+                                                </td>
                                             </tr>
                                             <tr>
                                                 <th>Date de création</th>

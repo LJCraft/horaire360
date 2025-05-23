@@ -24,8 +24,11 @@ class CriterePointage extends Model
         'tolerance_apres', // en minutes
         'duree_pause', // en minutes
         'source_pointage', // 'biometrique', 'manuel', 'tous'
+        'calcul_heures_sup', // boolean
+        'seuil_heures_sup', // en minutes
         'actif',
         'created_by',
+        'priorite', // 1 (haute) à 3 (basse)
     ];
 
     protected $casts = [
@@ -35,7 +38,10 @@ class CriterePointage extends Model
         'tolerance_avant' => 'integer',
         'tolerance_apres' => 'integer',
         'duree_pause' => 'integer',
+        'calcul_heures_sup' => 'boolean',
+        'seuil_heures_sup' => 'integer',
         'actif' => 'boolean',
+        'priorite' => 'integer',
     ];
 
     /**
@@ -51,7 +57,7 @@ class CriterePointage extends Model
      */
     public function departement()
     {
-        return $this->belongsTo(Departement::class, 'departement_id', 'departement');
+        return $this->belongsTo(Departement::class, 'departement_id');
     }
 
     /**

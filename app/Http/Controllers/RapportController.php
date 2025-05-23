@@ -2163,6 +2163,192 @@ class RapportController extends Controller
         return $statistiques;
     }
     
+    // La méthode exportOptions a été déplacée plus haut dans le contrôleur
+    
+    // La méthode exportPdf a été déplacée plus haut dans le contrôleur
+    
+    // La méthode globalMultiPeriode existe déjà plus bas dans le contrôleur
+    
+    /**
+     * Rapport des heures supplémentaires
+     */
+    public function heuresSupplementaires(Request $request)
+    {
+        // Paramètres de filtrage
+        $dateDebut = $request->input('date_debut') ? Carbon::parse($request->input('date_debut')) : Carbon::now()->startOfMonth();
+        $dateFin = $request->input('date_fin') ? Carbon::parse($request->input('date_fin')) : Carbon::now()->endOfMonth();
+        $employeId = $request->input('employe_id');
+        $departementId = $request->input('departement_id');
+        $posteId = $request->input('poste_id');
+        $gradeId = $request->input('grade_id');
+        
+        // Récupérer les données des heures supplémentaires
+        $heuresSupplementaires = $this->getHeuresSupplementaires($dateDebut, $dateFin, $employeId, $departementId, $posteId, $gradeId);
+        
+        // Récupérer les listes pour les filtres
+        $employes = \App\Models\Employe::where('statut', 'actif')
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->get();
+            
+        $departements = \App\Models\Departement::orderBy('nom')->get();
+        $postes = \App\Models\Poste::orderBy('nom')->get();
+        $grades = \App\Models\Grade::all();
+        
+        return view('rapports.heures-supplementaires', compact(
+            'heuresSupplementaires',
+            'dateDebut',
+            'dateFin',
+            'employeId',
+            'departementId',
+            'posteId',
+            'gradeId',
+            'employes',
+            'departements',
+            'postes',
+            'grades'
+        ));
+    }
+    
+    /**
+     * Exporter le rapport des heures supplémentaires en PDF
+     */
+    public function exportHeuresSupplementairesPdf(Request $request)
+    {
+        // Paramètres de filtrage
+        $dateDebut = $request->input('date_debut') ? Carbon::parse($request->input('date_debut')) : Carbon::now()->startOfMonth();
+        $dateFin = $request->input('date_fin') ? Carbon::parse($request->input('date_fin')) : Carbon::now()->endOfMonth();
+        $employeId = $request->input('employe_id');
+        $departementId = $request->input('departement_id');
+        $posteId = $request->input('poste_id');
+        $gradeId = $request->input('grade_id');
+        
+        // Récupérer les données des heures supplémentaires
+        $heuresSupplementaires = $this->getHeuresSupplementaires($dateDebut, $dateFin, $employeId, $departementId, $posteId, $gradeId);
+        
+        // Générer le PDF
+        $pdf = \PDF::loadView('rapports.pdf.heures-supplementaires', compact(
+            'heuresSupplementaires',
+            'dateDebut',
+            'dateFin'
+        ));
+        
+        // Définir le nom du fichier
+        $filename = 'rapport_heures_supplementaires_' . $dateDebut->format('Y-m-d') . '_' . $dateFin->format('Y-m-d') . '.pdf';
+        
+        // Télécharger le PDF
+        return $pdf->download($filename);
+    }
+    
+    /**
+     * Récupérer les heures supplémentaires pour une période donnée
+     *
+     * @param string|null $dateDebut Date de début au format Y-m-d
+     * @param string|null $dateFin Date de fin au format Y-m-d
+     * @param int|null $employeId ID de l'employé (optionnel)
+     * @param int|null $departementId ID du département (optionnel)
+     * @param int|null $posteId ID du poste (optionnel)
+     * @param int|null $gradeId ID du grade (optionnel)
+     * @return \Illuminate\Support\Collection Collection des heures supplémentaires
+     */
+    private function getHeuresSupplementaires($dateDebut = null, $dateFin = null, $employeId = null, $departementId = null, $posteId = null, $gradeId = null)
+    {
+        // Convertir les dates si elles sont fournies
+        $dateDebut = $dateDebut ? (is_string($dateDebut) ? \Carbon\Carbon::parse($dateDebut) : $dateDebut) : \Carbon\Carbon::now()->startOfMonth();
+        $dateFin = $dateFin ? (is_string($dateFin) ? \Carbon\Carbon::parse($dateFin) : $dateFin) : \Carbon\Carbon::now()->endOfMonth();
+        
+        // Requête de base pour les employés
+        $query = \App\Models\Employe::where('statut', 'actif');
+        
+        // Filtrer par employé si spécifié
+        if ($employeId) {
+            $query->where('id', $employeId);
+        }
+        
+        // Filtrer par département, poste ou grade si spécifié
+        if ($departementId) {
+            $query->whereHas('poste', function($q) use ($departementId) {
+                $q->where('departement', $departementId);
+            });
+        }
+        
+        if ($posteId) {
+            $query->where('poste_id', $posteId);
+        }
+        
+        if ($gradeId) {
+            $query->where('grade_id', $gradeId);
+        }
+        
+        // Récupérer les employés avec leurs relations
+        $employes = $query->with(['poste', 'grade'])->get();
+        
+        // Collection pour stocker les résultats
+        $heuresSupplementaires = collect();
+        
+        foreach ($employes as $employe) {
+            // Récupérer les présences de l'employé pour la période
+            $presences = \App\Models\Presence::where('employe_id', $employe->id)
+                ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')])
+                ->get();
+            
+            // Parcourir les présences pour identifier les heures supplémentaires
+            foreach ($presences as $presence) {
+                // Vérifier si la présence a des heures supplémentaires
+                if ($presence->heures_supplementaires > 0) {
+                    // Récupérer le planning pour cette date
+                    $planning = $this->getPlanningForDate($employe->id, $presence->date);
+                    
+                    if ($planning) {
+                        $heuresSupplementaires->push((object)[
+                            'employe' => $employe,
+                            'date' => $presence->date,
+                            'heure_fin_prevue' => $planning->heure_fin,
+                            'heure_depart_reelle' => $presence->heure_depart,
+                            'heures_supplementaires' => $presence->heures_supplementaires,
+                            'source' => $presence->source_pointage,
+                            'commentaire' => $presence->commentaire
+                        ]);
+                    }
+                }
+            }
+        }
+        
+        return $heuresSupplementaires;
+    }
+    
+    /**
+     * Récupérer le planning d'un employé pour une date spécifique
+     *
+     * @param int $employeId ID de l'employé
+     * @param string $date Date au format Y-m-d
+     * @return object|null Détails du planning ou null si non trouvé
+     */
+    private function getPlanningForDate($employeId, $date)
+    {
+        $date = \Carbon\Carbon::parse($date);
+        $jourSemaine = $date->dayOfWeekIso; // 1 (lundi) à 7 (dimanche)
+        
+        // Rechercher le planning actif pour cette date
+        $planning = \App\Models\Planning::where('employe_id', $employeId)
+            ->where('date_debut', '<=', $date->format('Y-m-d'))
+            ->where('date_fin', '>=', $date->format('Y-m-d'))
+            ->first();
+            
+        if ($planning) {
+            // Récupérer le détail du planning pour ce jour
+            $planningDetail = $planning->details()
+                ->where('jour', $jourSemaine)
+                ->first();
+                
+            if ($planningDetail && !$planningDetail->jour_repos) {
+                return $planningDetail;
+            }
+        }
+        
+        return null;
+    }
+    
     /**
      * Récupérer les employés avec leurs présences pour une période donnée
      *
