@@ -1,0 +1,219 @@
+// Variables
+@import 'variables';
+
+// Bootstrap
+@import 'bootstrap/scss/bootstrap';
+
+// Custom styles
+
+// Main colors
+$primary-color: #4361ee;
+$secondary-color: #6c757d;
+$success-color: #2dc653;
+$info-color: #4cc9f0;
+$warning-color: #ffb703;
+$danger-color: #f45c5d;
+
+// Customize Bootstrap variables
+$primary: $primary-color;
+$success: $success-color;
+$info: $info-color;
+$warning: $warning-color;
+$danger: $danger-color;
+
+// Global styles
+body {
+    font-family: 'Nunito', sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+// Card styles
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: none;
+    margin-bottom: 1.5rem;
+    
+    .card-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        background-color: transparent;
+        padding: 1rem 1.25rem;
+        
+        h5 {
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+    }
+    
+    .card-body {
+        padding: 1.25rem;
+    }
+}
+
+// Button styles
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    
+    &.btn-primary {
+        background-color: $primary-color;
+        border-color: $primary-color;
+        
+        &:hover {
+            background-color: darken($primary-color, 10%);
+            border-color: darken($primary-color, 10%);
+        }
+    }
+    
+    &.btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+// Form styles
+.form-control {
+    border-radius: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    border-color: #dce7f1;
+    
+    &:focus {
+        box-shadow: 0 0 0 0.25rem rgba($primary-color, 0.25);
+        border-color: $primary-color;
+    }
+}
+
+.form-select {
+    border-radius: 0.35rem;
+    padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+    border-color: #dce7f1;
+    
+    &:focus {
+        box-shadow: 0 0 0 0.25rem rgba($primary-color, 0.25);
+        border-color: $primary-color;
+    }
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+// Table styles
+.table {
+    th {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    td {
+        vertical-align: middle;
+    }
+    
+    &.table-hover tbody tr:hover {
+        background-color: rgba($primary-color, 0.05);
+    }
+}
+
+// Alert styles
+.alert {
+    border-radius: 0.35rem;
+    padding: 1rem;
+    
+    &.alert-success {
+        background-color: rgba($success-color, 0.15);
+        border-color: rgba($success-color, 0.3);
+        color: darken($success-color, 20%);
+    }
+    
+    &.alert-danger {
+        background-color: rgba($danger-color, 0.15);
+        border-color: rgba($danger-color, 0.3);
+        color: darken($danger-color, 20%);
+    }
+}
+
+// Badge styles
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+    
+    &.bg-success {
+        background-color: $success-color !important;
+    }
+    
+    &.bg-danger {
+        background-color: $danger-color !important;
+    }
+}
+
+// Navigation styles
+.navbar {
+    padding: 0.75rem 1rem;
+    
+    .navbar-brand {
+        font-weight: 700;
+    }
+    
+    .nav-link {
+        padding: 0.5rem 1rem;
+        color: #495057;
+        
+        &.active {
+            color: $primary-color;
+            font-weight: 600;
+        }
+    }
+}
+
+// Pagination styles
+.pagination {
+    .page-link {
+        color: $primary-color;
+        padding: 0.5rem 0.75rem;
+        
+        &:hover {
+            background-color: rgba($primary-color, 0.1);
+        }
+    }
+    
+    .page-item.active .page-link {
+        background-color: $primary-color;
+        border-color: $primary-color;
+    }
+}
+
+// List group styles
+.list-group-item {
+    padding: 1rem 1.25rem;
+    
+    &.active {
+        background-color: $primary-color;
+        border-color: $primary-color;
+    }
+}
+
+// Custom animations
+.nav-link, .btn, .page-link, .form-control, .list-group-item {
+    transition: all 0.2s ease-in-out;
+}
+
+// Custom utility classes
+.shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+.shadow {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.border-light {
+    border-color: #f0f0f0 !important;
+}
+
+// Avatar placeholder
+.avatar-placeholder {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}

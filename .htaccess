@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Si la requête n'est pas pour un fichier ou un dossier existant
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Si la requête ne commence pas déjà par /public
+    RewriteCond %{REQUEST_URI} !^/public/
+    
+    # Redirige vers le dossier public en préservant le chemin
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule> 
