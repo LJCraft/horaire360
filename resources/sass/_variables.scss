@@ -1,0 +1,56 @@
+// Body
+$body-bg: #f8f9fa;
+
+// Typography
+$font-family-sans-serif: 'Nunito', sans-serif;
+$font-size-base: 0.9rem;
+$line-height-base: 1.6;
+
+// Colors
+$blue: #4361ee;
+$indigo: #6610f2;
+$purple: #6f42c1;
+$pink: #e83e8c;
+$red: #f45c5d;
+$orange: #ff922b;
+$yellow: #ffb703;
+$green: #2dc653;
+$teal: #20c997;
+$cyan: #4cc9f0;
+
+$primary: $blue;
+$secondary: #6c757d;
+$success: $green;
+$info: $cyan;
+$warning: $yellow;
+$danger: $red;
+$light: #f8f9fa;
+$dark: #343a40;
+
+// Cards
+$card-border-radius: 0.5rem;
+$card-cap-bg: transparent;
+
+// Buttons
+$btn-border-radius: 0.35rem;
+$btn-border-radius-sm: 0.25rem;
+$btn-border-radius-lg: 0.5rem;
+
+// Forms
+$input-border-radius: 0.35rem;
+$input-border-color: #dce7f1;
+$input-focus-border-color: $primary;
+$input-focus-box-shadow: 0 0 0 0.25rem rgba($primary, 0.25);
+
+// Modals
+$modal-content-border-radius: 0.5rem;
+
+// Tables
+$table-cell-padding-y: 0.75rem;
+$table-cell-padding-x: 0.75rem;
+$table-hover-bg: rgba($primary, 0.05);
+
+// Borders
+$border-radius: 0.35rem;
+$border-radius-sm: 0.25rem;
+$border-radius-lg: 0.5rem;
