@@ -64,13 +64,13 @@ function getTauxClass($taux) {
                         is_object($stat->employe->poste) ? $stat->employe->poste->nom : 
                         (is_string($stat->employe->poste) ? $stat->employe->poste : 'Non défini') 
                     }}</td>
-                    <td class="numeric-col">{{ $stat->jours_prevus ?? 'N/A' }}</td>
-                    <td class="numeric-col">{{ $stat->jours_travailles ?? 'N/A' }}</td>
-                    <td class="numeric-col">{{ isset($stat->nombre_retards) ? $stat->nombre_retards : 'N/A' }}</td>
-                    <td class="numeric-col">{{ isset($stat->nombre_departs_anticipes) ? $stat->nombre_departs_anticipes : 'N/A' }}</td>
-                    <td class="numeric-col">{{ $stat->heures_prevues ?? 'N/A' }}</td>
+                    <td class="numeric-col">{{ $stat->jours_prevus ?? '' }}</td>
+                    <td class="numeric-col">{{ $stat->jours_travailles }}</td>
+                    <td class="numeric-col">{{ $stat->nombre_retards ?? 0 }}</td>
+                    <td class="numeric-col">{{ $stat->nombre_departs_anticipes ?? 0 }}</td>
+                    <td class="numeric-col">{{ $stat->heures_prevues ?? '' }}</td>
                     <td class="numeric-col">{{ $stat->heures_travaillees ?? $stat->heures_effectuees ?? 0 }}</td>
-                    <td class="numeric-col">{{ $stat->heures_absence ?? ($stat->heures_prevues ?? 0) - ($stat->heures_travaillees ?? $stat->heures_effectuees ?? 0) }}</td>
+                    <td class="numeric-col">{{ $stat->heures_absence ?? (($stat->heures_prevues ?? 0) - ($stat->heures_travaillees ?? $stat->heures_effectuees ?? 0)) }}</td>
                     <td class="numeric-col taux-col {{ getTauxClass($stat->taux_ponctualite) }}">{{ number_format($stat->taux_ponctualite, 1) }}%</td>
                     <td class="numeric-col taux-col {{ getTauxClass($stat->taux_assiduite) }}">{{ number_format($stat->taux_assiduite, 1) }}%</td>
                     <td class="observation-col">

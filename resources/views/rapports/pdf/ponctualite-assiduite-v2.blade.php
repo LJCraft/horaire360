@@ -36,9 +36,9 @@
                 <td>{{ $stat->employe->departement ?? 'Non défini' }}</td>
                 <td>{{ $stat->employe->grade ? $stat->employe->grade->nom : 'Non défini' }}</td>
                 <td>{{ $stat->employe->poste ? $stat->employe->poste->nom : 'Non défini' }}</td>
-                <td class="numeric-col">{{ $stat->jours_prevus }}</td>
+                <td class="numeric-col">{{ $stat->jours_prevus ?? '' }}</td>
                 <td class="numeric-col">{{ $stat->jours_realises }}</td>
-                <td class="numeric-col">{{ $stat->heures_prevues }}</td>
+                <td class="numeric-col">{{ $stat->heures_prevues ?? '' }}</td>
                 <td class="numeric-col">{{ $stat->heures_faites }}</td>
                 <td class="numeric-col">{{ $stat->heures_absence }}</td>
                 <td class="numeric-col taux-col {{ getTauxClass($stat->taux_ponctualite) }}">
@@ -62,9 +62,10 @@
             @php
                 $tauxPonctualiteMoyen = $statistiques->avg('taux_ponctualite');
                 $tauxAssiduiteMoyen = $statistiques->avg('taux_assiduite');
-                $totalJoursPrevus = $statistiques->sum('jours_prevus');
+                // Filtrer les valeurs null avant la somme selon la règle métier
+                $totalJoursPrevus = $statistiques->whereNotNull('jours_prevus')->sum('jours_prevus');
                 $totalJoursRealises = $statistiques->sum('jours_realises');
-                $totalHeuresPrevues = $statistiques->sum('heures_prevues');
+                $totalHeuresPrevues = $statistiques->whereNotNull('heures_prevues')->sum('heures_prevues');
                 $totalHeuresFaites = $statistiques->sum('heures_faites');
                 $totalHeuresAbsence = $statistiques->sum('heures_absence');
             @endphp

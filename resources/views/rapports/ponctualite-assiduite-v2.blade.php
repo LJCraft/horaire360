@@ -192,9 +192,9 @@
                             <td>{{ $stat->employe->departement ?? 'Non défini' }}</td>
                             <td>{{ $stat->employe->grade ? $stat->employe->grade->nom : 'Non défini' }}</td>
                             <td>{{ $stat->employe->poste ? $stat->employe->poste->nom : 'Non défini' }}</td>
-                            <td class="text-center">{{ $stat->jours_prevus }}</td>
+                            <td class="text-center">{{ $stat->jours_prevus ?? '' }}</td>
                             <td class="text-center">{{ $stat->jours_realises }}</td>
-                            <td class="text-center">{{ $stat->heures_prevues }}</td>
+                            <td class="text-center">{{ $stat->heures_prevues ?? '' }}</td>
                             <td class="text-center">{{ $stat->heures_faites }}</td>
                             <td class="text-center">{{ $stat->heures_absence }}</td>
                             <td class="text-center">

@@ -1524,8 +1524,12 @@ class RapportController extends Controller
         $statistiques = collect();
         
         foreach ($employes as $employe) {
-            // Jours prévus selon le planning
-            $joursOuvrables = $this->calculerJoursOuvrables($employe->id, $dateDebut, $dateFin);
+            // === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
+            // Calculer les jours prévus à partir du planning hebdomadaire
+            $joursOuvrables = $this->calculerJoursOuvrablesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
+            
+            // Calculer les heures prévues à partir du planning hebdomadaire
+            $heuresPrevues = $this->calculerHeuresPrevuesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
             
             // Récupérer les présences de l'employé
             $presences = Presence::where('employe_id', $employe->id)
@@ -1535,9 +1539,6 @@ class RapportController extends Controller
             $joursTravailles = $presences->count();
             $retards = $presences->where('retard', true)->count();
             $departsAnticipes = $presences->where('depart_anticipe', true)->count();
-            
-            // Calculer les heures
-            $heuresPrevues = $joursOuvrables * 8; // 8 heures par jour par défaut
             $heuresEffectuees = 0;
             
             foreach ($presences as $presence) {
@@ -1551,11 +1552,11 @@ class RapportController extends Controller
                 }
             }
             
-            $heuresAbsence = max(0, $heuresPrevues - $heuresEffectuees);
+            $heuresAbsence = ($heuresPrevues && $heuresPrevues > 0) ? max(0, $heuresPrevues - $heuresEffectuees) : 0;
             
             // Calculer les taux
             $tauxPonctualite = $joursTravailles > 0 ? round(100 - (($retards / $joursTravailles) * 100)) : 0;
-            $tauxAssiduite = $joursOuvrables > 0 ? round(($joursTravailles / $joursOuvrables) * 100) : 0;
+            $tauxAssiduite = ($joursOuvrables && $joursOuvrables > 0) ? round(($joursTravailles / $joursOuvrables) * 100) : 0;
             
             // Filtrer par performance si nécessaire
             $performanceEmploye = '';
@@ -1577,12 +1578,18 @@ class RapportController extends Controller
                 'employe' => $employe,
                 'jours_prevus' => $joursOuvrables,
                 'jours_travailles' => $joursTravailles,
+                'jours_realises' => $joursTravailles, // Ajout de la propriété manquante
                 'heures_prevues' => $heuresPrevues,
                 'heures_effectuees' => $heuresEffectuees,
+                'heures_travaillees' => $heuresEffectuees, // Alias pour la compatibilité
+                'heures_faites' => $heuresEffectuees, // Alias pour la compatibilité
                 'heures_absence' => $heuresAbsence,
+                'nombre_retards' => $retards, // Ajout pour la compatibilité
+                'nombre_departs_anticipes' => $departsAnticipes, // Ajout pour la compatibilité
                 'taux_ponctualite' => $tauxPonctualite,
                 'taux_assiduite' => $tauxAssiduite,
-                'performance' => $performanceEmploye
+                'performance' => $performanceEmploye,
+                'observation_rh' => '' // === CONTRAINTE : Vider systématiquement la colonne Observation RH ===
             ]);
         }
         
@@ -1979,8 +1986,12 @@ class RapportController extends Controller
         $statistiques = collect();
         
         foreach ($employes as $employe) {
-            // Jours prévus selon le planning
-            $joursOuvrables = $this->calculerJoursOuvrables($employe->id, $dateDebut, $dateFin);
+            // === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
+            // Calculer les jours prévus à partir du planning hebdomadaire
+            $joursOuvrables = $this->calculerJoursOuvrablesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
+            
+            // Calculer les heures prévues à partir du planning hebdomadaire
+            $heuresPrevues = $this->calculerHeuresPrevuesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
             
             // Récupérer les présences de l'employé
             $presences = \App\Models\Presence::where('employe_id', $employe->id)
@@ -1990,9 +2001,6 @@ class RapportController extends Controller
             $joursTravailles = $presences->count();
             $retards = $presences->where('retard', true)->count();
             $departsAnticipes = $presences->where('depart_anticipe', true)->count();
-            
-            // Calculer les heures
-            $heuresPrevues = $joursOuvrables * 8; // 8 heures par jour par défaut
             $heuresEffectuees = 0;
             $heuresTravaillees = 0;
             
@@ -2008,11 +2016,11 @@ class RapportController extends Controller
                 }
             }
             
-            $heuresAbsence = max(0, $heuresPrevues - $heuresEffectuees);
+            $heuresAbsence = ($heuresPrevues && $heuresPrevues > 0) ? max(0, $heuresPrevues - $heuresEffectuees) : 0;
             
             // Calculer les taux
             $tauxPonctualite = $joursTravailles > 0 ? round(100 - (($retards / $joursTravailles) * 100)) : 0;
-            $tauxAssiduite = $joursOuvrables > 0 ? round(($joursTravailles / $joursOuvrables) * 100) : 0;
+            $tauxAssiduite = ($joursOuvrables && $joursOuvrables > 0) ? round(($joursTravailles / $joursOuvrables) * 100) : 0;
             
             // Déterminer la performance
             $performance = '';
@@ -2030,15 +2038,18 @@ class RapportController extends Controller
                 'employe' => $employe,
                 'jours_prevus' => $joursOuvrables,
                 'jours_travailles' => $joursTravailles,
+                'jours_realises' => $joursTravailles, // Ajout de la propriété manquante
                 'heures_prevues' => $heuresPrevues,
                 'heures_effectuees' => $heuresEffectuees,
                 'heures_travaillees' => $heuresTravaillees,
+                'heures_faites' => $heuresEffectuees, // Alias pour la compatibilité
                 'heures_absence' => $heuresAbsence,
                 'taux_ponctualite' => $tauxPonctualite,
                 'taux_assiduite' => $tauxAssiduite,
                 'nombre_retards' => $retards,
                 'nombre_departs_anticipes' => $departsAnticipes,
-                'performance' => $performance
+                'performance' => $performance,
+                'observation_rh' => '' // === CONTRAINTE : Vider systématiquement la colonne Observation RH ===
             ]);
         }
         
@@ -2436,7 +2447,7 @@ class RapportController extends Controller
             ->get();
 
         if ($plannings->isEmpty()) {
-            return 0;
+            return null; // Aucun planning défini : champ vide selon la règle métier
         }
 
         // Compter les occurrences de chaque jour de travail dans le mois
@@ -2498,7 +2509,7 @@ class RapportController extends Controller
             ->get();
 
         if ($plannings->isEmpty()) {
-            return 0;
+            return null; // Aucun planning défini : champ vide selon la règle métier
         }
 
         // Calculer l'amplitude horaire pour chaque jour et multiplier par les occurrences

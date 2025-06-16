@@ -493,7 +493,7 @@
             ->get();
 
         if ($plannings->isEmpty()) {
-            return 0;
+            return null; // Aucun planning défini : champ vide selon la règle métier
         }
 
         // Compter les occurrences de chaque jour de travail dans le mois
@@ -558,7 +558,7 @@
             ->get();
 
         if ($plannings->isEmpty()) {
-            return 0;
+            return null; // Aucun planning défini : champ vide selon la règle métier
         }
 
         // Calculer l'amplitude horaire pour chaque jour et multiplier par les occurrences
