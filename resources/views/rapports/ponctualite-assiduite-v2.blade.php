@@ -220,22 +220,8 @@
                                 </div>
                             </td>
                             <td>
-                                @php
-                                    $observation = '';
-                                    if ($tauxPonctualite < 70) {
-                                        $observation .= 'Problème de ponctualité. ';
-                                    }
-                                    if ($tauxAssiduite < 70) {
-                                        $observation .= 'Assiduité insuffisante. ';
-                                    }
-                                    if ($stat->jours_realises < ($stat->jours_prevus * 0.8)) {
-                                        $observation .= 'Absences fréquentes. ';
-                                    }
-                                    if (empty($observation)) {
-                                        $observation = 'Performance satisfaisante';
-                                    }
-                                @endphp
-                                {{ $observation }}
+                                {{-- === CONTRAINTE : Vider systématiquement la colonne Observation RH === --}}
+                                {{ $stat->observation_rh ?? '' }}
                             </td>
                         </tr>
                         @endforeach

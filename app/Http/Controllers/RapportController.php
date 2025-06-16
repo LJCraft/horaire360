@@ -2092,8 +2092,12 @@ class RapportController extends Controller
         $statistiques = collect();
         
         foreach ($employes as $employe) {
-            // Jours prévus selon le planning
-            $joursOuvrables = $this->calculerJoursOuvrables($employe->id, $dateDebut, $dateFin);
+            // === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
+            // Calculer les jours prévus à partir du planning hebdomadaire
+            $joursOuvrables = $this->calculerJoursOuvrablesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
+            
+            // Calculer les heures prévues à partir du planning hebdomadaire
+            $heuresPrevues = $this->calculerHeuresPrevuesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
             
             // Récupérer les présences de l'employé
             $presences = \App\Models\Presence::where('employe_id', $employe->id)
@@ -2105,8 +2109,7 @@ class RapportController extends Controller
             $retards = $presences->where('retard', true)->count();
             $departsAnticipes = $presences->where('depart_anticipe', true)->count();
             
-            // Calculer les heures
-            $heuresPrevues = $joursOuvrables * 8; // 8 heures par jour par défaut
+            // Calculer les heures effectuées
             $heuresEffectuees = 0;
             $heuresTravaillees = 0;
             $heuresFaites = 0; // Alias pour la compatibilité
@@ -2156,7 +2159,8 @@ class RapportController extends Controller
                 'taux_assiduite' => $tauxAssiduite,
                 'nombre_retards' => $retards,
                 'nombre_departs_anticipes' => $departsAnticipes,
-                'performance' => $performance
+                'performance' => $performance,
+                'observation_rh' => '' // === CONTRAINTE : Vider systématiquement la colonne Observation RH ===
             ]);
         }
         
@@ -2404,5 +2408,139 @@ class RapportController extends Controller
         }])->get();
         
         return $employes;
+    }
+
+    /**
+     * === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
+     * Calculer les jours prévus à partir du planning hebdomadaire
+     * 
+     * @param int $employeId ID de l'employé
+     * @param Carbon $dateDebut Date de début de la période
+     * @param Carbon $dateFin Date de fin de la période
+     * @return int Nombre de jours prévus
+     */
+    private function calculerJoursOuvrablesPlanningHebdomadaire($employeId, $dateDebut, $dateFin)
+    {
+        // Récupérer les plannings actifs pour cet employé dans la période
+        $plannings = Planning::where('employe_id', $employeId)
+            ->where('actif', true)
+            ->where(function ($query) use ($dateDebut, $dateFin) {
+                $query->whereBetween('date_debut', [$dateDebut, $dateFin])
+                    ->orWhereBetween('date_fin', [$dateDebut, $dateFin])
+                    ->orWhere(function ($q) use ($dateDebut, $dateFin) {
+                        $q->where('date_debut', '<=', $dateDebut)
+                            ->where('date_fin', '>=', $dateFin);
+                    });
+            })
+            ->with('details')
+            ->get();
+
+        if ($plannings->isEmpty()) {
+            return 0;
+        }
+
+        // Compter les occurrences de chaque jour de travail dans le mois
+        $joursOuvrables = 0;
+        $period = CarbonPeriod::create($dateDebut, $dateFin);
+        
+        foreach ($period as $date) {
+            $jourSemaine = $date->dayOfWeekIso; // 1 = Lundi, 7 = Dimanche
+            $jourTravaille = false;
+            
+            foreach ($plannings as $planning) {
+                $dateFormattee = $date->format('Y-m-d');
+                
+                // Vérifier si cette date est dans la période du planning
+                if ($dateFormattee >= $planning->date_debut->format('Y-m-d') && 
+                    $dateFormattee <= $planning->date_fin->format('Y-m-d')) {
+                    
+                    // Chercher le détail du planning pour ce jour de la semaine
+                    $detail = $planning->details->firstWhere('jour', $jourSemaine);
+                    
+                    if ($detail && !$detail->jour_repos) {
+                        $jourTravaille = true;
+                        break;
+                    }
+                }
+            }
+            
+            if ($jourTravaille) {
+                $joursOuvrables++;
+            }
+        }
+        
+        return $joursOuvrables;
+    }
+
+    /**
+     * === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
+     * Calculer les heures prévues à partir du planning hebdomadaire
+     * 
+     * @param int $employeId ID de l'employé
+     * @param Carbon $dateDebut Date de début de la période
+     * @param Carbon $dateFin Date de fin de la période
+     * @return float Nombre d'heures prévues
+     */
+    private function calculerHeuresPrevuesPlanningHebdomadaire($employeId, $dateDebut, $dateFin)
+    {
+        // Récupérer les plannings actifs pour cet employé dans la période
+        $plannings = Planning::where('employe_id', $employeId)
+            ->where('actif', true)
+            ->where(function ($query) use ($dateDebut, $dateFin) {
+                $query->whereBetween('date_debut', [$dateDebut, $dateFin])
+                    ->orWhereBetween('date_fin', [$dateDebut, $dateFin])
+                    ->orWhere(function ($q) use ($dateDebut, $dateFin) {
+                        $q->where('date_debut', '<=', $dateDebut)
+                            ->where('date_fin', '>=', $dateFin);
+                    });
+            })
+            ->with('details')
+            ->get();
+
+        if ($plannings->isEmpty()) {
+            return 0;
+        }
+
+        // Calculer l'amplitude horaire pour chaque jour et multiplier par les occurrences
+        $heuresPrevues = 0;
+        $period = CarbonPeriod::create($dateDebut, $dateFin);
+        
+        foreach ($period as $date) {
+            $jourSemaine = $date->dayOfWeekIso; // 1 = Lundi, 7 = Dimanche
+            
+            foreach ($plannings as $planning) {
+                $dateFormattee = $date->format('Y-m-d');
+                
+                // Vérifier si cette date est dans la période du planning
+                if ($dateFormattee >= $planning->date_debut->format('Y-m-d') && 
+                    $dateFormattee <= $planning->date_fin->format('Y-m-d')) {
+                    
+                    // Chercher le détail du planning pour ce jour de la semaine
+                    $detail = $planning->details->firstWhere('jour', $jourSemaine);
+                    
+                    if ($detail && !$detail->jour_repos) {
+                        if ($detail->jour_entier) {
+                            // Journée entière = 8 heures par défaut
+                            $heuresPrevues += 8;
+                        } elseif ($detail->heure_debut && $detail->heure_fin) {
+                            // Calculer l'amplitude horaire (heure de fin - heure de début)
+                            $heureDebut = Carbon::parse($detail->heure_debut);
+                            $heureFin = Carbon::parse($detail->heure_fin);
+                            
+                            // Si l'heure de fin est avant l'heure de début, ajouter 24h (horaires de nuit)
+                            if ($heureFin->lt($heureDebut)) {
+                                $heureFin->addDay();
+                            }
+                            
+                            $dureeEnHeures = $heureDebut->diffInMinutes($heureFin) / 60;
+                            $heuresPrevues += $dureeEnHeures;
+                        }
+                    }
+                    break; // On a trouvé le planning pour cette date, pas besoin de continuer
+                }
+            }
+        }
+        
+        return round($heuresPrevues, 2);
     }
 }

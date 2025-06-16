@@ -74,24 +74,8 @@ function getTauxClass($taux) {
                     <td class="numeric-col taux-col {{ getTauxClass($stat->taux_ponctualite) }}">{{ number_format($stat->taux_ponctualite, 1) }}%</td>
                     <td class="numeric-col taux-col {{ getTauxClass($stat->taux_assiduite) }}">{{ number_format($stat->taux_assiduite, 1) }}%</td>
                     <td class="observation-col">
-                        @php
-                            $observation = '';
-                            
-                            // Vérifier si nombre_retards existe avant de l'utiliser
-                            if (isset($stat->nombre_retards) && $stat->nombre_retards > 3) {
-                                $observation .= 'Retards fréquents. ';
-                            }
-                            
-                            if ($stat->taux_ponctualite < 70) {
-                                $observation .= 'Problème de ponctualité. ';
-                            }
-                            
-                            if ($stat->taux_assiduite < 70) {
-                                $observation .= 'Assiduité insuffisante. ';
-                            }
-                            
-                            echo $observation ?: 'Performance satisfaisante';
-                        @endphp
+                        {{-- === CONTRAINTE : Vider systématiquement la colonne Observation RH === --}}
+                        {{ $stat->observation_rh ?? '' }}
                     </td>
                 </tr>
                 @endforeach

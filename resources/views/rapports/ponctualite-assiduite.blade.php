@@ -228,24 +228,8 @@
                             <td class="text-center fw-medium">{{ $stat->taux_ponctualite }}%</td>
                             <td class="text-center fw-medium">{{ $stat->taux_assiduite }}%</td>
                             <td>
-                                @php
-                                    $observation = '';
-                                    if ($stat->taux_ponctualite < 70) {
-                                        $observation .= 'Problème de ponctualité. ';
-                                    }
-                                    if ($stat->taux_assiduite < 70) {
-                                        $observation .= 'Assiduité insuffisante. ';
-                                    }
-                                    if (isset($stat->jours_realises) && isset($stat->jours_prevus) && $stat->jours_realises < ($stat->jours_prevus * 0.8)) {
-                                        $observation .= 'Absences fréquentes. ';
-                                    } elseif (isset($stat->nombre_retards) && $stat->nombre_retards > 3) {
-                                        $observation .= 'Retards fréquents. ';
-                                    }
-                                    if (empty($observation)) {
-                                        $observation = 'Performance satisfaisante';
-                                    }
-                                @endphp
-                                {{ $observation }}
+                                {{-- === CONTRAINTE : Vider systématiquement la colonne Observation RH === --}}
+                                {{ $stat->observation_rh ?? '' }}
                             </td>
                         </tr>
                         @endforeach
