@@ -121,9 +121,15 @@
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            <a href="{{ route('plannings.show', $employe->id) }}" class="btn btn-sm btn-outline-primary">
-                                                                <i class="bi bi-eye me-1"></i>Voir
-                                                            </a>
+                                                            @if($planningActif)
+                                                                <a href="{{ route('plannings.show', $planningActif->id) }}" class="btn btn-sm btn-outline-primary">
+                                                                    <i class="bi bi-eye me-1"></i>Voir
+                                                                </a>
+                                                            @else
+                                                                <span class="text-muted">
+                                                                    <i class="bi bi-eye-slash me-1"></i>Aucun planning
+                                                                </span>
+                                                            @endif
                                                         </td>
                                                     </tr>
                                                     @empty
