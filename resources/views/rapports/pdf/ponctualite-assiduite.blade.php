@@ -15,69 +15,74 @@ function getTauxClass($taux) {
 
 @extends('rapports.pdf.layouts.master')
 
-@section('title', 'Rapport Ponctualité & Assiduité – ' . ucfirst($periode ?? 'mensuel'))
+@section('title', 'Rapport Synthèse d\'Assiduité et de Ponctualité')
 
 @section('content')
 <div class="container">
-    <h1>Rapport Ponctualité & Assiduité – {{ $periodeLabel ?? 'Période mensuelle' }}</h1>
+    <h1>RAPPORT SYNTHESE D'ASSIDUITE ET DE PONCTUALITE</h1>
     
     <div class="rapport-info">
-        <p><strong>Période:</strong> {{ $periodeLabel ?? ($dateDebut ? date('d/m/Y', strtotime($dateDebut)) : 'Début') . ' - ' . ($dateFin ? date('d/m/Y', strtotime($dateFin)) : 'Aujourd\'hui') }}</p>
+        <p><strong>PERIODE ALLANT DU :</strong> {{ $dateDebut ? (is_string($dateDebut) ? $dateDebut : $dateDebut->format('Y-m-d')) : '' }} AU {{ $dateFin ? (is_string($dateFin) ? $dateFin : $dateFin->format('Y-m-d')) : '' }}</p>
     </div>
-    
-    <h2>Statistiques individuelles</h2>
     
     @if(count($statistiques) > 0)
         <div style="overflow-x: auto;">
-        <table>
+        <table class="rapport-table">
             <thead>
-                <tr>
-                    <th class="employe-col">Employé</th>
-                    <th>Département</th>
-                    <th>Grade</th>
-                    <th>Poste</th>
-                    <th class="numeric-col">Jours prévus</th>
-                    <th class="numeric-col">Jours travaillés</th>
-                    <th class="numeric-col">Retards</th>
-                    <th class="numeric-col">Départs anticipés</th>
-                    <th class="numeric-col">Heures prévues</th>
-                    <th class="numeric-col">Heures travaillées</th>
-                    <th class="numeric-col">Heures absence</th>
-                    <th class="numeric-col">Taux ponctualité</th>
-                    <th class="numeric-col">Taux assiduité</th>
-                    <th>Observation RH</th>
+                <tr class="header-main">
+                    <th rowspan="3" class="numero-col">N°</th>
+                    <th rowspan="3" class="noms-col">Noms et prenoms</th>
+                    <th rowspan="3" class="grade-col">Grade</th>
+                    <th rowspan="3" class="fonction-col">Fonction</th>
+                    <th colspan="5" class="assiduite-header">Assiduité</th>
+                    <th colspan="4" class="ponctualite-header">Ponctualité</th>
+                    <th rowspan="3" class="taux-ponctualite-col">Taux de ponctualité</th>
+                    <th rowspan="3" class="observations-col">Observations</th>
+                </tr>
+                <tr class="header-sub1">
+                    <th rowspan="2" class="heures-hebdo">Heures<br>Hebdo</th>
+                    <th rowspan="2" class="heures-mensuel">Heures<br>Mensuel</th>
+                    <th rowspan="2" class="heures-faites">Heures<br>Faites</th>
+                    <th rowspan="2" class="heures-absence">Heures<br>Absence</th>
+                    <th rowspan="2" class="taux-assiduite">Taux<br>d'assiduité</th>
+                    <th colspan="2" class="frequence-header">Fréquence</th>
+                    <th rowspan="2" class="freq-faites">Freq.Faites</th>
+                    <th rowspan="2" class="freq-naites">FréqNaites</th>
+                </tr>
+                <tr class="header-sub2">
+                    <th class="freq-dues">Dues</th>
+                    <th class="freq-mensuel">Mensuel</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($statistiques as $stat)
-                <tr>
-                    <td class="employe-col">{{ $stat->employe->nom }} {{ $stat->employe->prenom }}</td>
-                    <td>{{ 
-                        $stat->employe->departement ?? 
-                        ($stat->employe->poste && $stat->employe->poste->departement ? $stat->employe->poste->departement : 'Non défini') 
-                    }}</td>
-                    <td>{{ 
-                        is_object($stat->employe->grade) ? $stat->employe->grade->nom : 
-                        (is_string($stat->employe->grade) ? $stat->employe->grade : 'Non défini') 
-                    }}</td>
-                    <td>{{ 
-                        is_object($stat->employe->poste) ? $stat->employe->poste->nom : 
-                        (is_string($stat->employe->poste) ? $stat->employe->poste : 'Non défini') 
-                    }}</td>
-                    <td class="numeric-col">{{ $stat->jours_prevus ?? '' }}</td>
-                    <td class="numeric-col">{{ $stat->jours_travailles }}</td>
-                    <td class="numeric-col">{{ $stat->nombre_retards ?? 0 }}</td>
-                    <td class="numeric-col">{{ $stat->nombre_departs_anticipes ?? 0 }}</td>
-                    <td class="numeric-col">{{ $stat->heures_prevues ?? '' }}</td>
-                    <td class="numeric-col">{{ $stat->heures_travaillees ?? $stat->heures_effectuees ?? 0 }}</td>
-                    <td class="numeric-col">{{ $stat->heures_absence ?? (($stat->heures_prevues ?? 0) - ($stat->heures_travaillees ?? $stat->heures_effectuees ?? 0)) }}</td>
-                    <td class="numeric-col taux-col {{ getTauxClass($stat->taux_ponctualite) }}">{{ number_format($stat->taux_ponctualite, 1) }}%</td>
-                    <td class="numeric-col taux-col {{ getTauxClass($stat->taux_assiduite) }}">{{ number_format($stat->taux_assiduite, 1) }}%</td>
-                    <td class="observation-col">
-                        {{-- === CONTRAINTE : Vider systématiquement la colonne Observation RH === --}}
-                        {{ $stat->observation_rh ?? '' }}
-                    </td>
-                </tr>
+                @php $numeroGlobal = 1; @endphp
+                @foreach($statistiques as $departementData)
+                    @if($departementData['type'] === 'departement_header')
+                        {{-- En-tête de département --}}
+                        <tr class="departement-header">
+                            <td colspan="15" class="departement-title">{{ $departementData['numero_departement'] }}. Département {{ strtoupper($departementData['nom_departement']) }}</td>
+                        </tr>
+                        {{-- Employés du département --}}
+                        @foreach($departementData['employes'] as $stat)
+                        <tr>
+                            <td class="numero-col">{{ $numeroGlobal++ }}</td>
+                            <td class="noms-col">{{ strtoupper($stat['employe_nom']) }} {{ ucwords(strtolower($stat['employe_prenom'])) }}</td>
+                            <td class="grade-col">{{ $stat['grade'] }}</td>
+                            <td class="fonction-col">{{ strtoupper($stat['fonction']) }}</td>
+                            <td class="numeric-col">{{ $stat['jours_prevus'] }}</td>
+                            <td class="numeric-col">{{ $stat['heures_prevues'] }}</td>
+                            <td class="numeric-col">{{ $stat['heures_effectuees'] }}</td>
+                            <td class="numeric-col">{{ $stat['heures_absence'] }}</td>
+                            <td class="numeric-col">{{ number_format($stat['taux_assiduite'], 0) }}</td>
+                            <td class="numeric-col">{{ $stat['frequence_hebdo'] }}</td>
+                            <td class="numeric-col">{{ $stat['frequence_mensuelle'] }}</td>
+                            <td class="numeric-col">{{ $stat['nombre_retards'] }}</td>
+                            <td class="numeric-col">{{ $stat['frequence_naites'] }}</td>
+                            <td class="numeric-col">{{ number_format($stat['taux_ponctualite'], 0) }}</td>
+                            <td class="observations-col">{{ $stat['observation_rh'] }}</td>
+                        </tr>
+                        @endforeach
+                    @endif
                 @endforeach
             </tbody>
         </table>
@@ -85,236 +90,194 @@ function getTauxClass($taux) {
     @else
         <p>Aucune donnée disponible pour la période sélectionnée.</p>
     @endif
-    
-    <h2>Statistiques globales</h2>
-    
-    <div class="stats-container">
-        <div style="overflow-x: auto;">
-        <table>
-            <tr>
-                @php
-                    $totalEmployes = count($statistiques);
-                    
-                    // Calculer le total des retards en vérifiant si la propriété existe
-                    $totalRetards = 0;
-                    foreach ($statistiques as $stat) {
-                        if (isset($stat->nombre_retards)) {
-                            $totalRetards += $stat->nombre_retards;
-                        }
-                    }
-                    
-                    // Calculer le total des départs anticipés en vérifiant si la propriété existe
-                    $totalDepartsAnticipes = 0;
-                    foreach ($statistiques as $stat) {
-                        if (isset($stat->nombre_departs_anticipes)) {
-                            $totalDepartsAnticipes += $stat->nombre_departs_anticipes;
-                        }
-                    }
-                    
-                    // Calculer les moyennes des taux
-                    $tauxPonctualiteMoyen = $totalEmployes > 0 ? round($statistiques->sum('taux_ponctualite') / $totalEmployes, 1) : 0;
-                    $tauxAssiduiteMoyen = $totalEmployes > 0 ? round($statistiques->sum('taux_assiduite') / $totalEmployes, 1) : 0;
-                @endphp
-                <th>Nombre d'employés</th>
-                <td>{{ $totalEmployes }}</td>
-                <th>Total retards</th>
-                <td>{{ $totalRetards }}</td>
-                <th>Total départs anticipés</th>
-                <td>{{ $totalDepartsAnticipes }}</td>
-                <th>Taux moyen de ponctualité</th>
-                <td class="taux-col {{ getTauxClass($tauxPonctualiteMoyen) }}">{{ $tauxPonctualiteMoyen }}%</td>
-                <th>Taux moyen d'assiduité</th>
-                <td class="taux-col {{ getTauxClass($tauxAssiduiteMoyen) }}">{{ $tauxAssiduiteMoyen }}%</td>
-            </tr>
-        </table>
-        </div>
-    </div>
-    
-    <div class="footer-notes">
-        <p><strong>Légende des taux:</strong></p>
-        <ul>
-            <li>Excellent (≥ 90%): Performance optimale</li>
-            <li>Bon (≥ 80%): Performance satisfaisante</li>
-            <li>Moyen (≥ 70%): Amélioration nécessaire</li>
-            <li>Faible (< 70%): Performance insuffisante</li>
-        </ul>
-        
-        <p><strong>Notes explicatives:</strong></p>
-        <ul>
-            <li>Le taux de ponctualité est calculé comme le pourcentage de jours sans retard par rapport au nombre total de jours travaillés.</li>
-            <li>Le taux d'assiduité est calculé comme le pourcentage d'heures faites par rapport aux heures prévues.</li>
-        </ul>
-    </div>
 </div>
 @endsection
 
 @section('styles')
 <style>
-    /* Styles pour format A4 */
+    /* Styles pour format A4 paysage */
     @page {
-        size: A4 portrait;
-        margin: 1.5cm 1cm;
+        size: A4 landscape;
+        margin: 1cm 0.5cm;
     }
     
     body {
         font-family: 'DejaVu Sans', Arial, sans-serif;
-        font-size: 9pt;
-        line-height: 1.3;
-        color: #333;
+        font-size: 7pt;
+        line-height: 1.2;
+        color: #000;
         width: 100%;
         background: white;
     }
     
     h1 {
-        font-size: 16pt;
-        color: #2c3e50;
-        margin-bottom: 15px;
+        font-size: 14pt;
+        font-weight: bold;
+        color: #000;
+        margin-bottom: 10px;
         text-align: center;
+        text-decoration: underline;
     }
     
     h2 {
-        font-size: 12pt;
-        color: #2c3e50;
-        margin-top: 20px;
-        margin-bottom: 10px;
+        font-size: 10pt;
+        font-weight: bold;
+        color: #000;
+        margin-top: 15px;
+        margin-bottom: 8px;
+        text-decoration: underline;
     }
     
     .rapport-info {
         margin-bottom: 15px;
         font-size: 9pt;
+        text-align: center;
+        font-weight: bold;
     }
     
     .rapport-info p {
         margin: 3px 0;
     }
 
-    table {
+    .rapport-table {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 15px;
-        font-size: 7pt;
-        table-layout: fixed;
-        max-width: 100%;
-        overflow-wrap: break-word;
+        font-size: 6pt;
+        border: 2px solid #000;
     }
 
-    table, th, td {
-        border: 1px solid #ddd;
-    }
-
-    th, td {
+    .rapport-table th,
+    .rapport-table td {
+        border: 1px solid #000;
         padding: 2px;
-        text-align: left;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 100%;
-    }
-
-    th {
-        background-color: #f2f2f2;
-        font-weight: bold;
-    }
-
-    .employe-col {
-        width: 10%;
-        font-weight: bold;
-    }
-
-    .numeric-col {
         text-align: center;
-        width: 5%;
+        vertical-align: middle;
+        font-weight: normal;
     }
 
-    .taux-col {
+    .rapport-table thead th {
+        background-color: #fff;
         font-weight: bold;
-    }
-
-    .taux-col.excellent {
-        background-color: #d4edda;
-        color: #155724;
-    }
-
-    .taux-col.bon {
-        background-color: #d1ecf1;
-        color: #0c5460;
-    }
-
-    .taux-col.moyen {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-
-    .taux-col.faible {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-
-    .observation-col {
-        width: 12%;
         font-size: 6pt;
     }
 
-    .summary {
-        margin-top: 20px;
-        border: 1px solid #ddd;
-        padding: 10px;
-        background-color: #f9f9f9;
+    /* En-têtes principaux */
+    .header-main {
+        font-weight: bold;
+    }
+    
+    .assiduite-header {
+        background-color: #f0f0f0;
+    }
+    
+    .ponctualite-header {
+        background-color: #f0f0f0;
+    }
+    
+    .frequence-header {
+        background-color: #f0f0f0;
     }
 
-    .summary-stats {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
+    /* Largeurs des colonnes */
+    .numero-col {
+        width: 3%;
+        font-weight: bold;
+        text-align: center;
     }
 
-    .summary-item {
-        width: 48%;
-        margin-bottom: 5px;
-    }
-
-    .summary-label {
+    .noms-col {
+        width: 18%;
+        text-align: left;
+        padding-left: 4px;
         font-weight: bold;
     }
 
-    .summary-value {
-        margin-left: 5px;
-    }
-
-    .summary-value.excellent {
-        color: #155724;
+    .grade-col {
+        width: 5%;
         font-weight: bold;
+        text-align: center;
     }
 
-    .summary-value.bon {
-        color: #0c5460;
+    .fonction-col {
+        width: 10%;
         font-weight: bold;
+        text-align: center;
     }
 
-    .summary-value.moyen {
-        color: #856404;
+    .numeric-col {
+        width: 4%;
+        text-align: center;
+    }
+
+    .heures-hebdo {
+        width: 4%;
+        text-align: center;
+    }
+
+    .heures-mensuel {
+        width: 5%;
+        text-align: center;
+    }
+
+    .heures-faites {
+        width: 4%;
+        text-align: center;
+    }
+
+    .taux-assiduite {
+        width: 4%;
+        text-align: center;
+    }
+
+    .freq-dues {
+        width: 4%;
+        text-align: center;
+    }
+
+    .freq-mensuel {
+        width: 4%;
+        text-align: center;
+    }
+
+    .freq-faites {
+        width: 4%;
+        text-align: center;
+    }
+
+    .freq-naites {
+        width: 4%;
+        text-align: center;
+    }
+
+    .taux-ponctualite-col {
+        width: 6%;
+        text-align: center;
+    }
+
+    .observations-col {
+        width: 15%;
+        text-align: left;
+        padding-left: 4px;
+    }
+
+    /* Styles pour les en-têtes de département */
+    .departement-header {
+        background-color: #f8f9fa;
+    }
+
+    .departement-title {
         font-weight: bold;
+        font-size: 8pt;
+        text-align: center;
+        padding: 4px 8px;
+        background-color: #e9ecef;
+        border: 2px solid #000;
     }
 
-    .summary-value.faible {
-        color: #721c24;
-        font-weight: bold;
-    }
-
-    .footer-notes {
-        font-size: 7pt;
-        color: #666;
-        border-top: 1px solid #eee;
-        padding-top: 10px;
-        margin-top: 20px;
-    }
-
-    .footer-notes ul {
-        margin: 5px 0;
-        padding-left: 20px;
-    }
-
-    .footer-notes li {
-        margin-bottom: 2px;
+    .heures-absence {
+        width: 5%;
+        text-align: center;
     }
 
     /* Gestion des sauts de page */
@@ -330,14 +293,14 @@ function getTauxClass($taux) {
     /* Styles pour impression */
     @media print {
         body {
-            width: 21cm;
-            height: 29.7cm;
+            width: 29.7cm;
+            height: 21cm;
             margin: 0;
             padding: 0;
         }
         
         .container {
-            padding: 10px;
+            padding: 5px;
         }
         
         table {
