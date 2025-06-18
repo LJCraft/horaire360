@@ -5,8 +5,8 @@
         "type": "entry",
         "device": "mobile",
         "location": {
-            "lat": 48.8566,
-            "lng": 2.3522
+            "lat": 3.8480,
+            "lng": 11.5021
         },
         "accuracy": 5.2
     },
@@ -15,8 +15,8 @@
         "timestamp": "2025-06-18T08:12:15.000Z",
         "type": "entry",
         "source": "mobile_app",
-        "latitude": 48.8556,
-        "longitude": 2.3515,
+        "latitude": 3.8467,
+        "longitude": 11.5018,
         "accuracy": 3.8
     },
     {
@@ -26,8 +26,8 @@
         "status": 1,
         "terminal_id": 1,
         "position": {
-            "lat": 48.8570,
-            "lng": 2.3530
+            "lat": 3.8492,
+            "lng": 11.5035
         }
     },
     {
@@ -36,8 +36,8 @@
         "date": "2025-06-18",
         "action": "checkout",
         "gps": {
-            "lat": 48.8566,
-            "lng": 2.3522
+            "lat": 3.8480,
+            "lng": 11.5021
         },
         "accuracy": 4.1
     },
@@ -46,8 +46,8 @@
         "timestamp": "2025-06-18T17:15:30.000Z",
         "type": "exit",
         "location": {
-            "latitude": 48.8556,
-            "longitude": 2.3515
+            "latitude": 3.8467,
+            "longitude": 11.5018
         }
     },
     {
@@ -56,8 +56,8 @@
         "hour": "16:45:30",
         "status": 0,
         "source": "mobile",
-        "lat": 48.8570,
-        "lng": 2.3530,
-        "altitude": 45.2
+        "lat": 3.8492,
+        "lng": 11.5035,
+        "altitude": 750
     }
 ] 

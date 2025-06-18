@@ -612,26 +612,36 @@
                                         </span>
                                     </td>
                                 </tr>
-                                @if(isset($metaData['geolocation']))
+                                                                @if(isset($metaData['geolocation']))
                                 <tr>
                                     <th>Position GPS</th>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-geo-alt text-primary me-2"></i>
-                                            <div>
-                                                <div class="small">
-                                                    <strong>Lat:</strong> {{ number_format($metaData['geolocation']['latitude'], 6) }}<br>
-                                                    <strong>Lng:</strong> {{ number_format($metaData['geolocation']['longitude'], 6) }}
-                        </div>
-                                                @if(isset($metaData['geolocation']['accuracy']))
-                                                <div class="text-muted small">
-                                                    Précision: ±{{ $metaData['geolocation']['accuracy'] }}m
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-geo-alt text-primary me-2 mt-1"></i>
+                                            <div class="flex-grow-1">
+                                                <div class="small mb-2">
+                                                    <strong>Latitude:</strong> {{ number_format($metaData['geolocation']['latitude'], 6) }}<br>
+                                                    <strong>Longitude:</strong> {{ number_format($metaData['geolocation']['longitude'], 6) }}
+                                                    @if(isset($metaData['geolocation']['accuracy']))
+                                                    <br><span class="text-muted">Précision: ±{{ $metaData['geolocation']['accuracy'] }}m</span>
+                                                    @endif
+                                                    @if(isset($metaData['geolocation']['altitude']))
+                                                    <br><span class="text-muted">Altitude: {{ $metaData['geolocation']['altitude'] }}m</span>
+                                                    @endif
                                                 </div>
-                                                @endif
-                                                <a href="https://www.google.com/maps?q={{ $metaData['geolocation']['latitude'] }},{{ $metaData['geolocation']['longitude'] }}" 
-                                                   target="_blank" class="btn btn-sm btn-outline-primary mt-1">
-                                                    <i class="bi bi-map me-1"></i>Voir sur la carte
-                                                </a>
+                                                
+                                                <!-- Carte Leaflet -->
+                                                <div id="map-{{ $pointage->id }}" style="height: 200px; width: 100%; border-radius: 8px; border: 1px solid #ddd;" class="mb-2"></div>
+                                                
+                                                <div class="d-flex gap-2">
+                                                    <a href="https://www.google.com/maps?q={{ $metaData['geolocation']['latitude'] }},{{ $metaData['geolocation']['longitude'] }}" 
+                                                       target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-google me-1"></i>Google Maps
+                                                    </a>
+                                                    <button class="btn btn-sm btn-outline-success" onclick="centerMap{{ $pointage->id }}()">
+                                                        <i class="bi bi-geo-alt-fill me-1"></i>Centrer
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -1330,6 +1340,110 @@
     function actualiserPage() {
         window.location.reload();
     }
+
+    // Variables globales pour les cartes Leaflet
+    const maps = {};
+    const markers = {};
+    
+    // Fonction pour initialiser les cartes Leaflet
+    function initLeafletMaps() {
+        @foreach($pointages as $pointage)
+            @php
+                $metaData = json_decode($pointage->meta_data, true);
+            @endphp
+            @if(isset($metaData['geolocation']))
+                @php
+                    $lat = $metaData['geolocation']['latitude'];
+                    $lng = $metaData['geolocation']['longitude'];
+                    $accuracy = isset($metaData['geolocation']['accuracy']) ? $metaData['geolocation']['accuracy'] : null;
+                @endphp
+                
+                // Attendre que le modal soit ouvert avant d'initialiser la carte
+                document.getElementById('detailsModal{{ $pointage->id }}').addEventListener('shown.bs.modal', function () {
+                    if (!maps['{{ $pointage->id }}']) {
+                        // Initialiser la carte
+                        const map = L.map('map-{{ $pointage->id }}', {
+                            zoomControl: true,
+                            attributionControl: true
+                        }).setView([{{ $lat }}, {{ $lng }}], 16);
+                        
+                        // Ajouter le layer de carte (OpenStreetMap)
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors',
+                            maxZoom: 19
+                        }).addTo(map);
+                        
+                        // Créer l'icône personnalisée
+                        const customIcon = L.divIcon({
+                            html: '<i class="bi bi-geo-alt-fill text-danger" style="font-size: 24px;"></i>',
+                            className: 'custom-marker',
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 24]
+                        });
+                        
+                        // Ajouter le marqueur
+                        const marker = L.marker([{{ $lat }}, {{ $lng }}], {icon: customIcon}).addTo(map);
+                        
+                        // Popup avec les informations
+                        const popupContent = `
+                            <div class="text-center">
+                                <strong>{{ $pointage->employe->prenom }} {{ $pointage->employe->nom }}</strong><br>
+                                <small class="text-muted">{{ \Carbon\Carbon::parse($pointage->date)->format('d/m/Y') }}</small><br>
+                                <span class="badge bg-primary mt-1">Pointage {{ isset($metaData['type_pointage']) && $metaData['type_pointage'] == 1 ? 'Entrée' : 'Sortie' }}</span>
+                                @if($accuracy)
+                                <br><small class="text-muted">Précision: ±{{ $accuracy }}m</small>
+                                @endif
+                            </div>
+                        `;
+                        marker.bindPopup(popupContent).openPopup();
+                        
+                        @if($accuracy)
+                        // Ajouter un cercle de précision si disponible
+                        const accuracyCircle = L.circle([{{ $lat }}, {{ $lng }}], {
+                            radius: {{ $accuracy }},
+                            fillColor: '#007bff',
+                            fillOpacity: 0.1,
+                            color: '#007bff',
+                            weight: 2,
+                            opacity: 0.6
+                        }).addTo(map);
+                        @endif
+                        
+                        // Stocker les références
+                        maps['{{ $pointage->id }}'] = map;
+                        markers['{{ $pointage->id }}'] = marker;
+                        
+                        // Redimensionner la carte après un court délai
+                        setTimeout(() => {
+                            map.invalidateSize();
+                        }, 100);
+                    }
+                });
+            @endif
+        @endforeach
+    }
+    
+    // Fonctions pour centrer les cartes
+    @foreach($pointages as $pointage)
+        @php
+            $metaData = json_decode($pointage->meta_data, true);
+        @endphp
+        @if(isset($metaData['geolocation']))
+            function centerMap{{ $pointage->id }}() {
+                if (maps['{{ $pointage->id }}']) {
+                    maps['{{ $pointage->id }}'].setView([{{ $metaData['geolocation']['latitude'] }}, {{ $metaData['geolocation']['longitude'] }}], 18);
+                    if (markers['{{ $pointage->id }}']) {
+                        markers['{{ $pointage->id }}'].openPopup();
+                    }
+                }
+            }
+        @endif
+    @endforeach
+    
+    // Initialiser les cartes quand le DOM est chargé
+    document.addEventListener('DOMContentLoaded', function() {
+        initLeafletMaps();
+    });
 </script>
 @endpush
 
@@ -1353,6 +1467,40 @@
     
     .table td {
         vertical-align: middle;
+    }
+    
+    /* Styles pour les cartes Leaflet */
+    .custom-marker {
+        background: none !important;
+        border: none !important;
+    }
+    
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .leaflet-popup-content {
+        margin: 12px 16px;
+        font-family: 'Nunito', sans-serif;
+    }
+    
+    .leaflet-control-zoom {
+        border: none !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .leaflet-control-zoom a {
+        border-radius: 4px !important;
+        border: none !important;
+        font-weight: bold !important;
+        color: #007bff !important;
+    }
+    
+    .leaflet-control-zoom a:hover {
+        background-color: #007bff !important;
+        color: white !important;
     }
 </style>
 @endpush
