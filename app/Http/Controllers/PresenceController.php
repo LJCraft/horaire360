@@ -496,6 +496,9 @@ class PresenceController extends Controller
     public function importBiometrique(Request $request)
     {
         try {
+            // Nettoyer les anciennes anomalies en session AVANT toute nouvelle importation
+            session()->forget(['import_anomalies', 'import_stats']);
+
             // Validation spécifique pour les fichiers .dat
             $request->validate([
                 'fichier_biometrique' => 'required|file|mimes:dat,txt|max:10240',
@@ -505,7 +508,7 @@ class PresenceController extends Controller
             $file = $request->file('fichier_biometrique');
             $skipExisting = $request->has('skip_existing');
 
-            // Statistiques d'importation
+            // Statistiques d'importation (réinitialisées pour chaque importation)
             $stats = [
                 'total' => 0,
                 'imported' => 0,
@@ -535,7 +538,7 @@ class PresenceController extends Controller
                     continue;
                 }
                 
-                $stats['total']++;
+                    $stats['total']++;
                 
                 // Parser la ligne selon le format .dat
                 $result = $this->parseDatLine($line, $lineNumber, $skipExisting);
@@ -565,9 +568,12 @@ class PresenceController extends Controller
                 'message' => $message
             ]);
 
-            // Stocker les anomalies en session pour affichage
+            // Stocker les anomalies en session UNIQUEMENT pour cette importation
             if (!empty($stats['anomalies'])) {
                 session()->put('import_anomalies', $stats['anomalies']);
+            } else {
+                // S'assurer qu'il n'y a pas d'anciennes anomalies affichées
+                session()->forget('import_anomalies');
             }
 
             return redirect()->route('rapports.biometrique')
@@ -701,21 +707,30 @@ class PresenceController extends Controller
 
             $presence->heure_arrivee = $heure;
             
-            // Créer les métadonnées biométriques
+            // Créer les métadonnées spécifiques au format .dat
             $metaData = [
-                'terminal_id' => 1,
-                'type' => 'check-in',
-                'biometric_verification' => [
-                    'confidence_score' => 1.0, // Score par défaut pour .dat
-                    'method' => 'facial_recognition'
-                ],
+                'terminal_id' => '1',  // Chaîne pour compatibilité avec la requête
+                'type' => 'biometric_dat',
+                'source' => 'reconnaissance_faciale_mobile',
+                'type_pointage' => 1,  // Ajouter le type de pointage pour la logique de regroupement
                 'device_info' => [
-                    'model' => 'Terminal Biométrique',
-                    'terminal_id' => 1
+                    'model' => 'App Mobile - Reconnaissance Faciale',
+                    'terminal_id' => '1',
+                    'type' => 'mobile_facial_recognition'
+                ],
+                'validation' => [
+                    'format' => 'dat_file',
+                    'authentifie' => true,
+                    'processed_at' => now()->toISOString()
                 ]
             ];
             
             $presence->meta_data = json_encode($metaData);
+            $presence->save();
+
+            // Calculer les retards basés sur le planning
+            $timestamp = \Carbon\Carbon::parse($date . ' ' . $heure);
+            $this->checkForLateness($presence, $timestamp);
             $presence->save();
 
             $result['success'] = true;
@@ -737,19 +752,27 @@ class PresenceController extends Controller
             
             // Mettre à jour les métadonnées avec les informations de départ
             $metaData = json_decode($presence->meta_data, true) ?? [];
+            $metaData['type_pointage'] = 0;  // Ajouter le type de pointage pour la sortie
             $metaData['checkout'] = [
-                'type' => 'check-out',
-                'biometric_verification' => [
-                    'confidence_score' => 1.0,
-                    'method' => 'facial_recognition'
-                ],
+                'type' => 'biometric_dat_checkout',
+                'source' => 'reconnaissance_faciale_mobile',
                 'device_info' => [
-                    'model' => 'Terminal Biométrique',
-                    'terminal_id' => 1
+                    'model' => 'App Mobile - Reconnaissance Faciale',
+                    'terminal_id' => '1',
+                    'type' => 'mobile_facial_recognition'
+                ],
+                'validation' => [
+                    'format' => 'dat_file',
+                    'authentifie' => true,
+                    'processed_at' => now()->toISOString()
                 ]
             ];
             
             $presence->meta_data = json_encode($metaData);
+            
+            // Calculer les départs anticipés basés sur le planning
+            $timestamp = \Carbon\Carbon::parse($date . ' ' . $heure);
+            $this->checkForEarlyDeparture($presence, $timestamp);
             $presence->save();
 
             $result['success'] = true;
@@ -779,27 +802,49 @@ class PresenceController extends Controller
     }
 
     /**
-     * Télécharger un modèle de fichier .dat
+     * Télécharger un modèle de fichier .dat simplifié avec données valides
      */
     public function downloadDatTemplate()
     {
-        // Créer un exemple de fichier .dat
-        $content = "# Modèle de fichier .dat pour l'importation biométrique\n";
-        $content .= "# Format: ID_Employe  Date  Heure  Type_Pointage  Terminal_ID\n";
-        $content .= "# Type_Pointage: 1 = Entrée, 0 = Sortie\n";
-        $content .= "# Terminal_ID: 1 = App mobile (reconnaissance faciale)\n";
-        $content .= "# Exemple:\n";
-        $content .= "1023  2025-06-12  08:01:15  1  1\n";
-        $content .= "1023  2025-06-12  17:10:02  0  1\n";
-        $content .= "9999  2025-06-12  08:03:45  1  1\n";
+        // Récupérer quelques employés réels de la base de données
+        $employes = Employe::where('statut', 'actif')->limit(3)->get(['id', 'nom', 'prenom']);
+        
+        // Générer des données simples sans commentaires
+        $today = now()->format('Y-m-d');
+        $content = "";
+        
+        if ($employes->count() > 0) {
+            // Employé 1 - Journée normale
+            $emp1 = $employes->first();
+            $content .= "{$emp1->id}  {$today}  08:00:00  1  1\n";
+            $content .= "{$emp1->id}  {$today}  17:00:00  0  1\n";
+            
+            // Employé 2 - Si disponible
+            if ($employes->count() > 1) {
+                $emp2 = $employes->get(1);
+                $content .= "{$emp2->id}  {$today}  08:15:00  1  1\n";
+                $content .= "{$emp2->id}  {$today}  17:15:00  0  1\n";
+            }
+            
+            // Employé 3 - Si disponible
+            if ($employes->count() > 2) {
+                $emp3 = $employes->get(2);
+                $content .= "{$emp3->id}  {$today}  07:55:00  1  1\n";
+                $content .= "{$emp3->id}  {$today}  16:30:00  0  1\n";
+            }
+        } else {
+            // Fallback si aucun employé trouvé
+            $content .= "1  {$today}  08:00:00  1  1\n";
+            $content .= "1  {$today}  17:00:00  0  1\n";
+        }
 
-        $fileName = 'modele_pointage_biometrique_' . now()->format('Y-m-d') . '.dat';
+        $fileName = 'pointage_biometrique_' . now()->format('Y-m-d') . '.dat';
 
         return response($content)
             ->header('Content-Type', 'text/plain')
             ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
     }
-
+    
     /**
      * Enregistrer des informations de diagnostic
      */
@@ -1055,7 +1100,7 @@ class PresenceController extends Controller
             $planning = Planning::where('employe_id', $presence->employe_id)
                 ->where('date_debut', '<=', $date)
                 ->where('date_fin', '>=', $date)
-                ->where('statut', 'actif')
+                ->where('actif', true)
                 ->first();
                 
             if ($planning) {
@@ -1148,7 +1193,7 @@ class PresenceController extends Controller
             $planning = Planning::where('employe_id', $presence->employe_id)
                 ->where('date_debut', '<=', $date)
                 ->where('date_fin', '>=', $date)
-                ->where('statut', 'actif')
+                ->where('actif', true)
                 ->first();
                 
             if ($planning) {

@@ -36,13 +36,28 @@
             @forelse($pointages as $pointage)
             @php
                 $metaData = json_decode($pointage->meta_data, true);
+                
+                // Extraire l'heure d'arrivée même si c'est un timestamp complet
+                $heureArrivee = $pointage->heure_arrivee;
+                if (preg_match('/(\d{2}:\d{2}:\d{2})/', $heureArrivee, $matches)) {
+                    $heureArrivee = $matches[1];
+                }
+                
+                // Extraire l'heure de départ même si c'est un timestamp complet
+                $heureDepart = 'N/A';
+                if ($pointage->heure_depart) {
+                    $heureDepart = $pointage->heure_depart;
+                    if (preg_match('/(\d{2}:\d{2}:\d{2})/', $heureDepart, $matches)) {
+                        $heureDepart = $matches[1];
+                    }
+                }
             @endphp
             <tr>
                 <td>{{ $pointage->id }}</td>
                 <td>{{ $pointage->employe->nom }} {{ $pointage->employe->prenom }}</td>
                 <td>{{ date('d/m/Y', strtotime($pointage->date)) }}</td>
-                <td>{{ $pointage->heure_arrivee }}</td>
-                <td>{{ $pointage->heure_depart ?: 'N/A' }}</td>
+                <td>{{ $heureArrivee }}</td>
+                <td>{{ $heureDepart }}</td>
                 <td class="text-center">Terminal 1</td>
                 <td>{{ $metaData['device_info']['model'] ?? 'Reconnaissance faciale mobile' }}</td>
                 <td>{{ $metaData['type'] ?? 'Biométrique' }}</td>

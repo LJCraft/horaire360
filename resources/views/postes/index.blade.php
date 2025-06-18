@@ -47,7 +47,7 @@
                             <tr>
                                 <td class="fw-bold">{{ $poste->nom }}</td>
                                 <td>{{ $poste->departement }}</td>
-                                <td>{{ Str::limit($poste->description, 50) }}</td>
+                                <td>{{ \Illuminate\Support\Str::limit($poste->description, 50) }}</td>
                                 <td>
                                     <span class="badge bg-info">{{ $poste->employes_count }}</span>
                                 </td>

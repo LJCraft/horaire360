@@ -783,7 +783,16 @@ class RapportController extends Controller
                 // Récupérer les données du rapport biométrique
                 $query = Presence::with('employe')
                     ->whereNotNull('meta_data')
-                    ->where('meta_data', 'like', '%biometric_verification%')
+                    ->where('meta_data', '<>', '{}')
+                    ->where('meta_data', '<>', 'null')
+                    ->where(function($q) {
+                        // Filtrer les pointages issus du système .dat (plus flexible)
+                        $q->whereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_dat'")
+                          ->orWhereRaw("JSON_EXTRACT(meta_data, '$.source') = 'reconnaissance_faciale_mobile'")
+                          ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = '1'")
+                          ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = 1")  // Gérer les deux types (chaîne et entier)
+                          ->orWhere('source_pointage', 'biometrique');  // Fallback pour les pointages biométriques
+                    })
                     ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
                 
                 if ($employeId) {
@@ -1714,43 +1723,109 @@ class RapportController extends Controller
         $dateFin = $request->date_fin ? Carbon::parse($request->date_fin) : Carbon::now()->endOfMonth();
         $employeId = $request->employe_id;
 
-        // Requête de base pour tous les pointages avec métadonnées biométriques
+        // Nettoyer les anomalies si demandé explicitement
+        if ($request->has('clear_anomalies')) {
+            session()->forget(['import_anomalies', 'import_stats']);
+            return redirect()->route('rapports.biometrique')
+                ->with('info', 'Anciennes anomalies nettoyées avec succès.');
+        }
+
+        // Requête de base pour tous les pointages biométriques (.dat)
+        // Dans le système .dat, tous les pointages avec meta_data sont considérés comme biométriques
         $query = Presence::whereNotNull('meta_data')
             ->where('meta_data', '<>', '{}')
             ->where('meta_data', '<>', 'null')
+            ->where(function($q) {
+                // Filtrer les pointages issus du système .dat (plus flexible)
+                $q->whereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_dat'")
+                  ->orWhereRaw("JSON_EXTRACT(meta_data, '$.source') = 'reconnaissance_faciale_mobile'")
+                  ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = '1'")
+                  ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = 1")  // Gérer les deux types (chaîne et entier)
+                  ->orWhere('source_pointage', 'biometrique');  // Fallback pour les pointages biométriques
+            })
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
-        
-        // La condition JSON_EXTRACT ne fonctionne pas correctement, on la supprime temporairement
-        /* Ancienne condition:
-        ->where(function($q) {
-            // Cette condition vérifie que meta_data contient bien des données de biométrie
-            $q->whereRaw("JSON_EXTRACT(meta_data, '$.biometric_verification') IS NOT NULL");
-        })
-        */
 
         // Filtrer par employé si spécifié
         if ($employeId) {
             $query->where('employe_id', $employeId);
         }
 
-        // Obtenir tous les pointages pour les statistiques
+        // Obtenir tous les pointages pour les statistiques et regroupement
         $pointagesAll = $query->get();
         
-        // Statistiques des pointages biométriques
+        // Statistiques adaptées au système .dat
         $totalPointages = $pointagesAll->count();
-        $totalPointagesArriveeDepart = $pointagesAll->filter(function($p) {
-            return !empty($p->heure_arrivee) && !empty($p->heure_depart);
+        
+        // Regrouper les pointages par employé et date pour créer des "journées"
+        $journeesGroupees = $pointagesAll->groupBy(function($pointage) {
+            return $pointage->employe_id . '_' . $pointage->date;
+        })->map(function($groupePointages) {
+            $premierPointage = $groupePointages->first();
+            
+            // Pour les données .dat, chaque pointage a soit heure_arrivee, soit heure_depart
+            // Trouver le pointage d'arrivée et de départ
+            $heureArrivee = null;
+            $heureDepart = null;
+            
+            foreach ($groupePointages as $pointage) {
+                if (!empty($pointage->heure_arrivee)) {
+                    $heureArrivee = $pointage->heure_arrivee;
+                }
+                if (!empty($pointage->heure_depart)) {
+                    $heureDepart = $pointage->heure_depart;
+                }
+            }
+            
+            // Créer un objet "journée" synthétique
+            return (object) [
+                'id' => $premierPointage->id,
+                'employe_id' => $premierPointage->employe_id,
+                'employe' => $premierPointage->employe,
+                'date' => $premierPointage->date,
+                'heure_arrivee' => $heureArrivee,
+                'heure_depart' => $heureDepart,
+                'meta_data' => $premierPointage->meta_data,
+                'retard' => $premierPointage->retard,
+                'depart_anticipe' => $premierPointage->depart_anticipe,
+                'pointages_count' => $groupePointages->count()
+            ];
+        });
+        
+        // Calculer les statistiques sur les journées regroupées
+        $totalJournees = $journeesGroupees->count();
+        $totalPointagesArriveeDepart = $journeesGroupees->filter(function($journee) {
+            return !empty($journee->heure_arrivee) && !empty($journee->heure_depart);
         })->count();
         
-        // Calculer le nombre d'employés uniques avec pointages biométriques
-        $totalEmployesConcernés = $pointagesAll->pluck('employe_id')->unique()->count();
+        // Calculer le nombre d'employés uniques
+        $totalEmployesConcernés = $journeesGroupees->pluck('employe_id')->unique()->count();
         
-        // Requête paginée pour l'affichage
-        $pointages = $query->orderBy('date', 'desc')->orderBy('heure_arrivee', 'desc')->paginate(15);
+        // Paginer les journées pour l'affichage
+        $perPage = 15;
+        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage('page');
+        $currentItems = $journeesGroupees->forPage($currentPage, $perPage);
+        $pointages = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            $journeesGroupees->count(),
+            $perPage,
+            $currentPage,
+            ['path' => request()->url(), 'pageName' => 'page']
+        );
+        $pointages->appends(request()->query());
         $employes = Employe::orderBy('nom')->get();
         
         // Récupérer les résultats d'importation s'ils existent
         $importStats = session('import_stats');
+        
+        // Si nous arrivons sur la page sans paramètres d'importation récente,
+        // nettoyer les anciennes anomalies pour éviter la confusion
+        if (!session()->has('import_stats') || !$request->has('date_debut')) {
+            // Ne nettoyer que si on navigue vers la page, pas si on vient d'importer
+            if (!session()->has('import_anomalies') || 
+                (session()->has('import_anomalies') && !session()->has('import_stats'))) {
+                session()->forget('import_anomalies');
+            }
+        }
         
         return view('rapports.biometrique', compact(
             'dateDebut', 
@@ -1810,8 +1885,16 @@ class RapportController extends Controller
                 break;
                 
             case 'biometrique':
-                // Données pour le rapport biométrique
-                $query = Presence::query();
+                // Données pour le rapport biométrique (.dat)
+                $query = Presence::whereNotNull('meta_data')
+                    ->where('meta_data', '<>', '{}')
+                    ->where('meta_data', '<>', 'null')
+                    ->where(function($q) {
+                        // Filtrer les pointages issus du système .dat
+                        $q->whereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_dat'")
+                          ->orWhereRaw("JSON_EXTRACT(meta_data, '$.source') = 'reconnaissance_faciale_mobile'")
+                          ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = '1'");
+                    });
                 
                 if ($dateDebut) {
                     $query->whereDate('date', '>=', $dateDebut);
@@ -1825,32 +1908,34 @@ class RapportController extends Controller
                     $query->where('employe_id', $employeId);
                 }
                 
-                // Filtrer uniquement les pointages biométriques
-                $query->whereNotNull('meta_data')
-                      ->where('meta_data', 'like', '%biometric_verification%');
-                
                 $pointages = $query->orderBy('date', 'desc')->orderBy('heure_arrivee', 'desc')->get();
                 
-                // Préparer les données pour l'export Excel
+                // Préparer les données pour l'export Excel adaptées au système .dat
                 $data = [];
-                $data[] = ['ID', 'Employé', 'Date', 'Arrivée', 'Départ', 'Appareil', 'Terminal', 'Type'];
+                $data[] = ['ID', 'Employé', 'Date', 'Heure', 'Type Pointage', 'Terminal', 'Ligne .dat'];
                 
                 foreach ($pointages as $pointage) {
                     $metaData = json_decode($pointage->meta_data, true);
+                    $typePointage = isset($metaData['type_pointage']) ? 
+                        ($metaData['type_pointage'] == 1 ? 'Entrée (1)' : 'Sortie (0)') : 'Non défini';
+                    
+                    // Reconstituer la ligne .dat originale
+                    $heure = $pointage->heure_arrivee ?? $pointage->heure_depart;
+                    $ligneOriginale = $pointage->employe->id . '  ' . $pointage->date . '  ' . $heure . '  ' . 
+                                    ($metaData['type_pointage'] ?? '1') . '  1';
                     
                     $data[] = [
                         $pointage->id,
                         $pointage->employe->nom . ' ' . $pointage->employe->prenom,
                         $pointage->date,
-                        $pointage->heure_arrivee,
-                        $pointage->heure_depart ?: 'N/A',
-                        $metaData['device_info']['model'] ?? 'Reconnaissance faciale mobile',
-                        'Terminal 1',
-                        $metaData['type'] ?? 'Biométrique'
+                        $heure,
+                        $typePointage,
+                        'Terminal 1 - Facial mobile',
+                        $ligneOriginale
                     ];
                 }
                 
-                $filename = 'rapport-biometrique-' . date('Y-m-d') . '.xlsx';
+                $filename = 'rapport-biometrique-dat-' . date('Y-m-d') . '.xlsx';
                 break;
                 
             case 'global-multi-periode':
