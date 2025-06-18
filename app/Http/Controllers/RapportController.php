@@ -517,6 +517,7 @@ class RapportController extends Controller
         $format = $request->input('format', 'pdf');
         $employeId = $request->input('employe_id');
         $departementId = $request->input('departement_id');
+        $serviceId = $request->input('service_id');
         $posteId = $request->input('poste_id');
         $gradeId = $request->input('grade_id');
         
@@ -764,7 +765,7 @@ class RapportController extends Controller
                 break;
                 
             case 'ponctualite-assiduite':
-                // Récupérer les données du rapport de ponctualité et assiduité
+                // Récupérer les données du rapport de ponctualité et assiduité (version V2 avec données réelles corrigées)
                 $statistiques = $this->getStatistiquesPonctualiteAssiduiteV2($dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d'), $employeId, $departementId, $posteId, $gradeId);
                 
                 $data = [
@@ -778,6 +779,23 @@ class RapportController extends Controller
                 
                 $view = 'rapports.pdf.ponctualite-assiduite';
                 $filename = 'rapport-ponctualite-assiduite-' . date('Y-m-d') . '.pdf';
+                break;
+                
+            case 'ponctualite-assiduite-v2':
+                // Récupérer les données du rapport de ponctualité et assiduité V2 (avec données réelles)
+                $statistiques = $this->getStatistiquesPonctualiteAssiduite($dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d'), $employeId, $departementId, $serviceId);
+                
+                $data = [
+                    'statistiques' => $statistiques,
+                    'dateDebut' => $dateDebut->format('Y-m-d'),
+                    'dateFin' => $dateFin->format('Y-m-d'),
+                    'periodeLabel' => $periodeLabel,
+                    'titre' => 'Rapport de Ponctualité et Assiduité V2',
+                    'sousTitre' => 'Analyse détaillée de la ponctualité et de l\'assiduité par employé avec données réelles'
+                ];
+                
+                $view = 'rapports.pdf.ponctualite-assiduite-v2';
+                $filename = 'rapport-ponctualite-assiduite-v2-' . date('Y-m-d') . '.pdf';
                 break;
                 
             case 'biometrique':
@@ -1928,6 +1946,35 @@ class RapportController extends Controller
                 $filename = 'rapport-ponctualite-assiduite-' . date('Y-m-d') . '.xlsx';
                 break;
                 
+            case 'ponctualite-assiduite-v2':
+                // Données pour le rapport de ponctualité et assiduité V2 (avec données réelles)
+                $statistiques = $this->getStatistiquesPonctualiteAssiduite($dateDebut, $dateFin, $employeId, $departementId, $serviceId);
+                
+                // Préparer les données pour l'export Excel
+                $data = [];
+                $data[] = ['Employé', 'Département', 'Grade', 'Poste', 'Jours prévus', 'Jours réalisés', 'Heures prévues', 'Heures faites', 'Heures absence', 'Taux ponctualité', 'Taux assiduité', 'Retards', 'Départs anticipés'];
+                
+                foreach ($statistiques as $stat) {
+                    $data[] = [
+                        $stat->employe->nom . ' ' . $stat->employe->prenom,
+                        $stat->employe->poste ? $stat->employe->poste->departement : 'N/A',
+                        $stat->employe->grade ? $stat->employe->grade->nom : 'N/A',
+                        $stat->employe->poste ? $stat->employe->poste->nom : 'N/A',
+                        $stat->jours_prevus,
+                        $stat->jours_realises,
+                        $stat->heures_prevues,
+                        $stat->heures_faites,
+                        $stat->heures_absence,
+                        $stat->taux_ponctualite . '%',
+                        $stat->taux_assiduite . '%',
+                        $stat->nombre_retards,
+                        $stat->nombre_departs_anticipes
+                    ];
+                }
+                
+                $filename = 'rapport-ponctualite-assiduite-v2-' . date('Y-m-d') . '.xlsx';
+                break;
+                
             case 'biometrique':
                 // Données pour le rapport biométrique
                 $query = Presence::query();
@@ -2049,7 +2096,7 @@ class RapportController extends Controller
         }
         
         // Récupérer les employés
-        $employes = $query->with(['poste'])->get();
+        $employes = $query->with(['poste', 'grade'])->get();
         
         // Calculer les statistiques pour chaque employé
         $statistiques = collect();
@@ -2144,7 +2191,7 @@ class RapportController extends Controller
         
         // Récupérer les employés avec une requête simple
         $employes = \App\Models\Employe::where('statut', 'actif')
-            ->with('poste:id,nom,departement')
+            ->with(['poste:id,nom,departement', 'grade:id,nom'])
             ->when($employeId, function($q) use ($employeId) {
                 return $q->where('id', $employeId);
             })
@@ -2190,8 +2237,12 @@ class RapportController extends Controller
                 }
             }
             
-            $joursOuvrables = 20; // Valeur par défaut
-            $heuresPrevues = 160; // Valeur par défaut
+            // === CORRECTION : Utiliser les données réelles au lieu des valeurs fictives ===
+            // Calculer les jours prévus à partir du planning hebdomadaire
+            $joursOuvrables = $this->calculerJoursOuvrablesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
+            
+            // Calculer les heures prévues à partir du planning hebdomadaire
+            $heuresPrevues = $this->calculerHeuresPrevuesPlanningHebdomadaire($employe->id, $dateDebut, $dateFin);
             
             $tauxPonctualite = $joursTravailles > 0 ? round(100 - (($retards / $joursTravailles) * 100), 1) : 0;
             $tauxAssiduite = $joursOuvrables > 0 ? round(($joursTravailles / $joursOuvrables) * 100, 1) : 0;
@@ -2200,7 +2251,7 @@ class RapportController extends Controller
                 'numero_employe' => count($departements[$dept]) + 1,
                 'employe_nom' => $employe->nom,
                 'employe_prenom' => $employe->prenom,
-                'grade' => 'PLEG',
+                'grade' => $employe->grade ? $employe->grade->nom : 'Non défini',
                 'fonction' => $employe->poste ? $employe->poste->nom : 'Non défini',
                 'jours_prevus' => $joursOuvrables,
                 'heures_prevues' => $heuresPrevues,
@@ -2209,8 +2260,8 @@ class RapportController extends Controller
                 'taux_ponctualite' => $tauxPonctualite,
                 'taux_assiduite' => $tauxAssiduite,
                 'nombre_retards' => $retards,
-                'frequence_hebdo' => 6,
-                'frequence_mensuelle' => 24,
+                'frequence_hebdo' => $joursOuvrables, // Utiliser les jours ouvrables réels
+                'frequence_mensuelle' => $heuresPrevues, // Utiliser les heures prévues réelles
                 'frequence_naites' => $joursTravailles - $retards,
                 'observation_rh' => ''
             ];

@@ -33,7 +33,7 @@
             @foreach($statistiques as $stat)
             <tr>
                 <td class="employe-col">{{ $stat->employe->nom }} {{ $stat->employe->prenom }}</td>
-                <td>{{ $stat->employe->departement ?? 'Non défini' }}</td>
+                <td>{{ $stat->employe->poste ? $stat->employe->poste->departement : 'Non défini' }}</td>
                 <td>{{ $stat->employe->grade ? $stat->employe->grade->nom : 'Non défini' }}</td>
                 <td>{{ $stat->employe->poste ? $stat->employe->poste->nom : 'Non défini' }}</td>
                 <td class="numeric-col">{{ $stat->jours_prevus ?? '' }}</td>

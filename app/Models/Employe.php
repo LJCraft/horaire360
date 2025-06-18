@@ -123,14 +123,14 @@ class Employe extends Model
     }
     
     /**
-     * Accesseur pour le grade (niveau hiérarchique)
-     * Utilise la colonne grade ou simule un grade si la colonne est vide
+     * Accesseur pour le grade calculé (niveau hiérarchique)
+     * Utilise la relation grade ou simule un grade si la relation est vide
      */
-    public function getGradeAttribute($value)
+    public function getGradeCalculeAttribute()
     {
-        // Si le grade est déjà défini dans la base de données, l'utiliser
-        if (!empty($value)) {
-            return $value;
+        // Si la relation grade existe, l'utiliser
+        if ($this->relationLoaded('grade') && $this->grade) {
+            return $this->grade;
         }
         
         // Sinon, calculer le grade en fonction de l'ancienneté
@@ -138,17 +138,17 @@ class Employe extends Model
             $anciennete = $this->date_embauche->diffInYears(now());
             
             if ($anciennete >= 10) {
-                return 'Senior';
+                return (object)['nom' => 'Senior'];
             } elseif ($anciennete >= 5) {
-                return 'Confirmé';
+                return (object)['nom' => 'Confirmé'];
             } elseif ($anciennete >= 2) {
-                return 'Intermédiaire';
+                return (object)['nom' => 'Intermédiaire'];
             } else {
-                return 'Junior';
+                return (object)['nom' => 'Junior'];
             }
         }
         
-        return 'Non défini';
+        return (object)['nom' => 'Non défini'];
     }
     
     /**

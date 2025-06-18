@@ -217,7 +217,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <td>{{ $stat->employe->departement ?? 'Non défini' }}</td>
+                            <td>{{ $stat->employe->poste ? $stat->employe->poste->departement : 'Non défini' }}</td>
                             <td>{{ is_object($stat->employe->grade) ? $stat->employe->grade->nom : ($stat->employe->grade ?? 'Non défini') }}</td>
                             <td>{{ $stat->employe->poste ? $stat->employe->poste->nom : 'Non défini' }}</td>
                             <td class="text-center">{{ $stat->jours_prevus ?? '' }}</td>
