@@ -186,7 +186,7 @@
         </div>
 
         <!-- Importation -->
-        <div class="col-md-8">
+        <div class="col-md-5">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-primary"><i class="bi bi-upload me-2"></i>Importer des données biométriques (.dat)</h5>
@@ -238,6 +238,47 @@
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Synchronisation -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0 text-success"><i class="bi bi-arrow-repeat me-2"></i>Synchronisation Mobile</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-phone text-success" style="font-size: 2rem;"></i>
+                    </div>
+                    <p class="text-muted small mb-3">Synchroniser les pointages depuis l'application mobile</p>
+                    
+                    <div class="mb-2">
+                        <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="modal" data-bs-target="#syncInfoModal">
+                            <i class="bi bi-info-circle me-1"></i>Comment ça marche ?
+                        </button>
+                    </div>
+                    
+                    <button id="syncBtn" class="btn btn-success w-100" onclick="synchroniserMobile()">
+                        <i class="bi bi-arrow-repeat me-1"></i>
+                        <span id="syncBtnText">Synchroniser</span>
+                    </button>
+                    
+                    <!-- Statut de synchronisation -->
+                    <div id="syncStatus" class="mt-3 d-none">
+                        <div class="spinner-border spinner-border-sm text-success me-1" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <small class="text-muted">Synchronisation en cours...</small>
+                    </div>
+                    
+                    <!-- Résultat -->
+                    <div id="syncResult" class="mt-3 d-none">
+                        <div class="alert alert-sm mb-0" id="syncAlert">
+                            <div id="syncMessage"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -331,9 +372,25 @@
                             </td>
                             <td>
                                 <div class="text-center">
-                                    <span class="badge bg-info">Terminal 1</span>
-                                    <br>
-                                    <small class="text-muted">Facial mobile</small>
+                                    @php
+                                        $metaDataTable = json_decode($pointage->meta_data, true);
+                                    @endphp
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <span class="badge bg-info">Terminal 1</span>
+                                        @if(isset($metaDataTable['geolocation']))
+                                            <i class="bi bi-geo-alt-fill text-success ms-1" title="Position GPS disponible"></i>
+                                        @endif
+                                    </div>
+                                    @php
+                                        $source = $pointage->source_pointage ?? 'manuel';
+                                        $sourceLabels = [
+                                            'manuel' => ['label' => 'Saisie manuelle', 'class' => 'secondary'],
+                                            'biometrique' => ['label' => 'Import .dat', 'class' => 'primary'],
+                                            'synchronisation' => ['label' => 'Sync mobile', 'class' => 'success'],
+                                        ];
+                                        $sourceInfo = $sourceLabels[$source] ?? ['label' => ucfirst($source), 'class' => 'secondary'];
+                                    @endphp
+                                    <small class="badge bg-{{ $sourceInfo['class'] }} rounded-pill">{{ $sourceInfo['label'] }}</small>
                                 </div>
                             </td>
                             <td>
@@ -525,8 +582,26 @@
                                 <tr>
                                     <th>Source</th>
                                     <td>
-                                        <i class="bi bi-file-earmark-text text-primary me-1"></i>
-                                        Fichier .dat importé
+                                        @php
+                                            $source = $pointage->source_pointage ?? 'manuel';
+                                            $sourceDisplay = [
+                                                'manuel' => ['icon' => 'bi-pencil', 'text' => 'Saisie manuelle', 'class' => 'secondary'],
+                                                'import_dat' => ['icon' => 'bi-file-earmark-text', 'text' => 'Fichier .dat importé', 'class' => 'primary'],
+                                                'synchronisation' => ['icon' => 'bi-phone', 'text' => 'Synchronisation mobile', 'class' => 'success'],
+                                                'biometrique' => ['icon' => 'bi-file-earmark-text', 'text' => 'Import .dat', 'class' => 'primary']
+                                            ];
+                                            $display = $sourceDisplay[$source] ?? ['icon' => 'bi-question', 'text' => ucfirst($source), 'class' => 'secondary'];
+                                        @endphp
+                                        <i class="{{ $display['icon'] }} text-{{ $display['class'] }} me-1"></i>
+                                        {{ $display['text'] }}
+                                        
+                                        @if($source === 'synchronisation' && isset($metaData['sync_session']))
+                                            <br><small class="text-muted">Session: {{ substr($metaData['sync_session'], -8) }}</small>
+                                        @endif
+                                        
+                                        @if($source === 'synchronisation' && isset($metaData['source_app']))
+                                            <br><small class="text-muted">App: {{ $metaData['source_app'] }}</small>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr>
@@ -537,6 +612,31 @@
                                         </span>
                                     </td>
                                 </tr>
+                                @if(isset($metaData['geolocation']))
+                                <tr>
+                                    <th>Position GPS</th>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-geo-alt text-primary me-2"></i>
+                                            <div>
+                                                <div class="small">
+                                                    <strong>Lat:</strong> {{ number_format($metaData['geolocation']['latitude'], 6) }}<br>
+                                                    <strong>Lng:</strong> {{ number_format($metaData['geolocation']['longitude'], 6) }}
+                                                </div>
+                                                @if(isset($metaData['geolocation']['accuracy']))
+                                                <div class="text-muted small">
+                                                    Précision: ±{{ $metaData['geolocation']['accuracy'] }}m
+                                                </div>
+                                                @endif
+                                                <a href="https://www.google.com/maps?q={{ $metaData['geolocation']['latitude'] }},{{ $metaData['geolocation']['longitude'] }}" 
+                                                   target="_blank" class="btn btn-sm btn-outline-primary mt-1">
+                                                    <i class="bi bi-map me-1"></i>Voir sur la carte
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endif
                                 <tr>
                                     <th>Ligne originale</th>
                                     <td>
@@ -736,10 +836,409 @@
 </div>
 <div class="modal-backdrop fade show" id="anomaliesBackdrop"></div>
 @endif
+
+<!-- Modal d'information sur la synchronisation -->
+<div class="modal fade" id="syncInfoModal" tabindex="-1" aria-labelledby="syncInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="syncInfoModalLabel">
+                    <i class="bi bi-arrow-repeat me-2"></i>Synchronisation Mobile - Guide
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">🎯 Qu'est-ce que c'est ?</h6>
+                        <p class="small">
+                            La synchronisation mobile permet de récupérer automatiquement les pointages 
+                            effectués via l'application mobile de reconnaissance faciale par les employés.
+                        </p>
+                        
+                        <h6 class="text-primary mt-3">🔄 Comment ça fonctionne ?</h6>
+                        <ol class="small">
+                            <li><strong>Mapping intelligent</strong> : Reconnaît automatiquement différents formats de données</li>
+                            <li><strong>Validation stricte</strong> : Vérifie l'existence des employés et la validité des données</li>
+                            <li><strong>Géolocalisation</strong> : Capture et stocke la position GPS des pointages mobiles</li>
+                            <li><strong>Détection de doublons</strong> : Évite les pointages en double entre sources</li>
+                            <li><strong>Calcul automatique</strong> : Applique les règles de planning (retards, heures sup)</li>
+                        </ol>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">✅ Formats acceptés</h6>
+                        <div class="bg-light p-2 rounded small">
+                            <strong>Format 1:</strong> Avec géolocalisation<br>
+                            <code>{"userId": 123, "timestamp": "2025-01-21T08:05:30Z", "type": "entry", "location": {"lat": 48.8566, "lng": 2.3522}}</code><br><br>
+                            
+                            <strong>Format 2:</strong> Position GPS séparée<br>
+                            <code>{"emp_id": "123", "date": "2025-01-21", "hour": "08:05:30", "status": 1, "latitude": 48.8566, "longitude": 2.3522}</code><br><br>
+                            
+                            <strong>Format 3:</strong> Coordonnées dans gps<br>
+                            <code>{"employee_id": 123, "action": "checkin", "gps": {"lat": 48.8566, "lng": 2.3522}}</code>
+                        </div>
+                        
+                        <h6 class="text-warning mt-3">⚠️ Sécurité</h6>
+                        <ul class="small">
+                            <li>Authentification requise (session web ou token API)</li>
+                            <li>Traçabilité complète des synchronisations</li>
+                            <li>Protection contre les appels malveillants</li>
+                            <li>Logs détaillés de toutes les opérations</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Mode démonstration</h6>
+                    <p class="mb-0 small">
+                        Le bouton "Synchroniser" utilise actuellement des données de test pour démontrer le fonctionnement. 
+                        En production, il se connectera directement à l'API de l'application mobile.
+                    </p>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6 class="text-primary">📊 Rapport de synchronisation</h6>
+                        <p class="small">
+                            Après chaque synchronisation, un rapport détaillé affiche :
+                        </p>
+                        <div class="row text-center">
+                            <div class="col-3">
+                                <div class="card border-primary">
+                                    <div class="card-body py-2">
+                                        <i class="bi bi-inbox text-primary fs-4"></i>
+                                        <div class="small"><strong>Reçus</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="card border-success">
+                                    <div class="card-body py-2">
+                                        <i class="bi bi-check-circle text-success fs-4"></i>
+                                        <div class="small"><strong>Insérés</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="card border-info">
+                                    <div class="card-body py-2">
+                                        <i class="bi bi-arrow-up-circle text-info fs-4"></i>
+                                        <div class="small"><strong>Mis à jour</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="card border-warning">
+                                    <div class="card-body py-2">
+                                        <i class="bi bi-exclamation-triangle text-warning fs-4"></i>
+                                        <div class="small"><strong>Ignorés</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="synchroniserMobile()">
+                    <i class="bi bi-arrow-repeat me-1"></i>Essayer maintenant
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de résultats de synchronisation -->
+<div class="modal fade" id="syncResultsModal" tabindex="-1" aria-labelledby="syncResultsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" id="syncModalHeader">
+                <h5 class="modal-title" id="syncResultsModalLabel">
+                    <i class="bi bi-check-circle text-success me-2"></i>Résultats de la synchronisation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body" id="syncModalBody">
+                <!-- Le contenu sera injecté dynamiquement -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="actualiserPage()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Actualiser la page
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
+    // Configuration CSRF pour les requêtes AJAX
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
+
+    // Fonction de synchronisation mobile
+    async function synchroniserMobile() {
+        const syncBtn = document.getElementById('syncBtn');
+        const syncBtnText = document.getElementById('syncBtnText');
+        const syncStatus = document.getElementById('syncStatus');
+        const syncResult = document.getElementById('syncResult');
+        
+        // Désactiver le bouton et afficher le statut de chargement
+        syncBtn.disabled = true;
+        syncBtnText.textContent = 'Synchronisation...';
+        syncStatus.classList.remove('d-none');
+        syncResult.classList.add('d-none');
+        
+        try {
+            // Charger les données de test depuis le fichier JSON
+            // En production, ces données viendront directement de l'application mobile
+            let donneesTest;
+            try {
+                const testResponse = await fetch('/test_sync_mobile.json');
+                donneesTest = await testResponse.json();
+            } catch (testError) {
+                // Fallback si le fichier n'est pas disponible
+                donneesTest = [
+                    {"userId": 1, "timestamp": new Date().toISOString(), "type": "entry"},
+                    {"userId": 2, "timestamp": new Date().toISOString(), "type": "entry"},
+                    {"userId": 1, "timestamp": new Date(Date.now() + 8*60*60*1000).toISOString(), "type": "exit"}
+                ];
+            }
+            
+            const response = await fetch('/api/sync/biometric', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    data: donneesTest,
+                    source_app: 'mobile_demo',
+                    version: '1.0.0'
+                })
+            });
+            
+            const result = await response.json();
+            
+            // Masquer le statut de chargement
+            syncStatus.classList.add('d-none');
+            
+            if (response.ok && result.status === 'success') {
+                afficherResultatSync(result, true);
+            } else {
+                afficherResultatSync(result, false);
+            }
+            
+        } catch (error) {
+            console.error('Erreur de synchronisation:', error);
+            syncStatus.classList.add('d-none');
+            afficherResultatSync({
+                message: 'Erreur de connexion au serveur',
+                error: error.message
+            }, false);
+        } finally {
+            // Réactiver le bouton
+            setTimeout(() => {
+                syncBtn.disabled = false;
+                syncBtnText.textContent = 'Synchroniser';
+            }, 2000);
+        }
+    }
+    
+    // Fonction pour afficher les résultats de synchronisation
+    function afficherResultatSync(result, success) {
+        const syncResult = document.getElementById('syncResult');
+        const syncAlert = document.getElementById('syncAlert');
+        const syncMessage = document.getElementById('syncMessage');
+        
+        // Mise à jour des classes d'alerte
+        syncAlert.className = success ? 'alert alert-success alert-sm mb-0' : 'alert alert-danger alert-sm mb-0';
+        
+        if (success) {
+            syncMessage.innerHTML = `
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                    <strong>Synchronisation réussie!</strong>
+                </div>
+                <small class="text-muted">${result.message}</small>
+            `;
+            
+            // Afficher le modal détaillé
+            setTimeout(() => {
+                afficherModalResultats(result);
+            }, 1000);
+        } else {
+            syncMessage.innerHTML = `
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                    <strong>Erreur de synchronisation</strong>
+                </div>
+                <small class="text-muted">${result.message || result.error || 'Erreur inconnue'}</small>
+            `;
+        }
+        
+        syncResult.classList.remove('d-none');
+        
+        // Masquer automatiquement après 5 secondes
+        setTimeout(() => {
+            syncResult.classList.add('d-none');
+        }, 5000);
+    }
+    
+    // Fonction pour afficher le modal détaillé des résultats
+    function afficherModalResultats(result) {
+        const modalHeader = document.getElementById('syncModalHeader');
+        const modalBody = document.getElementById('syncModalBody');
+        const modal = new bootstrap.Modal(document.getElementById('syncResultsModal'));
+        
+        // Mise à jour du header selon le statut
+        modalHeader.className = result.status === 'success' ? 'modal-header bg-light' : 'modal-header bg-light';
+        
+        let contentHtml = `
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card border-0 bg-primary text-white text-center">
+                        <div class="card-body py-2">
+                            <h4 class="mb-0">${result.received || 0}</h4>
+                            <small>Reçus</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 bg-success text-white text-center">
+                        <div class="card-body py-2">
+                            <h4 class="mb-0">${result.inserted || 0}</h4>
+                            <small>Insérés</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 bg-info text-white text-center">
+                        <div class="card-body py-2">
+                            <h4 class="mb-0">${result.updated || 0}</h4>
+                            <small>Mis à jour</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 bg-warning text-white text-center">
+                        <div class="card-body py-2">
+                            <h4 class="mb-0">${result.ignored || 0}</h4>
+                            <small>Ignorés</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <p class="text-muted mb-1">
+                    <i class="bi bi-clock me-1"></i>
+                    Temps de traitement: ${result.processing_time_ms || 0}ms
+                </p>
+                <p class="text-muted mb-0">
+                    <i class="bi bi-hash me-1"></i>
+                    Session: ${result.session_id || 'N/A'}
+                </p>
+            </div>
+        `;
+        
+        // Afficher les conflits s'il y en a
+        if (result.conflicts && result.conflicts.length > 0) {
+            contentHtml += `
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Conflits détectés (${result.conflicts.length})</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Ligne</th>
+                                    <th>Raison</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            result.conflicts.slice(0, 5).forEach(conflict => {
+                contentHtml += `
+                    <tr>
+                        <td><span class="badge bg-warning">${conflict.line}</span></td>
+                        <td class="small">${conflict.reason}</td>
+                    </tr>
+                `;
+            });
+            
+            if (result.conflicts.length > 5) {
+                contentHtml += `
+                    <tr>
+                        <td colspan="2" class="text-center text-muted small">
+                            ... et ${result.conflicts.length - 5} autre(s) conflit(s)
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            contentHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Afficher les erreurs s'il y en a
+        if (result.errors && result.errors.length > 0) {
+            contentHtml += `
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-exclamation-circle me-2"></i>Erreurs détectées (${result.errors.length})</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Ligne</th>
+                                    <th>Message d'erreur</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            result.errors.slice(0, 5).forEach(error => {
+                contentHtml += `
+                    <tr>
+                        <td><span class="badge bg-danger">${error.line}</span></td>
+                        <td class="small text-danger">${error.message}</td>
+                    </tr>
+                `;
+            });
+            
+            if (result.errors.length > 5) {
+                contentHtml += `
+                    <tr>
+                        <td colspan="2" class="text-center text-muted small">
+                            ... et ${result.errors.length - 5} autre(s) erreur(s)
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            contentHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        modalBody.innerHTML = contentHtml;
+        modal.show();
+    }
+
     // Fonction optimisée pour fermer le modal des anomalies
     function closeAnomaliesModal() {
         const modal = document.getElementById('anomaliesModal');
@@ -826,6 +1325,11 @@
             });
         }
     });
+
+    // Fonction pour actualiser la page après synchronisation
+    function actualiserPage() {
+        window.location.reload();
+    }
 </script>
 @endpush
 

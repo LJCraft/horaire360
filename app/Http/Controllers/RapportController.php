@@ -1817,18 +1817,25 @@ class RapportController extends Controller
                 ->with('info', 'Anciennes anomalies nettoyées avec succès.');
         }
 
-        // Requête de base pour tous les pointages biométriques (.dat)
-        // Dans le système .dat, tous les pointages avec meta_data sont considérés comme biométriques
-        $query = Presence::whereNotNull('meta_data')
-            ->where('meta_data', '<>', '{}')
-            ->where('meta_data', '<>', 'null')
-            ->where(function($q) {
-                // Filtrer les pointages issus du système .dat (plus flexible)
-                $q->whereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_dat'")
-                  ->orWhereRaw("JSON_EXTRACT(meta_data, '$.source') = 'reconnaissance_faciale_mobile'")
-                  ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = '1'")
-                  ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = 1")  // Gérer les deux types (chaîne et entier)
-                  ->orWhere('source_pointage', 'biometrique');  // Fallback pour les pointages biométriques
+        // Requête de base pour tous les pointages biométriques et synchronisés
+        $query = Presence::where(function($q) {
+                // Pointages avec métadonnées (import .dat, sync mobile)
+                $q->where(function($subq) {
+                    $subq->whereNotNull('meta_data')
+                         ->where('meta_data', '<>', '{}')
+                         ->where('meta_data', '<>', 'null')
+                         ->where(function($metaq) {
+                             $metaq->whereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_dat'")
+                                   ->orWhereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_sync'")
+                                   ->orWhereRaw("JSON_EXTRACT(meta_data, '$.source') = 'reconnaissance_faciale_mobile'")
+                                   ->orWhereRaw("JSON_EXTRACT(meta_data, '$.source') = 'synchronisation_mobile'")
+                                   ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = '1'")
+                                   ->orWhereRaw("JSON_EXTRACT(meta_data, '$.terminal_id') = 1");
+                         });
+                })
+                // OU pointages avec source spécifique (même sans métadonnées)
+                ->orWhere('source_pointage', 'biometrique')
+                ->orWhere('source_pointage', 'synchronisation');
             })
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
 
@@ -1872,6 +1879,7 @@ class RapportController extends Controller
                 'heure_arrivee' => $heureArrivee,
                 'heure_depart' => $heureDepart,
                 'meta_data' => $premierPointage->meta_data,
+                'source_pointage' => $premierPointage->source_pointage,
                 'retard' => $premierPointage->retard,
                 'depart_anticipe' => $premierPointage->depart_anticipe,
                 'pointages_count' => $groupePointages->count()

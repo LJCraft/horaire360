@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\BiometricAttendanceController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\PosteController;
+use App\Http\Controllers\Api\SynchronisationBiometriqueController;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,4 +70,19 @@ Route::prefix('criteres')->group(function () {
     
     // Supprimer un critère
     Route::delete('/{id}', [\App\Http\Controllers\API\CriterePointageApiController::class, 'destroy']);
+});
+
+// Routes API pour la synchronisation biométrique (interface web + app mobile)
+Route::prefix('sync')->group(function () {
+    // Routes pour l'interface web (avec session)
+    Route::middleware(['web', 'auth'])->group(function () {
+        Route::get('/test', [SynchronisationBiometriqueController::class, 'test']);
+        Route::post('/biometric', [SynchronisationBiometriqueController::class, 'synchroniser']);
+    });
+    
+    // Routes pour l'app mobile (avec token Sanctum)
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::get('/mobile/test', [SynchronisationBiometriqueController::class, 'test']);
+        Route::post('/mobile/biometric', [SynchronisationBiometriqueController::class, 'synchroniser']);
+    });
 });

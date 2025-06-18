@@ -1,0 +1,63 @@
+[
+    {
+        "userId": 4,
+        "timestamp": "2025-06-18T08:05:30.000Z",
+        "type": "entry",
+        "device": "mobile",
+        "location": {
+            "lat": 48.8566,
+            "lng": 2.3522
+        },
+        "accuracy": 5.2
+    },
+    {
+        "userId": 5,
+        "timestamp": "2025-06-18T08:12:15.000Z",
+        "type": "entry",
+        "source": "mobile_app",
+        "latitude": 48.8556,
+        "longitude": 2.3515,
+        "accuracy": 3.8
+    },
+    {
+        "emp_id": "6",
+        "date": "2025-06-18",
+        "hour": "08:30:45",
+        "status": 1,
+        "terminal_id": 1,
+        "position": {
+            "lat": 48.8570,
+            "lng": 2.3530
+        }
+    },
+    {
+        "employee_id": 4,
+        "time": "17:05:20",
+        "date": "2025-06-18",
+        "action": "checkout",
+        "gps": {
+            "lat": 48.8566,
+            "lng": 2.3522
+        },
+        "accuracy": 4.1
+    },
+    {
+        "userId": 5,
+        "timestamp": "2025-06-18T17:15:30.000Z",
+        "type": "exit",
+        "location": {
+            "latitude": 48.8556,
+            "longitude": 2.3515
+        }
+    },
+    {
+        "emp_id": "6",
+        "date": "2025-06-18",
+        "hour": "16:45:30",
+        "status": 0,
+        "source": "mobile",
+        "lat": 48.8570,
+        "lng": 2.3530,
+        "altitude": 45.2
+    }
+] 
