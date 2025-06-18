@@ -60,6 +60,9 @@
                         <i class="fas fa-cogs me-2"></i> Configuration des critères de pointage
                     </h5>
                     <div>
+                        <a href="{{ route('criteres-pointage.departementaux') }}" class="btn btn-outline-light btn-sm me-2">
+                            <i class="bi bi-list-check"></i> Liste départementaux
+                        </a>
                         <button type="button" class="btn btn-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#individuellModal">
                             <i class="fas fa-user"></i> Critère individuel
                         </button>
@@ -102,6 +105,57 @@
                     <div class="tab-content" id="configTabsContent">
                         <!-- Onglet Liste des critères -->
                         <div class="tab-pane fade show active" id="criteres" role="tabpanel" aria-labelledby="criteres-tab">
+                            
+                            <!-- Filtres pour la liste des critères -->
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-filter me-2"></i>Filtres
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <form method="GET" action="{{ route('criteres-pointage.index') }}" id="filtres-criteres-form">
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <label for="departement_filter_criteres" class="form-label">Département</label>
+                                                <select class="form-select" id="departement_filter_criteres" name="departement_id">
+                                                    <option value="">Tous les départements</option>
+                                                    @foreach ($departements as $dept)
+                                                        <option value="{{ $dept->departement }}" {{ $departementId == $dept->departement ? 'selected' : '' }}>
+                                                            {{ $dept->departement }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="niveau_filter" class="form-label">Niveau</label>
+                                                <select class="form-select" id="niveau_filter" name="niveau">
+                                                    <option value="">Tous les niveaux</option>
+                                                    <option value="individuel" {{ request('niveau') == 'individuel' ? 'selected' : '' }}>Individuel</option>
+                                                    <option value="departemental" {{ request('niveau') == 'departemental' ? 'selected' : '' }}>Départemental</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="statut_filter" class="form-label">Statut</label>
+                                                <select class="form-select" id="statut_filter" name="statut">
+                                                    <option value="">Tous les statuts</option>
+                                                    <option value="actif" {{ request('statut') == 'actif' ? 'selected' : '' }}>Actif</option>
+                                                    <option value="inactif" {{ request('statut') == 'inactif' ? 'selected' : '' }}>Inactif</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3 d-flex align-items-end">
+                                                <button type="submit" class="btn btn-primary me-2">
+                                                    <i class="fas fa-search me-1"></i>Filtrer
+                                                </button>
+                                                <a href="{{ route('criteres-pointage.index') }}" class="btn btn-outline-secondary">
+                                                    <i class="fas fa-undo me-1"></i>Reset
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
                             <div class="table-responsive">
                                 <table class="table table-hover table-striped">
                                     <thead class="table-light">
@@ -130,9 +184,9 @@
                                                 </td>
                                                 <td>
                                                     @if ($critere->niveau === 'individuel')
-                                                        {{ $critere->employe->nom }} {{ $critere->employe->prenom }}
+                                                        {{ $critere->employe->nom ?? 'N/A' }} {{ $critere->employe->prenom ?? '' }}
                                                     @else
-                                                        {{ $critere->departement->nom }}
+                                                        {{ $critere->departement->nom ?? $critere->departement_id }}
                                                     @endif
                                                 </td>
                                                 <td>
@@ -220,7 +274,14 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="10" class="text-center">Aucun critère de pointage configuré</td>
+                                                <td colspan="10" class="text-center">
+                                                    @if(request()->hasAny(['departement_id', 'niveau', 'statut']))
+                                                        Aucun critère ne correspond aux filtres sélectionnés.
+                                                        <a href="{{ route('criteres-pointage.index') }}" class="btn btn-link">Voir tous les critères</a>
+                                                    @else
+                                                        Aucun critère de pointage configuré
+                                                    @endif
+                                                </td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -249,7 +310,7 @@
                                                             <option value="">Sélectionner un département</option>
                                                             @foreach ($departements as $departement)
                                                                 <option value="{{ $departement->departement }}" {{ $departementId == $departement->departement ? 'selected' : '' }}>
-                                                                    {{ $departement->nom }}
+                                                                    {{ $departement->departement }}
                                                                 </option>
                                                             @endforeach
                                                         </select>
@@ -568,7 +629,7 @@
                                 <option value="">Sélectionner un département</option>
                                 @foreach ($departements as $departement)
                                     <option value="{{ $departement->departement }}">
-                                        {{ $departement->nom }}
+                                        {{ $departement->departement }}
                                     </option>
                                 @endforeach
                             </select>

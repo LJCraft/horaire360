@@ -107,17 +107,16 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
     // Route pour les critères de pointage par département
     Route::get('/criteres-pointage/departement', [CriterePointageController::class, 'departement'])->name('criteres-pointage.departement');
     
-    // Routes de redirection pour intercepter les tentatives d'accès aux routes problematiques
-    Route::get('/criteres-pointage/{id}/edit', function($id) {
-        return redirect()->route('criteres-pointage.edit-custom', $id);
-    });
-    
-    Route::put('/criteres-pointage/{id}', function($id) {
-        return redirect()->route('criteres-pointage.update-custom', $id);
-    });
+    // Route pour lister les critères départementaux
+    Route::get('/criteres-pointage/departementaux/liste', [CriterePointageController::class, 'listeCriteresDepartementaux'])->name('criteres-pointage.departementaux');
     
     // Resource route pour les critères de pointage (except edit et update pour éviter les conflits)
     Route::resource('criteres-pointage', CriterePointageController::class)->except(['edit', 'update']);
+    
+    // Alias pour les routes standards
+    Route::get('/criteres-pointage/{id}/edit', [CriterePointageController::class, 'edit'])->name('criteres-pointage.edit');
+    Route::put('/criteres-pointage/{id}', [CriterePointageController::class, 'update'])->name('criteres-pointage.update');
+    
     Route::post('/criteres-pointage/get-planning', [CriterePointageController::class, 'getPlanning'])->name('criteres-pointage.get-planning');
     Route::post('/criteres-pointage/get-employes-departement', [CriterePointageController::class, 'getEmployesDepartement'])->name('criteres-pointage.get-employes-departement');
     Route::post('/criteres-pointage/get-postes-departement', [CriterePointageController::class, 'getPostesDepartement'])->name('criteres-pointage.get-postes-departement');

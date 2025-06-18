@@ -30,6 +30,8 @@ class CriterePointageController extends Controller
 
         // Récupérer les filtres depuis la requête
         $departementId = $request->input('departement_id');
+        $niveau = $request->input('niveau');
+        $statut = $request->input('statut');
         $periode = $request->input('periode', 'mois');
         
         // Récupérer les employés actifs
@@ -47,10 +49,16 @@ class CriterePointageController extends Controller
             ->orderBy('prenom')
             ->get();
             
-        $departements = Departement::orderBy('nom')->get();
+        // Récupérer les départements depuis les postes (pour avoir departement comme string)
+        $departements = DB::table('postes')
+            ->select('departement')
+            ->distinct()
+            ->whereNotNull('departement')
+            ->orderBy('departement')
+            ->get();
         
-        // Récupérer les critères de pointage
-        $criteresQuery = CriterePointage::with(['employe', 'departement', 'createur']);
+        // Récupérer les critères de pointage avec filtrage amélioré
+        $criteresQuery = CriterePointage::with(['employe.poste', 'departement', 'createur']);
         
         // Filtrer par département si spécifié
         if ($departementId) {
@@ -63,6 +71,18 @@ class CriterePointageController extends Controller
                           });
                       });
             });
+        }
+        
+        // Filtrer par niveau si spécifié
+        if ($niveau) {
+            $criteresQuery->where('niveau', $niveau);
+        }
+        
+        // Filtrer par statut si spécifié
+        if ($statut === 'actif') {
+            $criteresQuery->where('actif', true);
+        } elseif ($statut === 'inactif') {
+            $criteresQuery->where('actif', false);
         }
         
         $criteres = $criteresQuery->orderBy('created_at', 'desc')
@@ -79,6 +99,8 @@ class CriterePointageController extends Controller
             'departements', 
             'criteres', 
             'departementId', 
+            'niveau',
+            'statut',
             'periode', 
             'employesAvecCriteres'
         ));
@@ -224,7 +246,7 @@ class CriterePointageController extends Controller
         if ($request->niveau === 'individuel') {
             $rules['employe_id'] = 'required|exists:employes,id';
         } elseif ($request->niveau === 'departemental') {
-            $rules['departement_id'] = 'required|exists:departements,departement';
+            $rules['departement_id'] = 'required|string';
             // Rendre les employés sélectionnés obligatoires uniquement si on applique à une sélection
             if ($request->has('appliquer_selection') && $request->appliquer_selection) {
                 $rules['employes_selectionnes'] = 'required|array|min:1';
@@ -239,6 +261,19 @@ class CriterePointageController extends Controller
         
         // Valider les données
         $validated = $request->validate($rules);
+        
+        // Vérification supplémentaire pour les départements
+        if ($request->niveau === 'departemental') {
+            $departementExists = DB::table('postes')
+                ->where('departement', $request->departement_id)
+                ->exists();
+                
+            if (!$departementExists) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['departement_id' => 'Le département sélectionné n\'existe pas.']);
+            }
+        }
         
         DB::beginTransaction();
         
@@ -329,8 +364,8 @@ class CriterePointageController extends Controller
                 $critere->save();
                 
                 // Récupérer le département pour les informations de synchronisation
-                $departement = Departement::find($request->departement_id);
-                $message = "Critère départemental créé pour le département {$departement->nom}";
+                $departementNom = $request->departement_id;
+                $message = "Critère départemental créé pour le département {$departementNom}";
                 
                 // Déterminer quels employés seront affectés
                 if ($request->has('appliquer_tous') && $request->appliquer_tous) {
@@ -405,8 +440,15 @@ class CriterePointageController extends Controller
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Les critères de pointage ont été configurés avec succès. ' . $message]);
             }
-            return redirect()->route('criteres-pointage.index')
-                ->with('success', 'Les critères de pointage ont été configurés avec succès. ' . $message);
+            
+            // Rediriger vers la liste appropriée selon le niveau du critère
+            if ($request->niveau === 'departemental') {
+                return redirect()->route('criteres-pointage.departementaux')
+                    ->with('success', 'Les critères de pointage ont été configurés avec succès. ' . $message);
+            } else {
+                return redirect()->route('criteres-pointage.index')
+                    ->with('success', 'Les critères de pointage ont été configurés avec succès. ' . $message);
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             
@@ -750,8 +792,16 @@ class CriterePointageController extends Controller
 
         $departementId = $request->query('departement_id');
 
-        // Tous les départements pour le select
-        $departements = Departement::orderBy('nom')->get();
+        // Récupérer les départements uniques depuis les postes
+        $departements = DB::table('postes')
+            ->select('departement as nom', 'departement as id')
+            ->distinct()
+            ->whereNotNull('departement')
+            ->orderBy('departement')
+            ->get()
+            ->map(function($dept) {
+                return (object)['id' => $dept->id, 'nom' => $dept->nom];
+            });
 
         $postes = collect();
         $employesParPoste = collect();
@@ -773,12 +823,22 @@ class CriterePointageController extends Controller
             $employesParPoste = $employes->groupBy('poste.id');
 
             // Récupérer leurs critères actifs (individuels ou départementaux)
-            $critereParEmploye = CriterePointage::where(function ($q) use ($employes) {
-                    $q->whereIn('employe_id', $employes->pluck('id'))
+            $critereParEmploye = CriterePointage::where(function ($q) use ($employes, $departementId) {
+                    // Critères individuels pour les employés de ce département
+                    $q->where('niveau', 'individuel')
+                      ->whereIn('employe_id', $employes->pluck('id'))
+                      ->where('actif', true);
+                })
+                ->orWhere(function ($q) use ($departementId) {
+                    // Critères départementaux pour ce département
+                    $q->where('niveau', 'departemental')
+                      ->where('departement_id', $departementId)
                       ->where('actif', true);
                 })
                 ->get()
-                ->keyBy('employe_id');
+                ->keyBy(function($critere) {
+                    return $critere->niveau === 'individuel' ? $critere->employe_id : 'dept_' . $critere->departement_id;
+                });
         }
 
         return view('criteres-pointage.departement', compact(
@@ -827,5 +887,75 @@ class CriterePointageController extends Controller
             \Log::error('Erreur lors de la synchronisation des rapports: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Afficher la liste des critères départementaux
+     */
+    public function listeCriteresDepartementaux(Request $request)
+    {
+        // Vérifier si l'utilisateur est administrateur
+        if (!auth()->user()->isAdmin()) {
+            return redirect()->route('home')->with('error', 'Accès non autorisé.');
+        }
+
+        // Récupérer les filtres depuis la requête
+        $departementId = $request->input('departement_id');
+        $statut = $request->input('statut', 'tous'); // 'actif', 'inactif', 'tous'
+        $periode = $request->input('periode');
+        
+        // Requête de base pour les critères départementaux
+        $criteresQuery = CriterePointage::where('niveau', 'departemental')
+            ->with(['createur']);
+        
+        // Filtrer par département si spécifié
+        if ($departementId) {
+            $criteresQuery->where('departement_id', $departementId);
+        }
+        
+        // Filtrer par statut si spécifié
+        if ($statut === 'actif') {
+            $criteresQuery->where('actif', true);
+        } elseif ($statut === 'inactif') {
+            $criteresQuery->where('actif', false);
+        }
+        
+        // Filtrer par période si spécifié
+        if ($periode && in_array($periode, ['jour', 'semaine', 'mois'])) {
+            $criteresQuery->where('periode', $periode);
+        }
+        
+        // Ordonner par département puis par date de création
+        $criteres = $criteresQuery->orderBy('departement_id')
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+        
+        // Récupérer les départements pour le filtre
+        $departements = DB::table('postes')
+            ->select('departement')
+            ->distinct()
+            ->whereNotNull('departement')
+            ->orderBy('departement')
+            ->get();
+        
+        // Statistiques pour l'affichage
+        $totalCriteres = CriterePointage::where('niveau', 'departemental')->count();
+        $criteresActifs = CriterePointage::where('niveau', 'departemental')->where('actif', true)->count();
+        $criteresInactifs = $totalCriteres - $criteresActifs;
+        $departementsAvecCriteres = CriterePointage::where('niveau', 'departemental')
+            ->distinct('departement_id')
+            ->count('departement_id');
+        
+        return view('criteres-pointage.departementaux', compact(
+            'criteres',
+            'departements',
+            'departementId',
+            'statut',
+            'periode',
+            'totalCriteres',
+            'criteresActifs',
+            'criteresInactifs',
+            'departementsAvecCriteres'
+        ));
     }
 }

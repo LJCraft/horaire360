@@ -2700,5 +2700,121 @@ class RapportController extends Controller
         return round($heuresPrevues, 2);
     }
 
+    /**
+     * === MÉTHODE HELPER POUR LES FILTRES ===
+     * Récupérer les données standardisées pour les filtres de tous les rapports
+     * 
+     * @param Request $request
+     * @return array
+     */
+    private function getDonneesFilterageStandard(Request $request)
+    {
+        // Récupérer les paramètres de filtrage
+        $employeId = $request->input('employe_id');
+        $departementId = $request->input('departement_id');
+        $posteId = $request->input('poste_id');
+        $gradeId = $request->input('grade_id');
+        $serviceId = $request->input('service_id');
+        
+        // Récupérer tous les employés actifs avec leurs relations
+        $employes = Employe::where('statut', 'actif')
+            ->with(['poste', 'grade'])
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->get();
+        
+        // Récupérer les postes avec leur département
+        $postes = Poste::select('id', 'nom', 'departement')
+            ->orderBy('departement')
+            ->orderBy('nom')
+            ->get();
+        
+        // Récupérer les départements uniques à partir des postes
+        $departements = DB::table('postes')
+            ->select('departement')
+            ->distinct()
+            ->whereNotNull('departement')
+            ->orderBy('departement')
+            ->get()
+            ->map(function($dept) {
+                return (object)['departement' => $dept->departement];
+            });
+        
+        // Récupérer les grades
+        $grades = Grade::orderBy('nom')->get();
+        
+        // Organiser les postes par département pour le filtrage dynamique
+        $postesByDepartement = [];
+        foreach ($postes as $poste) {
+            if (!empty($poste->departement)) {
+                if (!isset($postesByDepartement[$poste->departement])) {
+                    $postesByDepartement[$poste->departement] = [];
+                }
+                $postesByDepartement[$poste->departement][] = [
+                    'id' => $poste->id,
+                    'nom' => $poste->nom
+                ];
+            }
+        }
+        
+        return [
+            // Données pour les filtres
+            'employes' => $employes,
+            'departements' => $departements,
+            'postes' => $postes,
+            'grades' => $grades,
+            'postesByDepartement' => $postesByDepartement,
+            'postesByDepartementJson' => json_encode($postesByDepartement),
+            
+            // Valeurs sélectionnées
+            'employeId' => $employeId,
+            'departementId' => $departementId,
+            'posteId' => $posteId,
+            'gradeId' => $gradeId,
+            'serviceId' => $serviceId,
+        ];
+    }
+    
+    /**
+     * === MÉTHODE HELPER POUR APPLIQUER LES FILTRES ===
+     * Appliquer les filtres standard à une requête d'employés
+     * 
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array $filtres
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    private function appliquerFiltresStandard($query, $filtres = [])
+    {
+        // Filtrer par employé individuel
+        if (!empty($filtres['employeId'])) {
+            $query->where('id', $filtres['employeId']);
+        }
+        
+        // Filtrer par département
+        if (!empty($filtres['departementId'])) {
+            $query->whereHas('poste', function($q) use ($filtres) {
+                $q->where('departement', $filtres['departementId']);
+            });
+        }
+        
+        // Filtrer par poste
+        if (!empty($filtres['posteId'])) {
+            $query->where('poste_id', $filtres['posteId']);
+        }
+        
+        // Filtrer par grade
+        if (!empty($filtres['gradeId'])) {
+            $query->where('grade_id', $filtres['gradeId']);
+        }
+        
+        // Filtrer par service (pour compatibilité)
+        if (!empty($filtres['serviceId'])) {
+            $query->whereHas('service', function($q) use ($filtres) {
+                $q->where('id', $filtres['serviceId']);
+            });
+        }
+        
+        return $query;
+    }
 
 }
