@@ -71,11 +71,18 @@
                         <tr>
                             <th>Source du pointage</th>
                             <td>
-                                @if($presence->source_pointage === 'biometrique')
-                                    <span class="badge bg-info"><i class="bi bi-fingerprint me-1"></i> Biométrique</span>
-                                @else
-                                    <span class="badge bg-secondary"><i class="bi bi-person-fill me-1"></i> Manuel</span>
-                                @endif
+                                @php
+                                    $source = $presence->source_pointage ?? 'manuel';
+                                    $sourceLabels = [
+                                        'manuel' => ['label' => 'Saisie manuelle', 'class' => 'secondary', 'icon' => 'bi-person-fill'],
+                                        'biometrique' => ['label' => 'Import .dat', 'class' => 'primary', 'icon' => 'bi-file-earmark-text'],
+                                        'synchronisation' => ['label' => 'Sync mobile', 'class' => 'success', 'icon' => 'bi-phone'],
+                                    ];
+                                    $sourceInfo = $sourceLabels[$source] ?? ['label' => ucfirst($source), 'class' => 'secondary', 'icon' => 'bi-question'];
+                                @endphp
+                                <span class="badge bg-{{ $sourceInfo['class'] }}">
+                                    <i class="{{ $sourceInfo['icon'] }} me-1"></i> {{ $sourceInfo['label'] }}
+                                </span>
                             </td>
                         </tr>
                         <tr>

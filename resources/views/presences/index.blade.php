@@ -80,8 +80,9 @@
                 <label for="source_pointage" class="form-label">Source</label>
                 <select class="form-select" id="source_pointage" name="source_pointage">
                     <option value="">Toutes</option>
-                    <option value="manuel" {{ (isset($sourcePointage) && $sourcePointage == 'manuel') ? 'selected' : '' }}>Manuel</option>
-                    <option value="biometrique" {{ (isset($sourcePointage) && $sourcePointage == 'biometrique') ? 'selected' : '' }}>Biométrique</option>
+                    <option value="manuel" {{ (isset($sourcePointage) && $sourcePointage == 'manuel') ? 'selected' : '' }}>Saisie manuelle</option>
+                    <option value="biometrique" {{ (isset($sourcePointage) && $sourcePointage == 'biometrique') ? 'selected' : '' }}>Import .dat</option>
+                    <option value="synchronisation" {{ (isset($sourcePointage) && $sourcePointage == 'synchronisation') ? 'selected' : '' }}>Sync mobile</option>
                 </select>
             </div>
             <div class="col-md-2 d-flex align-items-end">
@@ -144,11 +145,18 @@
                                 @endif
                             </td>
                             <td>
-                                @if($presence->source_pointage === 'biometrique')
-                                    <span class="badge bg-info"><i class="bi bi-fingerprint me-1"></i> Biométrique</span>
-                                @else
-                                    <span class="badge bg-secondary"><i class="bi bi-person-fill me-1"></i> Manuel</span>
-                                @endif
+                                @php
+                                    $source = $presence->source_pointage ?? 'manuel';
+                                    $sourceLabels = [
+                                        'manuel' => ['label' => 'Saisie manuelle', 'class' => 'secondary', 'icon' => 'bi-person-fill'],
+                                        'biometrique' => ['label' => 'Import .dat', 'class' => 'primary', 'icon' => 'bi-file-earmark-text'],
+                                        'synchronisation' => ['label' => 'Sync mobile', 'class' => 'success', 'icon' => 'bi-phone'],
+                                    ];
+                                    $sourceInfo = $sourceLabels[$source] ?? ['label' => ucfirst($source), 'class' => 'secondary', 'icon' => 'bi-question'];
+                                @endphp
+                                <span class="badge bg-{{ $sourceInfo['class'] }}">
+                                    <i class="{{ $sourceInfo['icon'] }} me-1"></i> {{ $sourceInfo['label'] }}
+                                </span>
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">

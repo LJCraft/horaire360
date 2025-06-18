@@ -197,9 +197,9 @@
                         <a href="{{ route('presences.downloadDatTemplate') }}" class="btn btn-sm btn-outline-success">
                             <i class="bi bi-download"></i> Modèle
                         </a>
-                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#importCollapse" aria-expanded="true" aria-controls="importCollapse">
-                            <i class="bi bi-upload"></i> Importer
-                        </button>
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#importCollapse" aria-expanded="true" aria-controls="importCollapse">
+                        <i class="bi bi-upload"></i> Importer
+                    </button>
                     </div>
                 </div>
                 <div class="collapse show" id="importCollapse">
@@ -345,9 +345,9 @@
                                             $heureArrivee = substr($heureArrivee, 0, 5);
                                         }
                                     @endphp
-                                    <span class="badge bg-{{ $pointage->retard ? 'danger' : 'success' }} rounded-pill">
+                                <span class="badge bg-{{ $pointage->retard ? 'danger' : 'success' }} rounded-pill">
                                         <i class="bi bi-box-arrow-in-right me-1"></i>{{ $heureArrivee }}
-                                    </span>
+                                </span>
                                 @else
                                     <span class="badge bg-secondary rounded-pill">Non défini</span>
                                 @endif
@@ -363,9 +363,9 @@
                                             $heureDepart = substr($heureDepart, 0, 5);
                                         }
                                     @endphp
-                                    <span class="badge bg-{{ $pointage->depart_anticipe ? 'warning' : 'info' }} rounded-pill">
+                                <span class="badge bg-{{ $pointage->depart_anticipe ? 'warning' : 'info' }} rounded-pill">
                                         <i class="bi bi-box-arrow-right me-1"></i>{{ $heureDepart }}
-                                    </span>
+                                </span>
                                 @else
                                     <span class="badge bg-secondary rounded-pill">En cours</span>
                                 @endif
@@ -379,7 +379,7 @@
                                         <span class="badge bg-info">Terminal 1</span>
                                         @if(isset($metaDataTable['geolocation']))
                                             <i class="bi bi-geo-alt-fill text-success ms-1" title="Position GPS disponible"></i>
-                                        @endif
+                                    @endif
                                     </div>
                                     @php
                                         $source = $pointage->source_pointage ?? 'manuel';
@@ -417,14 +417,14 @@
                                 @endphp
                                 
                                 @if($aPlanningDefini)
-                                    @if($pointage->retard && $pointage->depart_anticipe)
-                                    <span class="badge bg-danger">Retard + Départ anticipé</span>
-                                    @elseif($pointage->retard)
-                                    <span class="badge bg-warning text-dark">Retard</span>
-                                    @elseif($pointage->depart_anticipe)
-                                    <span class="badge bg-warning text-dark">Départ anticipé</span>
-                                    @else
-                                    <span class="badge bg-success">Conforme</span>
+                                @if($pointage->retard && $pointage->depart_anticipe)
+                                <span class="badge bg-danger">Retard + Départ anticipé</span>
+                                @elseif($pointage->retard)
+                                <span class="badge bg-warning text-dark">Retard</span>
+                                @elseif($pointage->depart_anticipe)
+                                <span class="badge bg-warning text-dark">Départ anticipé</span>
+                                @else
+                                <span class="badge bg-success">Conforme</span>
                                     @endif
                                 @else
                                     <span class="badge bg-secondary">Planning non défini</span>
@@ -622,7 +622,7 @@
                                                 <div class="small">
                                                     <strong>Lat:</strong> {{ number_format($metaData['geolocation']['latitude'], 6) }}<br>
                                                     <strong>Lng:</strong> {{ number_format($metaData['geolocation']['longitude'], 6) }}
-                                                </div>
+                        </div>
                                                 @if(isset($metaData['geolocation']['accuracy']))
                                                 <div class="text-muted small">
                                                     Précision: ±{{ $metaData['geolocation']['accuracy'] }}m
@@ -1045,7 +1045,7 @@
             }, false);
         } finally {
             // Réactiver le bouton
-            setTimeout(() => {
+                setTimeout(() => {
                 syncBtn.disabled = false;
                 syncBtnText.textContent = 'Synchroniser';
             }, 2000);
