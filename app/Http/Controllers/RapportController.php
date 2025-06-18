@@ -809,39 +809,17 @@ class RapportController extends Controller
                 
                 $pointages = $query->orderBy('date', 'desc')->orderBy('heure_arrivee', 'desc')->get();
                 
-                // Calculer le score biométrique moyen
-                $scoreMoyenBiometrique = 0;
-                $totalScores = 0;
-                $nombreScores = 0;
-                
-                foreach ($pointages as $pointage) {
-                    try {
-                        $metaData = json_decode($pointage->meta_data, true);
-                        
-                        if (isset($metaData['biometric_verification']['confidence_score'])) {
-                            $totalScores += $metaData['biometric_verification']['confidence_score'];
-                            $nombreScores++;
-                        }
-                        
-                        // Si le pointage a des données de départ (checkout)
-                        if (isset($metaData['checkout']['biometric_verification']['confidence_score'])) {
-                            $totalScores += $metaData['checkout']['biometric_verification']['confidence_score'];
-                            $nombreScores++;
-                        }
-                    } catch (\Exception $e) {
-                        // Ignorer les erreurs de parsing JSON
-                    }
-                }
-                
-                $scoreMoyenBiometrique = $nombreScores > 0 ? number_format($totalScores / $nombreScores * 100, 1) . '%' : 'N/A';
+                // Calculer les statistiques de pointages biométriques
+                $totalPointagesValidés = $pointages->count();
+                $totalEmployesConcernés = $pointages->groupBy('employe_id')->count();
                 
                 $data = [
                     'pointages' => $pointages,
                     'dateDebut' => $dateDebut->format('Y-m-d'),
                     'dateFin' => $dateFin->format('Y-m-d'),
                     'periodeLabel' => $periodeLabel,
-                    'totalPointages' => $pointages->count(),
-                    'scoreMoyenBiometrique' => $scoreMoyenBiometrique,
+                    'totalPointages' => $totalPointagesValidés,
+                    'totalEmployesConcernés' => $totalEmployesConcernés,
                     'titre' => 'Rapport des Pointages Biométriques',
                     'sousTitre' => 'Analyse détaillée des pointages biométriques'
                 ];
@@ -1758,42 +1736,14 @@ class RapportController extends Controller
         // Obtenir tous les pointages pour les statistiques
         $pointagesAll = $query->get();
         
-        // Statistiques
+        // Statistiques des pointages biométriques
         $totalPointages = $pointagesAll->count();
         $totalPointagesArriveeDepart = $pointagesAll->filter(function($p) {
             return !empty($p->heure_arrivee) && !empty($p->heure_depart);
         })->count();
         
-        // Calculer le score biométrique moyen
-        $scoreMoyenBiometrique = 0;
-        $totalScores = 0;
-        $nombreScores = 0;
-        
-        foreach ($pointagesAll as $pointage) {
-            try {
-                $metaData = json_decode($pointage->meta_data, true);
-                
-                if (isset($metaData['biometric_verification']['confidence_score'])) {
-                    $totalScores += $metaData['biometric_verification']['confidence_score'];
-                    $nombreScores++;
-                }
-                
-                // Si le pointage a des données de départ (checkout)
-                if (isset($metaData['checkout']['biometric_verification']['confidence_score'])) {
-                    $totalScores += $metaData['checkout']['biometric_verification']['confidence_score'];
-                    $nombreScores++;
-                }
-            } catch (\Exception $e) {
-                // Ignorer les erreurs de parsing JSON
-                \Log::error("Erreur de parsing JSON pour le pointage ID {$pointage->id}: " . $e->getMessage());
-            }
-        }
-        
-        if ($nombreScores > 0) {
-            $scoreMoyenBiometrique = number_format($totalScores / $nombreScores * 100, 1) . '%';
-        } else {
-            $scoreMoyenBiometrique = 'N/A';
-        }
+        // Calculer le nombre d'employés uniques avec pointages biométriques
+        $totalEmployesConcernés = $pointagesAll->pluck('employe_id')->unique()->count();
         
         // Requête paginée pour l'affichage
         $pointages = $query->orderBy('date', 'desc')->orderBy('heure_arrivee', 'desc')->paginate(15);
@@ -1810,7 +1760,7 @@ class RapportController extends Controller
             'employes', 
             'totalPointages', 
             'totalPointagesArriveeDepart', 
-            'scoreMoyenBiometrique',
+            'totalEmployesConcernés',
             'importStats'
         ));
     }
@@ -1883,13 +1833,10 @@ class RapportController extends Controller
                 
                 // Préparer les données pour l'export Excel
                 $data = [];
-                $data[] = ['ID', 'Employé', 'Date', 'Arrivée', 'Départ', 'Score biométrique', 'Appareil', 'Type'];
+                $data[] = ['ID', 'Employé', 'Date', 'Arrivée', 'Départ', 'Appareil', 'Terminal', 'Type'];
                 
                 foreach ($pointages as $pointage) {
                     $metaData = json_decode($pointage->meta_data, true);
-                    $scoreArrivee = isset($metaData['biometric_verification']['confidence_score']) 
-                        ? number_format($metaData['biometric_verification']['confidence_score'] * 100, 1) . '%' 
-                        : 'N/A';
                     
                     $data[] = [
                         $pointage->id,
@@ -1897,9 +1844,9 @@ class RapportController extends Controller
                         $pointage->date,
                         $pointage->heure_arrivee,
                         $pointage->heure_depart ?: 'N/A',
-                        $scoreArrivee,
-                        $metaData['device_info']['model'] ?? 'N/A',
-                        $metaData['type'] ?? 'Standard'
+                        $metaData['device_info']['model'] ?? 'Reconnaissance faciale mobile',
+                        'Terminal 1',
+                        $metaData['type'] ?? 'Biométrique'
                     ];
                 }
                 

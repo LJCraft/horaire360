@@ -84,7 +84,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/presences/import', [PresenceController::class, 'import'])->name('presences.import');
     // Import des données biométriques (nouvelle fonctionnalité)
     Route::post('/presences/import-biometrique', [PresenceController::class, 'importBiometrique'])->name('presences.importBiometrique');
-    Route::post('/presences/verify-biometrique', [PresenceController::class, 'verifyBiometrique'])->name('presences.verifyBiometrique');
+Route::get('/presences/download-dat-template', [PresenceController::class, 'downloadDatTemplate'])->name('presences.downloadDatTemplate');
+    
     // Template et export
     Route::get('/presences/template', [PresenceController::class, 'template'])->name('presences.template');
     Route::get('/presences/export', [PresenceController::class, 'export'])->name('presences.export');

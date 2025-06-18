@@ -24,7 +24,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::with('role')->get();
+        $users = User::with(['role', 'employe'])->get();
         return view('users.index', compact('users'));
     }
 
@@ -139,31 +139,58 @@ class UserController extends Controller
         // Vérifier si un utilisateur avec cet email existe déjà
         $existingUser = User::where('email', $employe->email)->first();
         if ($existingUser) {
-            return redirect()->route('employes.show', $employe)
-                ->with('error', 'Un utilisateur avec cet email existe déjà.');
+            // Vérifier si cet utilisateur n'est pas déjà associé à un autre employé
+            if ($existingUser->employe) {
+                return redirect()->route('employes.show', $employe)
+                    ->with('error', 'Un utilisateur avec cet email existe déjà et est associé à un autre employé.');
+            } else {
+                // Si l'utilisateur existe mais n'est pas associé à un employé, l'associer à cet employé
+                $employe->update(['utilisateur_id' => $existingUser->id]);
+                
+                return redirect()->route('employes.show', $employe)
+                    ->with('success', 'L\'employé a été associé au compte utilisateur existant.');
+            }
         }
         
-        // Utiliser le mot de passe par défaut
-        $password = 'password';
-        
-        // Créer le compte utilisateur
-        $user = User::create([
-            'name' => $employe->prenom . ' ' . $employe->nom,
-            'email' => $employe->email,
-            'password' => Hash::make($password),
-            'role_id' => 2, // Rôle Employé par défaut
-        ]);
-        
-        // Associer le compte à l'employé
-        $employe->update(['utilisateur_id' => $user->id]);
-        
-        // Ici, vous pourriez envoyer un email avec les identifiants
-        // Mail::to($employe->email)->send(new NouveauCompte($user, $password));
-        
-        $message = 'Compte utilisateur créé avec succès. Mot de passe par défaut: ' . $password;
-        
-        return redirect()->route('employes.show', $employe)
-            ->with('success', $message);
+        try {
+            // Utiliser le mot de passe par défaut
+            $password = 'password';
+            
+            // Créer le compte utilisateur
+            $user = User::create([
+                'name' => $employe->prenom . ' ' . $employe->nom,
+                'email' => $employe->email,
+                'password' => Hash::make($password),
+                'role_id' => 2, // Rôle Employé par défaut
+            ]);
+            
+            // Associer le compte à l'employé
+            $employe->update(['utilisateur_id' => $user->id]);
+            
+            // Ici, vous pourriez envoyer un email avec les identifiants
+            // Mail::to($employe->email)->send(new NouveauCompte($user, $password));
+            
+            $message = 'Compte utilisateur créé avec succès. Mot de passe par défaut: ' . $password;
+            
+            return redirect()->route('employes.show', $employe)
+                ->with('success', $message);
+                
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Si on a encore une erreur de duplicata, cela signifie qu'il y a une condition de concurrence
+            if ($e->errorInfo[1] == 1062) { // Code d'erreur MySQL pour duplicata
+                $existingUser = User::where('email', $employe->email)->first();
+                if ($existingUser && !$existingUser->employe) {
+                    // Associer l'employé à l'utilisateur existant
+                    $employe->update(['utilisateur_id' => $existingUser->id]);
+                    
+                    return redirect()->route('employes.show', $employe)
+                        ->with('success', 'L\'employé a été associé au compte utilisateur existant.');
+                }
+            }
+            
+            return redirect()->route('employes.show', $employe)
+                ->with('error', 'Erreur lors de la création du compte : ' . $e->getMessage());
+        }
     }
 
     /**

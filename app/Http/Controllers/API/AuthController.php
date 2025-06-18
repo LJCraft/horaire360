@@ -41,7 +41,7 @@ class AuthController extends Controller
         }
 
         // Récupérer l'employé associé à cet utilisateur
-        $employe = Employe::where('user_id', $user->id)->first();
+        $employe = Employe::where('utilisateur_id', $user->id)->first();
         
         if (!$employe) {
             return response()->json([

@@ -13,7 +13,7 @@ class Employe extends Model
     
     protected $fillable = [
         'matricule','nom', 'prenom', 'email', 'telephone', 'date_naissance', 'date_embauche',
-        'poste_id', 'statut', 'photo_profil', 'user_id', 'grade_id', 'departement'
+        'poste_id', 'statut', 'photo_profil', 'utilisateur_id', 'grade_id', 'departement'
     ];
 
     protected $with = ['grade', 'poste'];

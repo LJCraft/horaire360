@@ -87,11 +87,11 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
-                            <i class="bi bi-shield-check text-info fs-4"></i>
+                            <i class="bi bi-people text-info fs-4"></i>
                         </div>
                         <div>
-                            <h6 class="text-muted mb-1">Score biométrique moyen</h6>
-                            <h2 class="mb-0 fw-bold">{{ $scoreMoyenBiometrique }}</h2>
+                            <h6 class="text-muted mb-1">Employés avec pointages</h6>
+                            <h2 class="mb-0 fw-bold">{{ $totalEmployesConcernés }}</h2>
                         </div>
                     </div>
                 </div>
@@ -186,10 +186,18 @@
         <div class="col-md-8">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-primary"><i class="bi bi-upload me-2"></i>Importer des données biométriques</h5>
-                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#importCollapse" aria-expanded="true" aria-controls="importCollapse">
-                        <i class="bi bi-upload"></i> Importer
-                    </button>
+                    <h5 class="mb-0 text-primary"><i class="bi bi-upload me-2"></i>Importer des données biométriques (.dat)</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="modal" data-bs-target="#formatInfoModal">
+                            <i class="bi bi-info-circle"></i> Format
+                        </button>
+                        <a href="{{ route('presences.downloadDatTemplate') }}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-download"></i> Modèle
+                        </a>
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#importCollapse" aria-expanded="true" aria-controls="importCollapse">
+                            <i class="bi bi-upload"></i> Importer
+                        </button>
+                    </div>
                 </div>
                 <div class="collapse show" id="importCollapse">
                     <div class="card-body">
@@ -199,8 +207,8 @@
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="fichier_biometrique" class="form-label">Fichier de données biométriques</label>
-                                        <input type="file" class="form-control" id="fichier_biometrique" name="fichier_biometrique" accept=".json,.csv" required>
-                                        <div class="form-text">Formats acceptés: JSON, CSV</div>
+                                        <input type="file" class="form-control" id="fichier_biometrique" name="fichier_biometrique" accept=".dat,.txt" required>
+                                        <div class="form-text">Format accepté: <strong>.dat</strong> uniquement</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -218,9 +226,6 @@
                                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                                         <button type="submit" class="btn btn-primary">
                                             <i class="bi bi-upload"></i> Importer les données
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" id="verifyBtn">
-                                            <i class="bi bi-check-circle"></i> Vérifier le fichier
                                         </button>
                                     </div>
                                 </div>
@@ -250,7 +255,7 @@
                             <th>Date</th>
                             <th>Arrivée</th>
                             <th>Départ</th>
-                            <th>Score</th>
+                            <th>Terminal</th>
                             <th>Statut</th>
                             <th>Actions</th>
                         </tr>
@@ -259,12 +264,6 @@
                         @forelse($pointages as $pointage)
                         @php
                             $metaData = json_decode($pointage->meta_data, true);
-                            $scoreArrivee = isset($metaData['biometric_verification']['confidence_score']) 
-                                ? number_format($metaData['biometric_verification']['confidence_score'] * 100, 1) . '%' 
-                                : 'N/A';
-                            $scoreDepart = isset($metaData['checkout']['biometric_verification']['confidence_score']) 
-                                ? number_format($metaData['checkout']['biometric_verification']['confidence_score'] * 100, 1) . '%' 
-                                : 'N/A';
                         @endphp
                         <tr>
                             <td>{{ $pointage->id }}</td>
@@ -299,11 +298,10 @@
                                 @endif
                             </td>
                             <td>
-                                <div class="d-flex flex-column">
-                                    <small class="text-muted">Arrivée: <span class="fw-medium">{{ $scoreArrivee }}</span></small>
-                                    @if($pointage->heure_depart)
-                                    <small class="text-muted">Départ: <span class="fw-medium">{{ $scoreDepart }}</span></small>
-                                    @endif
+                                <div class="text-center">
+                                    <span class="badge bg-info">Terminal 1</span>
+                                    <br>
+                                    <small class="text-muted">Facial mobile</small>
                                 </div>
                             </td>
                             <td>
@@ -422,39 +420,152 @@
     </div>
 </div>
 @endforeach
+
+<!-- Modal d'information sur le format .dat -->
+<div class="modal fade" id="formatInfoModal" tabindex="-1" aria-labelledby="formatInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="formatInfoModalLabel">
+                    <i class="bi bi-info-circle text-info me-2"></i>Format du fichier .dat
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-file-text me-2"></i>Format officiel attendu</h6>
+                    <p>Le fichier est <strong>sans en-tête</strong>, avec colonnes séparées par des <strong>espaces multiples</strong> :</p>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Position</th>
+                                <th>Nom</th>
+                                <th>Format / Code</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>ID_Employe</td>
+                                <td>Numérique – doit exister dans la base RH</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>Date</td>
+                                <td>YYYY-MM-DD</td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>Heure</td>
+                                <td>HH:MM:SS</td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>Type_Pointage</td>
+                                <td>1 = Entrée, 0 = Sortie</td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>Terminal_ID</td>
+                                <td>1 = App mobile (reconnaissance faciale)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Exemple de fichier valide</h6>
+                    <pre class="mb-0"><code>1023  2025-06-12  08:01:15  1  1
+1023  2025-06-12  17:10:02  0  1
+9999  2025-06-12  08:03:45  1  1</code></pre>
+                </div>
+
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-x-circle me-2"></i>Comportement en cas d'erreur</h6>
+                    <ul class="mb-0">
+                        <li>Les lignes avec des erreurs ne sont pas importées</li>
+                        <li>Un rapport d'anomalies détaillé est généré</li>
+                        <li>L'importation continue pour les lignes valides</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="{{ route('presences.downloadDatTemplate') }}" class="btn btn-success">
+                    <i class="bi bi-download"></i> Télécharger un modèle
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal des anomalies d'importation (affiché seulement s'il y a des anomalies) -->
+@if(session('import_anomalies'))
+<div class="modal fade show" id="anomaliesModal" tabindex="-1" aria-labelledby="anomaliesModalLabel" style="display: block;" aria-modal="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="anomaliesModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Rapport d'anomalies d'importation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>{{ count(session('import_anomalies')) }}</strong> anomalie(s) détectée(s) lors de l'importation.
+                    Ces lignes n'ont pas été importées :
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Ligne</th>
+                                <th>Contenu brut</th>
+                                <th>Erreur</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach(session('import_anomalies') as $anomalie)
+                            <tr>
+                                <td><span class="badge bg-danger">{{ $anomalie['line_number'] }}</span></td>
+                                <td><code>{{ $anomalie['raw_line'] }}</code></td>
+                                <td class="text-danger">{{ $anomalie['error'] }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal-backdrop fade show"></div>
+@endif
 @endsection
 
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Vérification du fichier avant importation
-        const verifyBtn = document.getElementById('verifyBtn');
-        const importForm = document.getElementById('importForm');
-        const fileInput = document.getElementById('fichier_biometrique');
-        
-        if (verifyBtn && importForm && fileInput) {
-            verifyBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                if (!fileInput.files || fileInput.files.length === 0) {
-                    alert('Veuillez sélectionner un fichier à vérifier.');
-                    return;
+        // Auto-fermer le modal des anomalies après 30 secondes
+        @if(session('import_anomalies'))
+        setTimeout(function() {
+            const anomaliesModal = document.getElementById('anomaliesModal');
+            if (anomaliesModal) {
+                const modalBackdrop = document.querySelector('.modal-backdrop');
+                anomaliesModal.style.display = 'none';
+                if (modalBackdrop) {
+                    modalBackdrop.remove();
                 }
-                
-                const formData = new FormData(importForm);
-                formData.append('_verify', '1');
-                
-                // Modifier l'action du formulaire pour vérifier plutôt qu'importer
-                const originalAction = importForm.action;
-                importForm.action = "{{ route('presences.verifyBiometrique') }}";
-                importForm.submit();
-                
-                // Rétablir l'action originale
-                setTimeout(() => {
-                    importForm.action = originalAction;
-                }, 100);
-            });
-        }
+            }
+                 }, 30000);
+        @endif
         
         // Rendre les en-têtes de tableau fixes lors du défilement
         const tableHeaders = document.querySelectorAll('.sticky-top');

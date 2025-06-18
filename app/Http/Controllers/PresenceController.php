@@ -491,18 +491,18 @@ class PresenceController extends Controller
     }
 
     /**
-     * Importe les données biométriques depuis un fichier (JSON ou CSV).
+     * Importe les données biométriques depuis un fichier .dat uniquement.
      */
     public function importBiometrique(Request $request)
     {
         try {
+            // Validation spécifique pour les fichiers .dat
             $request->validate([
-                'file' => 'required|file|mimes:json,csv,txt|max:10240',
-                'format' => 'required|in:json,csv'
+                'fichier_biometrique' => 'required|file|mimes:dat,txt|max:10240',
+                'skip_existing' => 'nullable|boolean'
             ]);
 
-            $file = $request->file('file');
-            $format = $request->input('format');
+            $file = $request->file('fichier_biometrique');
             $skipExisting = $request->has('skip_existing');
 
             // Statistiques d'importation
@@ -511,102 +511,46 @@ class PresenceController extends Controller
                 'imported' => 0,
                 'skipped' => 0,
                 'errors' => 0,
-                'details' => []
+                'anomalies' => []
             ];
 
-            // Diagnostics
-            $diagnosticSession = 'import_' . now()->format('YmdHis');
-            $this->logDiagnostic($diagnosticSession, 'start', 'Début de l\'importation', [
-                'format' => $format,
+            // Session de diagnostic
+            $diagnosticSession = 'import_dat_' . now()->format('YmdHis');
+            $this->logDiagnostic($diagnosticSession, 'start', 'Début de l\'importation .dat', [
                 'skip_existing' => $skipExisting,
                 'file_size' => $file->getSize(),
-                'file_extension' => $file->getClientOriginalExtension()
+                'file_name' => $file->getClientOriginalName()
             ]);
 
-            // Traiter le fichier selon son format
-            if ($format === 'json') {
-                $content = file_get_contents($file->path());
-                $this->logDiagnostic($diagnosticSession, 'json_content', 'Contenu JSON', [
-                    'sample' => substr($content, 0, 200) . '...'
+            // Lire le fichier ligne par ligne
+            $fileContent = file_get_contents($file->path());
+            $lines = explode("\n", $fileContent);
+            
+            foreach ($lines as $lineNumber => $line) {
+                $lineNumber++; // Numérotation à partir de 1
+                $line = trim($line);
+                
+                // Ignorer les lignes vides
+                if (empty($line)) {
+                    continue;
+                }
+                
+                $stats['total']++;
+                
+                // Parser la ligne selon le format .dat
+                $result = $this->parseDatLine($line, $lineNumber, $skipExisting);
+                $this->updateDatStats($stats, $result, $lineNumber, $line);
+                
+                $this->logDiagnostic($diagnosticSession, 'line_' . $lineNumber, 'Traitement ligne', [
+                    'raw_line' => $line,
+                    'result' => $result
                 ]);
-                
-                $jsonData = json_decode($content, true);
-                
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    $this->logDiagnostic($diagnosticSession, 'json_error', 'Erreur JSON', [
-                        'error' => json_last_error_msg()
-                    ]);
-                    return redirect()->route('rapports.biometrique')
-                        ->with('error', 'Le fichier JSON est invalide: ' . json_last_error_msg())
-                        ->with('form_modal', 'import');
-                }
-                
-                // Traiter d'abord les check-in puis les check-out pour s'assurer que les 
-                // pointages d'arrivée existent avant de traiter les départs
-                // Step 1: filtrer et trier les données
-                $checkIns = [];
-                $checkOuts = [];
-                
-                foreach ($jsonData as $pointageData) {
-                    $type = strtolower($pointageData['type'] ?? '');
-                    if ($type === 'check-in') {
-                        $checkIns[] = $pointageData;
-                    } else {
-                        $checkOuts[] = $pointageData;
-                    }
-                }
-                
-                $this->logDiagnostic($diagnosticSession, 'json_processing', 'Traitement JSON', [
-                    'total_records' => count($jsonData),
-                    'checkins' => count($checkIns),
-                    'checkouts' => count($checkOuts)
-                ]);
-                
-                // Step 2: Traiter d'abord les arrivées
-                foreach ($checkIns as $index => $pointageData) {
-                    $stats['total']++;
-                    $this->logDiagnostic($diagnosticSession, 'checkin_' . $index, 'Traitement check-in', [
-                        'employee_id' => $pointageData['employee_id'] ?? 'non spécifié',
-                        'timestamp' => $pointageData['timestamp'] ?? 'non spécifié'
-                    ]);
-                    
-                    $result = $this->processPointageBiometrique($pointageData, $skipExisting);
-                    $this->updateStats($stats, $result);
-                    
-                    $this->logDiagnostic($diagnosticSession, 'checkin_result_' . $index, 'Résultat check-in', [
-                        'success' => $result['success'],
-                        'message' => $result['message'],
-                        'debug_info' => $result['debug_info'] ?? []
-                    ]);
-                }
-                
-                // Step 3: Puis traiter les départs
-                foreach ($checkOuts as $index => $pointageData) {
-                    $stats['total']++;
-                    $this->logDiagnostic($diagnosticSession, 'checkout_' . $index, 'Traitement check-out', [
-                        'employee_id' => $pointageData['employee_id'] ?? 'non spécifié',
-                        'timestamp' => $pointageData['timestamp'] ?? 'non spécifié'
-                    ]);
-                    
-                    $result = $this->processPointageBiometrique($pointageData, $skipExisting);
-                    $this->updateStats($stats, $result);
-                    
-                    $this->logDiagnostic($diagnosticSession, 'checkout_result_' . $index, 'Résultat check-out', [
-                        'success' => $result['success'],
-                        'message' => $result['message'],
-                        'debug_info' => $result['debug_info'] ?? []
-                    ]);
-                }
-            } 
-            else if ($format === 'csv') {
-                // Traitement du fichier CSV...
-                // (code similaire ici)
             }
 
             // Déterminer le message de statut approprié
             if ($stats['errors'] > 0) {
                 $status = 'warning';
-                $message = "Importation terminée avec des erreurs. {$stats['imported']} pointages importés, {$stats['skipped']} ignorés, {$stats['errors']} erreurs.";
+                $message = "Importation terminée avec des anomalies. {$stats['imported']} pointages importés, {$stats['skipped']} ignorés, {$stats['errors']} anomalies détectées.";
             } else if ($stats['skipped'] > 0) {
                 $status = 'info';
                 $message = "Importation terminée. {$stats['imported']} pointages importés, {$stats['skipped']} ignorés.";
@@ -621,7 +565,14 @@ class PresenceController extends Controller
                 'message' => $message
             ]);
 
-            return redirect()->route('rapports.biometrique')->with($status, $message)->with('import_stats', $stats);
+            // Stocker les anomalies en session pour affichage
+            if (!empty($stats['anomalies'])) {
+                session()->put('import_anomalies', $stats['anomalies']);
+            }
+
+            return redirect()->route('rapports.biometrique')
+                ->with($status, $message)
+                ->with('import_stats', $stats);
         } 
         catch (\Exception $e) {
             $this->logDiagnostic($diagnosticSession ?? 'error', 'exception', 'Exception durant l\'importation', [
@@ -630,11 +581,225 @@ class PresenceController extends Controller
             ]);
             
             return redirect()->route('rapports.biometrique')
-                ->with('error', 'Erreur lors de l\'importation: ' . $e->getMessage())
-                ->with('form_modal', 'import');
+                ->with('error', 'Erreur lors de l\'importation: ' . $e->getMessage());
         }
     }
     
+    /**
+     * Parse une ligne du fichier .dat selon le format spécifié
+     * Format: ID_Employe  Date  Heure  Type_Pointage  Terminal_ID
+     */
+    private function parseDatLine($line, $lineNumber, $skipExisting = false)
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'skipped' => false,
+            'line_number' => $lineNumber,
+            'raw_line' => $line
+        ];
+
+        // Séparer les colonnes par des espaces multiples (\s{2,})
+        $columns = preg_split('/\s{2,}/', trim($line));
+        
+        // Vérifier qu'on a exactement 5 colonnes
+        if (count($columns) !== 5) {
+            $result['message'] = "Format invalide - attendu 5 colonnes, trouvé " . count($columns);
+            return $result;
+        }
+
+        list($employeId, $date, $heure, $typePointage, $terminalId) = $columns;
+
+        // Validation de l'ID employé
+        if (!is_numeric($employeId)) {
+            $result['message'] = "ID employé invalide (doit être numérique): {$employeId}";
+            return $result;
+        }
+        $employeId = (int)$employeId;
+
+        // Vérifier que l'employé existe
+        $employe = Employe::find($employeId);
+        if (!$employe) {
+            $result['message'] = "Employé non trouvé avec ID: {$employeId}";
+            return $result;
+        }
+
+        // Validation de la date (YYYY-MM-DD)
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $result['message'] = "Format de date invalide (attendu YYYY-MM-DD): {$date}";
+            return $result;
+        }
+
+        try {
+            $dateCarbon = Carbon::createFromFormat('Y-m-d', $date);
+        } catch (\Exception $e) {
+            $result['message'] = "Date invalide: {$date}";
+            return $result;
+        }
+
+        // Validation de l'heure (HH:MM:SS)
+        if (!preg_match('/^\d{2}:\d{2}:\d{2}$/', $heure)) {
+            $result['message'] = "Format d'heure invalide (attendu HH:MM:SS): {$heure}";
+            return $result;
+        }
+
+        try {
+            $heureCarbon = Carbon::createFromFormat('H:i:s', $heure);
+        } catch (\Exception $e) {
+            $result['message'] = "Heure invalide: {$heure}";
+            return $result;
+        }
+
+        // Validation du type de pointage (0 ou 1)
+        if (!in_array($typePointage, ['0', '1'])) {
+            $result['message'] = "Type de pointage invalide (attendu 0 ou 1): {$typePointage}";
+            return $result;
+        }
+
+        // Validation du terminal ID (doit être 1)
+        if ($terminalId !== '1') {
+            $result['message'] = "Terminal ID invalide (attendu 1): {$terminalId}";
+            return $result;
+        }
+
+        // Traitement du pointage
+        return $this->processDatPointage($employeId, $date, $heure, $typePointage, $skipExisting);
+    }
+
+    /**
+     * Traite un pointage du fichier .dat
+     */
+    private function processDatPointage($employeId, $date, $heure, $typePointage, $skipExisting = false)
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'skipped' => false
+        ];
+
+        $isCheckIn = ($typePointage === '1');
+        
+        // Chercher une présence existante pour cet employé à cette date
+        $presence = Presence::where('employe_id', $employeId)
+            ->where('date', $date)
+            ->first();
+
+        if ($isCheckIn) {
+            // Pointage d'arrivée
+            if ($presence && $skipExisting) {
+                $result['message'] = "Pointage d'arrivée existant ignoré pour l'employé ID {$employeId} le {$date}";
+                $result['skipped'] = true;
+                return $result;
+            }
+
+            if (!$presence) {
+                $presence = new Presence();
+                $presence->employe_id = $employeId;
+                $presence->date = $date;
+                $presence->source_pointage = 'biometrique';
+            }
+
+            $presence->heure_arrivee = $heure;
+            
+            // Créer les métadonnées biométriques
+            $metaData = [
+                'terminal_id' => 1,
+                'type' => 'check-in',
+                'biometric_verification' => [
+                    'confidence_score' => 1.0, // Score par défaut pour .dat
+                    'method' => 'facial_recognition'
+                ],
+                'device_info' => [
+                    'model' => 'Terminal Biométrique',
+                    'terminal_id' => 1
+                ]
+            ];
+            
+            $presence->meta_data = json_encode($metaData);
+            $presence->save();
+
+            $result['success'] = true;
+            $result['message'] = "Pointage d'arrivée enregistré pour l'employé ID {$employeId} le {$date} à {$heure}";
+        } else {
+            // Pointage de sortie
+            if (!$presence) {
+                $result['message'] = "Aucun pointage d'arrivée trouvé pour l'employé ID {$employeId} le {$date} - impossible d'enregistrer la sortie";
+                return $result;
+            }
+
+            if ($presence->heure_depart && $skipExisting) {
+                $result['message'] = "Pointage de sortie existant ignoré pour l'employé ID {$employeId} le {$date}";
+                $result['skipped'] = true;
+                return $result;
+            }
+
+            $presence->heure_depart = $heure;
+            
+            // Mettre à jour les métadonnées avec les informations de départ
+            $metaData = json_decode($presence->meta_data, true) ?? [];
+            $metaData['checkout'] = [
+                'type' => 'check-out',
+                'biometric_verification' => [
+                    'confidence_score' => 1.0,
+                    'method' => 'facial_recognition'
+                ],
+                'device_info' => [
+                    'model' => 'Terminal Biométrique',
+                    'terminal_id' => 1
+                ]
+            ];
+            
+            $presence->meta_data = json_encode($metaData);
+            $presence->save();
+
+            $result['success'] = true;
+            $result['message'] = "Pointage de sortie enregistré pour l'employé ID {$employeId} le {$date} à {$heure}";
+        }
+
+        return $result;
+    }
+
+    /**
+     * Mettre à jour les statistiques d'importation .dat
+     */
+    private function updateDatStats(&$stats, $result, $lineNumber, $rawLine)
+    {
+        if ($result['success']) {
+            $stats['imported']++;
+        } else if (isset($result['skipped']) && $result['skipped']) {
+            $stats['skipped']++;
+        } else {
+            $stats['errors']++;
+            $stats['anomalies'][] = [
+                'line_number' => $lineNumber,
+                'raw_line' => $rawLine,
+                'error' => $result['message']
+            ];
+        }
+    }
+
+    /**
+     * Télécharger un modèle de fichier .dat
+     */
+    public function downloadDatTemplate()
+    {
+        // Créer un exemple de fichier .dat
+        $content = "# Modèle de fichier .dat pour l'importation biométrique\n";
+        $content .= "# Format: ID_Employe  Date  Heure  Type_Pointage  Terminal_ID\n";
+        $content .= "# Type_Pointage: 1 = Entrée, 0 = Sortie\n";
+        $content .= "# Terminal_ID: 1 = App mobile (reconnaissance faciale)\n";
+        $content .= "# Exemple:\n";
+        $content .= "1023  2025-06-12  08:01:15  1  1\n";
+        $content .= "1023  2025-06-12  17:10:02  0  1\n";
+        $content .= "9999  2025-06-12  08:03:45  1  1\n";
+
+        $fileName = 'modele_pointage_biometrique_' . now()->format('Y-m-d') . '.dat';
+
+        return response($content)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+    }
+
     /**
      * Enregistrer des informations de diagnostic
      */
@@ -1079,243 +1244,9 @@ class PresenceController extends Controller
     }
 
     /**
-     * Vérifie la validité d'un fichier de données biométriques sans l'importer
+     * Détecte le délimiteur CSV (méthode héritée - conservée pour compatibilité)
      */
-    public function verifyBiometrique(Request $request)
-    {
-        try {
-            $request->validate([
-                'file' => 'required|file|mimes:json,csv,txt|max:10240',
-                'format' => 'required|in:json,csv'
-            ]);
 
-            $file = $request->file('file');
-            $format = $request->input('format');
-            
-            // Statistiques et enregistrements
-            $stats = [
-                'total' => 0,
-                'valid' => 0,
-                'invalid' => 0,
-                'errors' => 0
-            ];
-            $records = [];
-            $maxRecordsToReturn = 10; // Limiter le nombre d'enregistrements à retourner
-            $debugInfo = []; // Informations supplémentaires pour le débogage
-            
-            // Traiter le fichier selon son format
-            if ($format === 'json') {
-                $content = file_get_contents($file->path());
-                $debugInfo['content_sample'] = substr($content, 0, 100) . '...';
-                
-                $jsonData = json_decode($content, true);
-                
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Le fichier JSON est invalide: ' . json_last_error_msg(),
-                        'debug_info' => $debugInfo
-                    ]);
-                }
-                
-                // Vérifier que les données sont un tableau
-                if (!is_array($jsonData)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Le fichier JSON doit contenir un tableau d\'objets',
-                        'debug_info' => $debugInfo
-                    ]);
-                }
-                
-                // Parcourir les données JSON
-                foreach ($jsonData as $index => $data) {
-                    $stats['total']++;
-                    
-                    // Normaliser l'ID d'employé en entier
-                    if (isset($data['employee_id'])) {
-                        $data['employee_id'] = (int)$data['employee_id'];
-                    }
-                    
-                    $validationResult = $this->validateBiometricRecord($data);
-                    
-                    if ($validationResult['valid']) {
-                        $stats['valid']++;
-                    } else {
-                        $stats['invalid']++;
-                        $stats['errors']++;
-                    }
-                    
-                    // Ajouter l'enregistrement à la liste des échantillons
-                    if (count($records) < $maxRecordsToReturn) {
-                        $records[] = array_merge($data, $validationResult);
-                    }
-                }
-            } 
-            else if ($format === 'csv') {
-                // Lire le contenu du fichier pour le débogage
-                $content = file_get_contents($file->path());
-                $debugInfo['content_sample'] = substr($content, 0, 200) . '...';
-                $debugInfo['file_size'] = filesize($file->path()) . ' bytes';
-                $debugInfo['encoding'] = mb_detect_encoding($content, 'UTF-8, ISO-8859-1', true);
-                
-                // Essayer de détecter le séparateur
-                $detectedDelimiter = $this->detectCsvDelimiter($content);
-                $debugInfo['detected_delimiter'] = $detectedDelimiter ? "'{$detectedDelimiter}'" : 'non détecté';
-                
-                // Ouvrir le fichier CSV avec le délimiteur détecté ou par défaut
-                $csvFile = fopen($file->path(), 'r');
-                
-                if (!$csvFile) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Impossible d\'ouvrir le fichier CSV',
-                        'debug_info' => $debugInfo
-                    ]);
-                }
-                
-                // Lire l'en-tête pour déterminer les colonnes
-                $headers = fgetcsv($csvFile, 0, $detectedDelimiter ?: ',');
-                $debugInfo['raw_headers'] = $headers;
-                
-                if (!$headers || count($headers) <= 1) {
-                    // Tenter une autre approche: lire la première ligne et la diviser manuellement
-                    rewind($csvFile);
-                    $firstLine = fgets($csvFile);
-                    $debugInfo['first_line'] = $firstLine;
-                    
-                    // Essayer différents délimiteurs
-                    foreach ([',', ';', "\t", '|'] as $delimiter) {
-                        $testHeaders = str_getcsv($firstLine, $delimiter);
-                        if (count($testHeaders) > 1) {
-                            $headers = $testHeaders;
-                            $debugInfo['manual_delimiter'] = $delimiter;
-                            break;
-                        }
-                    }
-                }
-                
-                if (!$headers || count($headers) <= 1) {
-                    fclose($csvFile);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Format CSV invalide ou délimiteur non reconnu. Essayez d\'exporter avec des virgules (,) comme séparateurs.',
-                        'debug_info' => $debugInfo
-                    ]);
-                }
-                
-                // Nettoyer les en-têtes (supprimer BOM et espaces)
-                $headers = array_map(function($header) {
-                    // Nettoyer le BOM (Byte Order Mark) UTF-8 s'il existe
-                    $header = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $header);
-                    return trim($header);
-                }, $headers);
-                
-                $debugInfo['cleaned_headers'] = $headers;
-                
-                // Vérifier les colonnes requises
-                $requiredColumns = ['employee_id', 'timestamp', 'type', 'latitude', 'longitude', 'biometric_score'];
-                $missingColumns = array_diff($requiredColumns, $headers);
-                
-                if (!empty($missingColumns)) {
-                    fclose($csvFile);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Colonnes manquantes dans le CSV: ' . implode(', ', $missingColumns) . '. Colonnes trouvées: ' . implode(', ', $headers),
-                        'debug_info' => $debugInfo
-                    ]);
-                }
-                
-                // Créer un mappage des indices de colonnes
-                $columnMap = array_flip($headers);
-                $debugInfo['column_map'] = $columnMap;
-                
-                // Traiter chaque ligne du CSV
-                $rowIndex = 1; // Commencer à 1 pour l'en-tête
-                $delimiter = $detectedDelimiter ?: ',';
-                
-                while (($row = fgetcsv($csvFile, 0, $delimiter)) !== false) {
-                    $rowIndex++;
-                    $stats['total']++;
-                    
-                    // Vérifier que la ligne contient suffisamment de colonnes
-                    if (count($row) < count($headers)) {
-                        $stats['invalid']++;
-                        $stats['errors']++;  // Incrémenter errors pour les lignes mal formatées
-                        if (count($records) < $maxRecordsToReturn) {
-                            $debugRecord = [
-                                'valid' => false,
-                                'error' => "Ligne {$rowIndex}: Nombre insuffisant de colonnes dans la ligne (" . count($row) . " trouvées, " . count($headers) . " attendues)",
-                                'row_data' => $row,
-                                'row_index' => $rowIndex
-                            ];
-                            $records[] = $debugRecord;
-                        }
-                        continue;
-                    }
-                    
-                    // Convertir la ligne CSV en structure de données
-                    $data = [
-                        'employee_id' => isset($columnMap['employee_id']) && isset($row[$columnMap['employee_id']]) ? 
-                                        (int)$row[$columnMap['employee_id']] : null,
-                        'timestamp' => isset($columnMap['timestamp']) && isset($row[$columnMap['timestamp']]) ? 
-                                        $row[$columnMap['timestamp']] : null,
-                        'type' => isset($columnMap['type']) && isset($row[$columnMap['type']]) ? 
-                                        $row[$columnMap['type']] : null,
-                        'latitude' => isset($columnMap['latitude']) && isset($row[$columnMap['latitude']]) ? 
-                                        $row[$columnMap['latitude']] : null,
-                        'longitude' => isset($columnMap['longitude']) && isset($row[$columnMap['longitude']]) ? 
-                                        $row[$columnMap['longitude']] : null,
-                        'biometric_score' => isset($columnMap['biometric_score']) && isset($row[$columnMap['biometric_score']]) ? 
-                                        $row[$columnMap['biometric_score']] : null
-                    ];
-                    
-                    // Si c'est le premier enregistrement, ajouter les données brutes pour le débogage
-                    if (count($records) === 0) {
-                        $debugInfo['first_row'] = $row;
-                        $debugInfo['mapped_data'] = $data;
-                    }
-                    
-                    $validationResult = $this->validateBiometricRecord($data);
-                    
-                    if ($validationResult['valid']) {
-                        $stats['valid']++;
-                    } else {
-                        $stats['invalid']++;
-                        $stats['errors']++;  // Incrémenter errors pour les données invalides
-                    }
-                    
-                    // Ajouter l'enregistrement à la liste des échantillons avec les données brutes pour le débogage
-                    if (count($records) < $maxRecordsToReturn) {
-                        $recordWithRawData = array_merge($data, $validationResult);
-                        $recordWithRawData['raw_data'] = $row;
-                        $recordWithRawData['headers'] = $headers;
-                        $recordWithRawData['row_index'] = $rowIndex;
-                        $records[] = $recordWithRawData;
-                    }
-                }
-                
-                fclose($csvFile);
-            }
-            
-            return response()->json([
-                'success' => true,
-                'stats' => $stats,
-                'records' => $records,
-                'debug_info' => $debugInfo,
-                'message' => "Vérification terminée. {$stats['valid']} enregistrements valides, {$stats['invalid']} invalides sur un total de {$stats['total']}."
-            ]);
-        } 
-        catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la vérification: ' . $e->getMessage(),
-                'debug_info' => [
-                    'exception' => get_class($e),
-                    'trace' => $e->getTraceAsString()
-                ]
-            ]);
-        }
-    }
     
     /**
      * Détecte le délimiteur utilisé dans un fichier CSV
@@ -1350,148 +1281,5 @@ class PresenceController extends Controller
         return $results[0];
     }
     
-    /**
-     * Valide un enregistrement de données biométriques
-     */
-    private function validateBiometricRecord($data)
-    {
-        // Résultat par défaut: valide
-        $result = [
-            'valid' => true,
-            'error' => null,
-            'debug_info' => [] // Pour stocker des informations de débogage
-        ];
-        
-        // Vérifier les champs obligatoires
-        if (!isset($data['employee_id']) || !$data['employee_id']) {
-            $result['valid'] = false;
-            $result['error'] = "ID d'employé manquant";
-            return $result;
-        }
-        
-        // Normaliser l'ID d'employé
-        $data['employee_id'] = (int)$data['employee_id'];
-        $result['debug_info']['normalized_employee_id'] = $data['employee_id'];
-        
-        if (!isset($data['timestamp']) || !$data['timestamp']) {
-            $result['valid'] = false;
-            $result['error'] = "Horodatage manquant";
-            return $result;
-        }
-        
-        if (!isset($data['type']) || !in_array(strtolower($data['type']), ['check-in', 'check-out'])) {
-            $result['valid'] = false;
-            $result['error'] = "Type invalide (doit être 'check-in' ou 'check-out')";
-            return $result;
-        }
-        
-        $type = strtolower($data['type']);
-        $isCheckIn = $type === 'check-in';
-        $result['debug_info']['is_check_in'] = $isCheckIn;
-        $result['debug_info']['type'] = $type;
-        
-        // Vérifier que l'horodatage est valide
-        try {
-            $timestamp = Carbon::parse($data['timestamp']);
-            $result['debug_info']['parsed_date'] = $timestamp->toDateString();
-        } catch (\Exception $e) {
-            $result['valid'] = false;
-            $result['error'] = "Format d'horodatage invalide";
-            return $result;
-        }
-        
-        // Vérifier que l'employé existe
-        // Convertir l'ID en entier pour s'assurer qu'il est correctement traité
-        $employeeId = (int)$data['employee_id'];
-        $employe = Employe::find($employeeId);
-        
-        if (!$employe) {
-            // Vérifier si l'employé existe avec un withTrashed()
-            $employeTrashed = Employe::withTrashed()->find($employeeId);
-            
-            if ($employeTrashed) {
-                $result['valid'] = false;
-                $result['error'] = "L'employé avec l'ID {$employeeId} existe mais a été supprimé";
-                $result['debug_info']['employee_trashed'] = true;
-            } else {
-                $result['valid'] = false;
-                $result['error'] = "L'employé avec l'ID {$employeeId} n'existe pas";
-                $result['debug_info']['employee_exists'] = false;
-            }
-            return $result;
-        }
-        
-        $result['debug_info']['employee_exists'] = true;
-        $result['debug_info']['employee_name'] = $employe->prenom . ' ' . $employe->nom;
-        
-        // Vérifier les coordonnées géographiques (gestion des deux formats possibles)
-        $hasValidCoordinates = false;
-        
-        // Format 1: coordonnées au niveau racine
-        if (isset($data['latitude']) && is_numeric($data['latitude']) && 
-            isset($data['longitude']) && is_numeric($data['longitude'])) {
-            $hasValidCoordinates = true;
-            $result['debug_info']['coordinates_format'] = 'flat';
-        }
-        
-        // Format 2: coordonnées dans un objet location
-        if (isset($data['location']) && is_array($data['location']) &&
-            isset($data['location']['latitude']) && is_numeric($data['location']['latitude']) && 
-            isset($data['location']['longitude']) && is_numeric($data['location']['longitude'])) {
-            $hasValidCoordinates = true;
-            $result['debug_info']['coordinates_format'] = 'nested';
-        }
-        
-        if (!$hasValidCoordinates) {
-            $result['valid'] = false;
-            $result['error'] = "Coordonnées géographiques invalides";
-            $result['debug_info']['location_data'] = isset($data['location']) ? json_encode($data['location']) : 'missing';
-            return $result;
-        }
-        
-        // Vérifier le score biométrique (gestion des deux formats possibles)
-        $hasValidBiometricScore = false;
-        
-        // Format 1: score biométrique au niveau racine
-        if (isset($data['biometric_score']) && is_numeric($data['biometric_score']) && 
-            $data['biometric_score'] >= 0 && $data['biometric_score'] <= 1) {
-            $hasValidBiometricScore = true;
-            $result['debug_info']['biometric_format'] = 'flat';
-        }
-        
-        // Format 2: score biométrique dans un objet biometric_verification
-        if (isset($data['biometric_verification']) && is_array($data['biometric_verification']) &&
-            isset($data['biometric_verification']['confidence_score']) && 
-            is_numeric($data['biometric_verification']['confidence_score']) &&
-            $data['biometric_verification']['confidence_score'] >= 0 && 
-            $data['biometric_verification']['confidence_score'] <= 1) {
-            $hasValidBiometricScore = true;
-            $result['debug_info']['biometric_format'] = 'nested';
-        }
-        
-        if (!$hasValidBiometricScore) {
-            $result['valid'] = false;
-            $result['error'] = "Score biométrique invalide (doit être entre 0 et 1)";
-            $result['debug_info']['biometric_data'] = isset($data['biometric_verification']) ? 
-                json_encode($data['biometric_verification']) : 'missing';
-            return $result;
-        }
-        
-        // Vérifier la présence existante pour les check-out uniquement
-        if (!$isCheckIn) {
-            $presence = Presence::where('employe_id', $employeeId)
-                ->where('date', $timestamp->toDateString())
-                ->first();
-                
-            if (!$presence) {
-                $result['valid'] = false;
-                $result['error'] = "Aucun pointage d'arrivée trouvé pour cet employé à cette date";
-                $result['debug_info']['existing_checkin'] = false;
-                return $result;
-            }
-            $result['debug_info']['existing_checkin'] = true;
-        }
-        
-        return $result;
-    }
+
 }

@@ -311,12 +311,12 @@ class Presence extends Model
     }
     
     /**
-     * Récupérer le score de confiance biométrique d'arrivée
+     * Vérifier si le pointage provient du terminal mobile
      */
-    public function getScoreBiometriqueArriveeAttribute()
+    public function estTerminalMobileAttribute()
     {
         $metaData = json_decode($this->meta_data, true);
-        return $metaData['biometric_verification']['confidence_score'] ?? null;
+        return ($metaData['terminal_id'] ?? null) === 1;
     }
     
     /**
