@@ -1736,63 +1736,9 @@ class RapportController extends Controller
      */
     private function calculerJoursOuvrables($employeId, $dateDebut, $dateFin)
     {
-        // Récupérer les plannings actifs pour cet employé dans la période
-        $plannings = Planning::where('employe_id', $employeId)
-            ->where('actif', true) // Utiliser la colonne 'actif' au lieu de 'statut'
-            ->where(function ($query) use ($dateDebut, $dateFin) {
-                $query->whereBetween('date_debut', [$dateDebut, $dateFin])
-                    ->orWhereBetween('date_fin', [$dateDebut, $dateFin])
-                    ->orWhere(function ($q) use ($dateDebut, $dateFin) {
-                        $q->where('date_debut', '<=', $dateDebut)
-                            ->where('date_fin', '>=', $dateFin);
-                    });
-            })
-            ->get();
-
-        if ($plannings->isEmpty()) {
-            // Si pas de planning, on considère les jours ouvrés standard (lundi-vendredi)
-            $joursOuvrables = 0;
-            $period = CarbonPeriod::create($dateDebut, $dateFin);
-            
-            foreach ($period as $date) {
-                if ($date->isWeekday()) { // Du lundi au vendredi
-                    $joursOuvrables++;
-                }
-            }
-            
-            return $joursOuvrables;
-        }
-        
-        // Sinon, on compte les jours selon les plannings
-        $joursOuvrables = 0;
-        $period = CarbonPeriod::create($dateDebut, $dateFin);
-        
-        foreach ($period as $date) {
-            $jourSemaine = $date->dayOfWeekIso;
-            $jourTravaille = false;
-            
-            foreach ($plannings as $planning) {
-                $dateFormattee = $date->format('Y-m-d');
-                
-                if ($dateFormattee >= $planning->date_debut->format('Y-m-d') && $dateFormattee <= $planning->date_fin->format('Y-m-d')) {
-                    // Vérifier dans les détails du planning si ce jour est travaillé
-                    $jourTravaille = $planning->details()
-                        ->where('jour', $jourSemaine)
-                        ->where('jour_repos', false)
-                        ->exists();
-                    
-                    if ($jourTravaille) {
-                        break;
-                    }
-                }
-            }
-            
-            if ($jourTravaille) {
-                $joursOuvrables++;
-            }
-        }
-        
-        return $joursOuvrables;
+        // === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
+        // Utiliser directement la méthode validée avec planning hebdomadaire
+        return $this->calculerJoursOuvrablesPlanningHebdomadaire($employeId, $dateDebut, $dateFin);
     }
 
     /**
@@ -1822,8 +1768,8 @@ class RapportController extends Controller
                 // Pointages avec métadonnées (import .dat, sync mobile)
                 $q->where(function($subq) {
                     $subq->whereNotNull('meta_data')
-                         ->where('meta_data', '<>', '{}')
-                         ->where('meta_data', '<>', 'null')
+            ->where('meta_data', '<>', '{}')
+            ->where('meta_data', '<>', 'null')
                          ->where(function($metaq) {
                              $metaq->whereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_dat'")
                                    ->orWhereRaw("JSON_EXTRACT(meta_data, '$.type') = 'biometric_sync'")
@@ -1855,12 +1801,12 @@ class RapportController extends Controller
             return $pointage->employe_id . '_' . $pointage->date;
         })->map(function($groupePointages) {
             $premierPointage = $groupePointages->first();
-            
+        
             // Pour les données .dat, chaque pointage a soit heure_arrivee, soit heure_depart
             // Trouver le pointage d'arrivée et de départ
             $heureArrivee = null;
             $heureDepart = null;
-            
+        
             foreach ($groupePointages as $pointage) {
                 if (!empty($pointage->heure_arrivee)) {
                     $heureArrivee = $pointage->heure_arrivee;
@@ -2238,7 +2184,7 @@ class RapportController extends Controller
             ->when($departementId, function($q) use ($departementId) {
                 return $q->whereHas('poste', function($q2) use ($departementId) {
                     $q2->where('departement', $departementId);
-                });
+            });
             })
             ->when($posteId, function($q) use ($posteId) {
                 return $q->where('poste_id', $posteId);
@@ -2258,8 +2204,8 @@ class RapportController extends Controller
             
             // Calculer les statistiques de base
             $presences = \App\Models\Presence::where('employe_id', $employe->id)
-                ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')])
-                ->get();
+                               ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')])
+                               ->get();
             
             $joursTravailles = $presences->count();
             $retards = $presences->where('retard', true)->count();
@@ -2567,13 +2513,14 @@ class RapportController extends Controller
     }
 
     /**
-     * === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
-     * Calculer les jours prévus à partir du planning hebdomadaire
+     * === NOUVELLE LOGIQUE MÉTIER STRICTE CORRIGÉE ===
+     * Calculer les jours prévus en utilisant la PÉRIODE RÉELLE COMPLÈTE DU PLANNING
+     * Base temporelle = [date_debut_planning → date_fin_planning] SANS INTERSECTION
      * 
      * @param int $employeId ID de l'employé
-     * @param Carbon $dateDebut Date de début de la période
-     * @param Carbon $dateFin Date de fin de la période
-     * @return int Nombre de jours prévus
+     * @param Carbon $dateDebut Date de début du rapport (pour récupération des plannings)
+     * @param Carbon $dateFin Date de fin du rapport (pour récupération des plannings)
+     * @return int|null Nombre de jours prévus ou null si aucun planning
      */
     private function calculerJoursOuvrablesPlanningHebdomadaire($employeId, $dateDebut, $dateFin)
     {
@@ -2595,47 +2542,46 @@ class RapportController extends Controller
             return null; // Aucun planning défini : champ vide selon la règle métier
         }
 
-        // Compter les occurrences de chaque jour de travail dans le mois
         $joursOuvrables = 0;
-        $period = CarbonPeriod::create($dateDebut, $dateFin);
-        
-        foreach ($period as $date) {
-            $jourSemaine = $date->dayOfWeekIso; // 1 = Lundi, 7 = Dimanche
-            $jourTravaille = false;
             
-            foreach ($plannings as $planning) {
-                $dateFormattee = $date->format('Y-m-d');
+        foreach ($plannings as $planning) {
+            // === BASE TEMPORELLE = PÉRIODE RÉELLE COMPLÈTE DU PLANNING ===
+            $planningDebut = Carbon::parse($planning->date_debut);
+            $planningFin = Carbon::parse($planning->date_fin);
+            
+            // ❌ SUPPRESSION DE L'INTERSECTION PROBLÉMATIQUE
+            // ✅ UTILISATION DE LA PÉRIODE COMPLÈTE DU PLANNING
+            $periodeDebut = $planningDebut;
+            $periodeFin = $planningFin;
+            
+            // Créer la période basée sur les dates COMPLÈTES du planning
+            $period = CarbonPeriod::create($periodeDebut, $periodeFin);
+            
+            // Compter les occurrences de chaque jour planifié dans la période COMPLÈTE
+            foreach ($period as $date) {
+                $jourSemaine = $date->dayOfWeekIso; // 1 = Lundi, 7 = Dimanche
+                    
+                // Chercher le détail du planning pour ce jour de la semaine
+                $detail = $planning->details->firstWhere('jour', $jourSemaine);
                 
-                // Vérifier si cette date est dans la période du planning
-                if ($dateFormattee >= $planning->date_debut->format('Y-m-d') && 
-                    $dateFormattee <= $planning->date_fin->format('Y-m-d')) {
-                    
-                    // Chercher le détail du planning pour ce jour de la semaine
-                    $detail = $planning->details->firstWhere('jour', $jourSemaine);
-                    
-                    if ($detail && !$detail->jour_repos) {
-                        $jourTravaille = true;
-                        break;
-                    }
+                if ($detail && !$detail->jour_repos) {
+                    $joursOuvrables++;
                 }
-            }
-            
-            if ($jourTravaille) {
-                $joursOuvrables++;
             }
         }
         
         return $joursOuvrables;
     }
 
-    /**
-     * === LOGIQUE MÉTIER STRICTEMENT FONCTIONNELLE ===
-     * Calculer les heures prévues à partir du planning hebdomadaire
+        /**
+     * === NOUVELLE LOGIQUE MÉTIER STRICTE CORRIGÉE ===
+     * Calculer les heures prévues en utilisant la PÉRIODE RÉELLE COMPLÈTE DU PLANNING
+     * Base temporelle = [date_debut_planning → date_fin_planning] SANS INTERSECTION
      * 
      * @param int $employeId ID de l'employé
-     * @param Carbon $dateDebut Date de début de la période
-     * @param Carbon $dateFin Date de fin de la période
-     * @return float Nombre d'heures prévues
+     * @param Carbon $dateDebut Date de début du rapport (pour récupération des plannings)
+     * @param Carbon $dateFin Date de fin du rapport (pour récupération des plannings)
+     * @return float|null Nombre d'heures prévues ou null si aucun planning
      */
     private function calculerHeuresPrevuesPlanningHebdomadaire($employeId, $dateDebut, $dateFin)
     {
@@ -2657,42 +2603,45 @@ class RapportController extends Controller
             return null; // Aucun planning défini : champ vide selon la règle métier
         }
 
-        // Calculer l'amplitude horaire pour chaque jour et multiplier par les occurrences
         $heuresPrevues = 0;
-        $period = CarbonPeriod::create($dateDebut, $dateFin);
-        
-        foreach ($period as $date) {
-            $jourSemaine = $date->dayOfWeekIso; // 1 = Lundi, 7 = Dimanche
             
-            foreach ($plannings as $planning) {
-                $dateFormattee = $date->format('Y-m-d');
+        foreach ($plannings as $planning) {
+            // === BASE TEMPORELLE = PÉRIODE RÉELLE COMPLÈTE DU PLANNING ===
+            $planningDebut = Carbon::parse($planning->date_debut);
+            $planningFin = Carbon::parse($planning->date_fin);
+            
+            // ❌ SUPPRESSION DE L'INTERSECTION PROBLÉMATIQUE
+            // ✅ UTILISATION DE LA PÉRIODE COMPLÈTE DU PLANNING
+            $periodeDebut = $planningDebut;
+            $periodeFin = $planningFin;
+            
+            // Créer la période basée sur les dates COMPLÈTES du planning
+            $period = CarbonPeriod::create($periodeDebut, $periodeFin);
+            
+            // Calculer l'amplitude horaire × occurrences pour chaque jour planifié
+            foreach ($period as $date) {
+                $jourSemaine = $date->dayOfWeekIso; // 1 = Lundi, 7 = Dimanche
+                    
+                // Chercher le détail du planning pour ce jour de la semaine
+                $detail = $planning->details->firstWhere('jour', $jourSemaine);
                 
-                // Vérifier si cette date est dans la période du planning
-                if ($dateFormattee >= $planning->date_debut->format('Y-m-d') && 
-                    $dateFormattee <= $planning->date_fin->format('Y-m-d')) {
-                    
-                    // Chercher le détail du planning pour ce jour de la semaine
-                    $detail = $planning->details->firstWhere('jour', $jourSemaine);
-                    
-                    if ($detail && !$detail->jour_repos) {
-                        if ($detail->jour_entier) {
-                            // Journée entière = 8 heures par défaut
-                            $heuresPrevues += 8;
-                        } elseif ($detail->heure_debut && $detail->heure_fin) {
-                            // Calculer l'amplitude horaire (heure de fin - heure de début)
-                            $heureDebut = Carbon::parse($detail->heure_debut);
-                            $heureFin = Carbon::parse($detail->heure_fin);
-                            
-                            // Si l'heure de fin est avant l'heure de début, ajouter 24h (horaires de nuit)
-                            if ($heureFin->lt($heureDebut)) {
-                                $heureFin->addDay();
-                            }
-                            
-                            $dureeEnHeures = $heureDebut->diffInMinutes($heureFin) / 60;
-                            $heuresPrevues += $dureeEnHeures;
+                if ($detail && !$detail->jour_repos) {
+                    if ($detail->jour_entier) {
+                        // Journée entière = 8 heures par défaut
+                        $heuresPrevues += 8;
+                    } elseif ($detail->heure_debut && $detail->heure_fin) {
+                        // Calculer l'amplitude horaire (heure de fin - heure de début)
+                        $heureDebut = Carbon::parse($detail->heure_debut);
+                        $heureFin = Carbon::parse($detail->heure_fin);
+                        
+                        // Validation : ne pas calculer si heure de fin < heure de début (sauf horaires de nuit)
+                        if ($heureFin->lt($heureDebut)) {
+                            $heureFin->addDay();
                         }
+                        
+                        $dureeEnHeures = $heureDebut->diffInMinutes($heureFin) / 60;
+                        $heuresPrevues += $dureeEnHeures;
                     }
-                    break; // On a trouvé le planning pour cette date, pas besoin de continuer
                 }
             }
         }

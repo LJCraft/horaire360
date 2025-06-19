@@ -12,6 +12,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\CriterePointageController;
+use App\Http\Controllers\RapportControllerAdditions;
 
 
 /*
@@ -129,6 +130,7 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
     Route::get('/rapports/absences', [RapportController::class, 'absences'])->name('rapports.absences');
     Route::get('/rapports/retards', [RapportController::class, 'retards'])->name('rapports.retards');
     Route::get('/rapports/ponctualite-assiduite', [RapportController::class, 'ponctualiteAssiduite'])->name('rapports.ponctualite-assiduite');
+    Route::get('/rapports/ponctualite-assiduite-v2', [RapportControllerAdditions::class, 'ponctualiteAssiduiteV2'])->name('rapports.ponctualite-assiduite-v2');
     Route::get('/rapports/biometrique', [RapportController::class, 'biometrique'])->name('rapports.biometrique');
     Route::get('/rapports/heures-supplementaires', [RapportController::class, 'heuresSupplementaires'])->name('rapports.heures-supplementaires');
     Route::get('/rapports/global-multi-periode', [RapportController::class, 'globalMultiPeriode'])->name('rapports.global-multi-periode');
@@ -136,6 +138,7 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
     
     // Export PDF
     Route::post('/rapports/export-pdf', [RapportController::class, 'exportPdf'])->name('rapports.export-pdf');
+    Route::post('/rapports/export-pdf-v2', [RapportControllerAdditions::class, 'exportPdfV2'])->name('rapports.export-pdf-v2');
     Route::get('/rapports/presences/pdf', [RapportController::class, 'exportPresencesPdf'])->name('rapports.presences.pdf');
     Route::get('/rapports/absences/pdf', [RapportController::class, 'exportAbsencesPdf'])->name('rapports.absences.pdf');
     Route::get('/rapports/retards/pdf', [RapportController::class, 'exportRetardsPdf'])->name('rapports.retards.pdf');
