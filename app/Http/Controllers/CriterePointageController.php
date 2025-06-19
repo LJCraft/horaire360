@@ -582,95 +582,177 @@ class CriterePointageController extends Controller
     }
     
     /**
-     * Afficher les employés d'un département pour la configuration des critères
+     * Récupérer les employés d'un département avec leurs critères de pointage
+     * Optimisé selon les nouvelles exigences
      */
     public function getEmployesDepartement(Request $request)
     {
-        // Vérifier si l'utilisateur est administrateur
         if (!auth()->user()->isAdmin()) {
             return response()->json(['error' => 'Accès non autorisé'], 403);
         }
         
         $request->validate([
-            'departement_id' => 'required|exists:departements,departement',
-            'periode' => 'required|in:jour,semaine,mois',
+            'departement_id' => 'required|string',
             'poste_id' => 'nullable|exists:postes,id',
             'grade_id' => 'nullable|exists:grades,id',
         ]);
         
         $departementId = $request->departement_id;
-        $periode = $request->periode;
         $posteId = $request->poste_id;
         $gradeId = $request->grade_id;
         
-        // Récupérer les employés du département
-        $employesQuery = Employe::where('statut', 'actif')
-            ->whereHas('poste', function($q) use ($departementId) {
-                $q->where('departement', $departementId);
-            })
-            ->with(['poste', 'grade']);
-        
-        // Filtrer par poste si spécifié
-        if ($posteId) {
-            $employesQuery->where('poste_id', $posteId);
-        }
-        
-        // Filtrer par grade si spécifié
-        if ($gradeId) {
-            $employesQuery->where('grade_id', $gradeId);
-        }
-        
-        $employes = $employesQuery->orderBy('nom')
-            ->orderBy('prenom')
-            ->get();
-            
-        // Déterminer quels employés ont déjà des critères individuels
-        $employesAvecCriteres = CriterePointage::where('niveau', 'individuel')
-            ->where('actif', true)
-            ->pluck('employe_id')
-            ->toArray();
-            
-        // Récupérer le département
-        $departement = Departement::find($departementId);
-        
-        // Récupérer le critère départemental actif s'il existe
-        $critereDepartemental = CriterePointage::where('niveau', 'departemental')
-            ->where('departement_id', $departementId)
-            ->where('actif', true)
-            ->first();
-        
-        // Récupérer les postes du département
-        $postes = Poste::where('departement', $departementId)
-            ->orderBy('nom')
-            ->get()
-            ->map(function($poste) {
-                return [
-                    'id' => $poste->id,
-                    'nom' => $poste->nom
-                ];
-            });
-        
-        $data = [
-            'employes' => $employes->map(function($employe) use ($employesAvecCriteres) {
+        try {
+            // 1. Récupérer les postes du département
+            $postes = Poste::where('departement', $departementId)
+                ->when($posteId, function ($query) use ($posteId) {
+                    $query->where('id', $posteId);
+                })
+                ->orderBy('nom')
+                ->get();
+
+            // 2. Récupérer tous les employés actifs du département avec filtres
+            $employes = Employe::where('statut', 'actif')
+                ->whereHas('poste', function ($query) use ($departementId) {
+                    $query->where('departement', $departementId);
+                })
+                ->with(['poste', 'grade'])
+                ->when($posteId, function ($query) use ($posteId) {
+                    $query->where('poste_id', $posteId);
+                })
+                ->when($gradeId, function ($query) use ($gradeId) {
+                    $query->where('grade_id', $gradeId);
+                })
+                ->orderBy('nom')
+                ->orderBy('prenom')
+                ->get();
+
+            // 3. Récupérer les critères individuels actifs pour ces employés
+            $criteresIndividuels = CriterePointage::where('niveau', 'individuel')
+                ->where('actif', true)
+                ->whereIn('employe_id', $employes->pluck('id'))
+                ->get()
+                ->keyBy('employe_id');
+
+            // 4. Vérifier s'il existe un critère départemental actif
+            $critereDepartemental = CriterePointage::where('niveau', 'departemental')
+                ->where('departement_id', $departementId)
+                ->where('actif', true)
+                ->first();
+
+            // 5. Préparer les données des employés avec état des critères
+            $employesData = $employes->map(function ($employe) use ($criteresIndividuels, $critereDepartemental) {
+                $critereIndividuel = $criteresIndividuels->get($employe->id);
+                $aCritereIndividuel = !is_null($critereIndividuel);
+
+                // Déterminer le type de critère et ses détails
+                $typeCritere = null;
+                $nombrePointages = null;
+                $detailsCritere = null;
+
+                if ($aCritereIndividuel) {
+                    $typeCritere = 'individuel';
+                    $nombrePointages = $critereIndividuel->nombre_pointages;
+                    $detailsCritere = [
+                        'id' => $critereIndividuel->id,
+                        'tolerance_avant' => $critereIndividuel->tolerance_avant,
+                        'tolerance_apres' => $critereIndividuel->tolerance_apres,
+                        'source_pointage' => $critereIndividuel->source_pointage,
+                        'date_debut' => $critereIndividuel->date_debut->format('d/m/Y'),
+                        'date_fin' => $critereIndividuel->date_fin->format('d/m/Y')
+                    ];
+                } elseif ($critereDepartemental) {
+                    $typeCritere = 'departemental';
+                    $nombrePointages = $critereDepartemental->nombre_pointages;
+                    $detailsCritere = [
+                        'id' => $critereDepartemental->id,
+                        'tolerance_avant' => $critereDepartemental->tolerance_avant,
+                        'tolerance_apres' => $critereDepartemental->tolerance_apres,
+                        'source_pointage' => $critereDepartemental->source_pointage
+                    ];
+                }
+
                 return [
                     'id' => $employe->id,
                     'nom' => $employe->nom,
                     'prenom' => $employe->prenom,
-                    'poste' => $employe->poste ? $employe->poste->nom : 'Non assigné',
-                    'poste_id' => $employe->poste ? $employe->poste->id : null,
-                    'grade' => $employe->grade ? $employe->grade->nom : 'Non assigné',
-                    'a_critere' => in_array($employe->id, $employesAvecCriteres),
-                    'photo' => $employe->photo_profil ? asset('storage/' . $employe->photo_profil) : asset('images/default-avatar.png')
+                    'photo' => $employe->photo ?? '/images/default-avatar.png',
+                    'poste' => $employe->poste->nom ?? 'Non assigné',
+                    'poste_id' => $employe->poste_id,
+                    'grade' => $employe->grade->nom ?? 'Non assigné',
+                    'grade_id' => $employe->grade_id,
+                    'a_critere_individuel' => $aCritereIndividuel,
+                    'a_critere' => $aCritereIndividuel || !is_null($critereDepartemental),
+                    'type_critere' => $typeCritere,
+                    'nombre_pointages' => $nombrePointages,
+                    'details_critere' => $detailsCritere,
+                    'peut_recevoir_critere_departemental' => !$aCritereIndividuel
                 ];
-            }),
-            'departement' => $departement ? $departement->nom : 'Département inconnu',
-            'critere_departemental' => $critereDepartemental,
-            'periode' => $periode,
-            'postes' => $postes,
-            'poste_id' => $posteId
-        ];
-        
-        return response()->json($data);
+            });
+
+            // 6. Statistiques
+            $totalEmployes = $employes->count();
+            $employesAvecCritereIndividuel = $employesData->where('a_critere_individuel', true)->count();
+            $employesSansCritere = $employesData->where('a_critere', false)->count();
+
+            // 7. Préparer les données des postes avec nombres d'employés
+            $postesData = $postes->map(function($poste) use ($employes) {
+                $nombreEmployes = $employes->where('poste_id', $poste->id)->count();
+                return [
+                    'id' => $poste->id,
+                    'nom' => $poste->nom,
+                    'poste' => $poste->nom,
+                    'nombre_employes' => $nombreEmployes
+                ];
+            });
+
+            $response = [
+                'success' => true,
+                'departement' => $departementId,
+                'statistiques' => [
+                    'total_employes' => $totalEmployes,
+                    'avec_critere_individuel' => $employesAvecCritereIndividuel,
+                    'sans_critere' => $employesSansCritere,
+                    'eligible_departemental' => $totalEmployes - $employesAvecCritereIndividuel
+                ],
+                'postes' => $postesData,
+                'employes' => $employesData->map(function($employe) {
+                    return [
+                        'user_id' => $employe['id'],
+                        'nom' => $employe['nom'] . ' ' . $employe['prenom'],
+                        'email' => '', // À ajouter si nécessaire
+                        'photo' => $employe['photo'],
+                        'poste' => $employe['poste'],
+                        'poste_id' => $employe['poste_id'],
+                        'grade' => $employe['grade'],
+                        'grade_id' => $employe['grade_id'],
+                        'a_critere_individuel' => $employe['a_critere_individuel'],
+                        'a_critere_departemental' => $employe['type_critere'] === 'departemental',
+                        'nombre_pointages' => $employe['nombre_pointages'] ?? 0,
+                        'type_critere' => $employe['type_critere'],
+                        'details_critere' => $employe['details_critere']
+                    ];
+                }),
+                'criteres_departementaux' => $critereDepartemental ? [[
+                    'id' => $critereDepartemental->id,
+                    'periode' => 'mois', // Par défaut
+                    'nombre_pointages' => $critereDepartemental->nombre_pointages,
+                    'tolerance_avant' => $critereDepartemental->tolerance_avant,
+                    'tolerance_apres' => $critereDepartemental->tolerance_apres,
+                    'duree_pause' => $critereDepartemental->duree_pause ?? 0,
+                    'source_pointage' => $critereDepartemental->source_pointage,
+                    'date_debut' => $critereDepartemental->date_debut->format('Y-m-d'),
+                    'date_fin' => $critereDepartemental->date_fin->format('Y-m-d'),
+                    'employes_concernes' => $totalEmployes - $employesAvecCritereIndividuel
+                ]] : []
+            ];
+
+            return response()->json($response);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors du chargement des données : ' . $e->getMessage()
+            ], 500);
+        }
     }
     
     /**

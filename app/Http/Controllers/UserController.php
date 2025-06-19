@@ -147,33 +147,33 @@ class UserController extends Controller
                 // Si l'utilisateur existe mais n'est pas associé à un employé, l'associer à cet employé
                 $employe->update(['utilisateur_id' => $existingUser->id]);
                 
-                return redirect()->route('employes.show', $employe)
+            return redirect()->route('employes.show', $employe)
                     ->with('success', 'L\'employé a été associé au compte utilisateur existant.');
             }
         }
         
         try {
-            // Utiliser le mot de passe par défaut
-            $password = 'password';
-            
-            // Créer le compte utilisateur
-            $user = User::create([
-                'name' => $employe->prenom . ' ' . $employe->nom,
-                'email' => $employe->email,
-                'password' => Hash::make($password),
-                'role_id' => 2, // Rôle Employé par défaut
-            ]);
-            
-            // Associer le compte à l'employé
-            $employe->update(['utilisateur_id' => $user->id]);
-            
-            // Ici, vous pourriez envoyer un email avec les identifiants
-            // Mail::to($employe->email)->send(new NouveauCompte($user, $password));
-            
-            $message = 'Compte utilisateur créé avec succès. Mot de passe par défaut: ' . $password;
-            
-            return redirect()->route('employes.show', $employe)
-                ->with('success', $message);
+        // Utiliser le mot de passe par défaut
+        $password = 'password';
+        
+        // Créer le compte utilisateur
+        $user = User::create([
+            'name' => $employe->prenom . ' ' . $employe->nom,
+            'email' => $employe->email,
+            'password' => Hash::make($password),
+            'role_id' => 2, // Rôle Employé par défaut
+        ]);
+        
+        // Associer le compte à l'employé
+        $employe->update(['utilisateur_id' => $user->id]);
+        
+        // Ici, vous pourriez envoyer un email avec les identifiants
+        // Mail::to($employe->email)->send(new NouveauCompte($user, $password));
+        
+        $message = 'Compte utilisateur créé avec succès. Mot de passe par défaut: ' . $password;
+        
+        return redirect()->route('employes.show', $employe)
+            ->with('success', $message);
                 
         } catch (\Illuminate\Database\QueryException $e) {
             // Si on a encore une erreur de duplicata, cela signifie qu'il y a une condition de concurrence

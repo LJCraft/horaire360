@@ -47,6 +47,227 @@
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
+
+    /* SOLUTION RADICALE - FORCER LE DÉVERROUILLAGE DES DROPDOWNS */
+    #poste_filter,
+    #grade_filter {
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+    }
+
+    #poste_filter:disabled,
+    #grade_filter:disabled {
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        color: #212529 !important;
+    }
+
+    #poste_filter[disabled],
+    #grade_filter[disabled] {
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        color: #212529 !important;
+        border-color: #ced4da !important;
+    }
+
+    #poste_filter:focus,
+    #grade_filter:focus {
+        border-color: #86b7fe !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+    }
+
+    /* Styles professionnels pour la configuration par département */
+    .alerte-flottante {
+        transform: translateX(100%);
+        transition: all 0.3s ease-in-out;
+    }
+
+    .alerte-flottante.show {
+        transform: translateX(0);
+    }
+
+    .ligne-employe {
+        transition: all 0.3s ease;
+    }
+
+    .ligne-employe:hover {
+        background-color: #f8f9fa;
+    }
+
+    .employe-avec-critere {
+        background-color: #fdf7e3;
+    }
+
+    .employe-sans-critere:hover {
+        background-color: #e3f2fd;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    }
+
+    .stat-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+        margin-right: 0.25rem;
+    }
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+
+    .alert-floating {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1055;
+        min-width: 300px;
+        animation: slideInFromRight 0.5s ease-out;
+    }
+
+    @keyframes slideInFromRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0,0,0,.3);
+        border-radius: 50%;
+        border-top-color: #007bff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border-radius: 0.75rem;
+        color: white;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .section-header h4 {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .section-header p {
+        margin-bottom: 0;
+        opacity: 0.9;
+    }
+
+    @media (max-width: 768px) {
+        .btn-group {
+            flex-direction: column;
+        }
+        
+        .btn-group .btn {
+            margin-right: 0;
+            margin-bottom: 0.25rem;
+        }
+        
+        .alert-floating {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            min-width: auto;
+        }
+    }
+
+    /* Style pour les initiales des employés */
+    .employe-initiales {
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px;
+        min-height: 30px;
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6 !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.75rem !important;
+        font-weight: bold !important;
+        color: #0d6efd !important;
+        margin-right: 0.5rem !important;
+        flex-shrink: 0 !important;
+        text-transform: uppercase !important;
+        line-height: 1 !important;
+        letter-spacing: 0.5px !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        text-align: center !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .employe-photo {
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px;
+        min-height: 30px;
+        border-radius: 50% !important;
+        object-fit: cover !important;
+        margin-right: 0.5rem !important;
+        flex-shrink: 0 !important;
+        border: 1px solid #dee2e6 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Assurer que les conteneurs ne perturbent pas l'affichage */
+    .position-relative {
+        position: relative !important;
+        display: inline-block !important;
+    }
 </style>
 @endsection
 
@@ -295,125 +516,204 @@
                         
                         <!-- Onglet Configuration par département -->
                         <div class="tab-pane fade" id="departements" role="tabpanel" aria-labelledby="departements-tab">
-                            <div class="row mb-4">
-                                <div class="col-md-6">
-                                    <div class="card">
+                            
+                            <!-- Section de sélection du département -->
+                            <div class="card mb-4">
                                         <div class="card-header bg-light">
-                                            <h6 class="mb-0">Filtrer par département</h6>
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-filter me-2"></i>Sélection du département
+                                    </h6>
                                         </div>
                                         <div class="card-body">
-                                            <form id="departementFilterForm" action="javascript:void(0);">
-                                                <div class="row g-3">
-                                                    <div class="col-md-4">
-                                                        <label for="departement_filter" class="form-label">Département</label>
-                                                        <select class="form-select" id="departement_filter" name="departement_id">
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-md-8">
+                                            <label for="departement_selector" class="form-label">Département <span class="text-danger">*</span></label>
+                                            <select class="form-select" id="departement_selector" name="departement_id" required>
                                                             <option value="">Sélectionner un département</option>
                                                             @foreach ($departements as $departement)
-                                                                <option value="{{ $departement->departement }}" {{ $departementId == $departement->departement ? 'selected' : '' }}>
+                                                    <option value="{{ $departement->departement }}">
                                                                     {{ $departement->departement }}
                                                                 </option>
                                                             @endforeach
                                                         </select>
                                                     </div>
-                                                    <div class="col-md-3">
-                                                        <label for="poste_filter" class="form-label">Poste</label>
-                                                        <select class="form-select" id="poste_filter" name="poste_id" disabled required>
-                                                            <option value="">Tous les postes</option>
-                                                        </select>
+                                        <div class="col-md-4">
+                                            <button type="button" id="charger_departement_btn" class="btn btn-primary w-100">
+                                                <i class="fas fa-search me-1"></i>Filtrer
+                                            </button>
                                                     </div>
-                                                    <div class="col-md-3">
-                                                        <label for="grade_filter" class="form-label">Grade</label>
-                                                        <select class="form-select" id="grade_filter" name="grade_id" disabled required>
-                                                            <option value="">Tous les grades</option>
-                                                        </select>
-                                                        <div class="form-text text-muted small"><i class="bi bi-info-circle"></i> Sélectionnez d'abord un poste</div>
                                                     </div>
-                                                    <div class="col-md-3">
-                                                        <label for="periode_filter" class="form-label">Période</label>
-                                                        <select class="form-select" id="periode_filter" name="periode" required>
-                                                            <option value="jour" {{ $periode == 'jour' ? 'selected' : '' }}>Jour</option>
-                                                            <option value="semaine" {{ $periode == 'semaine' ? 'selected' : '' }}>Semaine</option>
-                                                            <option value="mois" {{ $periode == 'mois' ? 'selected' : '' }}>Mois</option>
-                                                        </select>
                                                     </div>
-                                                    <div class="col-12">
-                                                        <button type="button" id="filterButton" class="btn btn-primary">
-                                                            <i class="fas fa-filter me-1"></i> Filtrer
-                                                        </button>
                                                     </div>
+
+                            <!-- Message d'instruction initial -->
+                            <div id="message_instruction" class="card border-0 shadow-sm">
+                                <div class="card-body text-center py-5">
+                                    <div class="mb-4">
+                                        <i class="bi bi-building fa-4x text-primary mb-3"></i>
+                                        <h4 class="text-primary mb-3">Configuration par département</h4>
+                                        <p class="text-muted mb-4 fs-6">
+                                            Sélectionnez un département ci-dessus pour visualiser la liste des employés et configurer leurs critères de pointage.<br>
+                                            Vous pourrez appliquer des critères individuels ou créer un critère départemental global.
+                                        </p>
                                                 </div>
-                                            </form>
+                                    <div class="alert alert-info border-0 bg-light">
+                                        <i class="bi bi-info-circle me-2 text-info"></i>
+                                        <strong>Important :</strong> Les employés ayant déjà un critère individuel ne seront pas affectés par les critères départementaux.
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="card h-100">
-                                        <div class="card-header bg-light">
-                                            <h6 class="mb-0">Informations</h6>
+
+                            <!-- Section des résultats départementaux -->
+                            <div id="resultats_departement" class="d-none">
+                                
+                                <!-- En-tête avec informations du département -->
+                                <div class="card mb-4 border-0 shadow-sm">
+                                    <div class="card-header bg-primary text-white">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h5 class="mb-0">
+                                                    <i class="bi bi-building me-2"></i>Département : <span id="nom_departement_actuel">-</span>
+                                                </h5>
+                                                <small class="opacity-75">Gestion des critères de pointage</small>
+                                            </div>
+                                            <div>
+                                                <button type="button" id="creer_critere_departemental_btn" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCritereDepartemental">
+                                                    <i class="fas fa-plus-circle me-1"></i>Créer critère départemental
+                                                </button>
+                                            </div>
+                                        </div>
                                         </div>
                                         <div class="card-body">
-                                            <div class="alert alert-info">
-                                                <i class="fas fa-info-circle me-2"></i> Sélectionnez un département pour afficher les employés et configurer les critères de pointage.
+                                        <!-- Alertes critère départemental existant -->
+                                        <div id="alerte_critere_existant" class="d-none">
+                                            <div class="alert alert-info border-start border-4 border-info bg-light">
+                                                <div class="d-flex">
+                                                    <div class="flex-shrink-0">
+                                                        <i class="fas fa-info-circle fa-lg text-info"></i>
                                             </div>
-                                            <div id="departement-stats" class="d-none">
-                                                <h6 class="fw-bold">Département: <span id="departement-nom"></span></h6>
-                                                <div class="row mt-3">
-                                                    <div class="col-md-6">
-                                                        <div class="card bg-light">
-                                                            <div class="card-body py-2 px-3">
-                                                                <div class="d-flex justify-content-between align-items-center">
-                                                                    <span>Employés:</span>
-                                                                    <span class="badge bg-primary" id="employes-count">0</span>
+                                                    <div class="flex-grow-1 ms-3">
+                                                        <h6 class="alert-heading mb-2 text-info">Critère départemental existant</h6>
+                                                        <div id="details_critere_existant" class="small"></div>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-6">
-                                                        <div class="card bg-light">
-                                                            <div class="card-body py-2 px-3">
-                                                                <div class="d-flex justify-content-between align-items-center">
-                                                                    <span>Configurés:</span>
-                                                                    <span class="badge bg-success" id="employes-configured-count">0</span>
+                                        
+                                        <!-- Statistiques du département -->
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <div class="card h-100 border-0 shadow-sm">
+                                                    <div class="card-body text-center bg-light">
+                                                        <div class="d-flex align-items-center justify-content-center mb-2">
+                                                            <i class="fas fa-users fa-2x text-info me-3"></i>
+                                                            <div>
+                                                                <h3 class="mb-0 text-info" id="stat_total_employes">0</h3>
+                                                                <small class="text-muted">Total employés</small>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="mt-3">
-                                                    <button type="button" class="btn btn-success btn-sm" id="create-departement-critere">
-                                                        <i class="fas fa-plus-circle me-1"></i> Créer un critère départemental
-                                                    </button>
+                                            <div class="col-md-3">
+                                                <div class="card h-100 border-0 shadow-sm">
+                                                    <div class="card-body text-center bg-light">
+                                                        <div class="d-flex align-items-center justify-content-center mb-2">
+                                                            <i class="fas fa-user-check fa-2x text-success me-3"></i>
+                                                            <div>
+                                                                <h3 class="mb-0 text-success" id="stat_avec_critere_individuel">0</h3>
+                                                                <small class="text-muted">Critère individuel</small>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                                            <div class="col-md-3">
+                                                <div class="card h-100 border-0 shadow-sm">
+                                                    <div class="card-body text-center bg-light">
+                                                        <div class="d-flex align-items-center justify-content-center mb-2">
+                                                            <i class="fas fa-user-times fa-2x text-warning me-3"></i>
+                                                            <div>
+                                                                <h3 class="mb-0 text-warning" id="stat_sans_critere">0</h3>
+                                                                <small class="text-muted">Sans critère</small>
                             </div>
-                            
-                            <!-- Liste des employés du département -->
-                            <div id="employes-container" class="d-none">
-                                <div class="card">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0">Employés du département</h6>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="show-only-unconfigured" required>
-                                            <label class="form-check-label" for="show-only-unconfigured">Afficher uniquement les employés non configurés</label>
+                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="card h-100 border-0 shadow-sm">
+                                                    <div class="card-body text-center bg-light">
+                                                        <div class="d-flex align-items-center justify-content-center mb-2">
+                                                            <i class="fas fa-building fa-2x text-primary me-3"></i>
+                                                            <div>
+                                                                <h3 class="mb-0 text-primary" id="stat_eligible_departemental">0</h3>
+                                                                <small class="text-muted">Éligibles départemental</small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- Section des postes du département -->
+                                <div class="card mb-4 border-0 shadow-sm">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-briefcase me-2"></i>Postes du département
+                                        </h6>
+                                    </div>
                                     <div class="card-body">
+                                        <div id="conteneur_postes" class="row g-3">
+                                            <!-- Les postes seront affichés ici dynamiquement -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tableau des employés du département -->
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-light">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-users me-2"></i>Employés du département
+                                            </h6>
+                                            <div class="d-flex gap-3 align-items-center">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="filtre_sans_critere_individuel">
+                                                    <label class="form-check-label small text-muted" for="filtre_sans_critere_individuel">
+                                                        Afficher uniquement les employés sans critère individuel
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
                                         <div class="table-responsive">
-                                            <table class="table table-hover" id="employes-table">
+                                            <table class="table table-hover mb-0" id="tableau_employes">
                                                 <thead class="table-light">
                                                     <tr>
-                                                        <th>Employé</th>
-                                                        <th>Poste</th>
-                                                        <th>Grade</th>
-                                                        <th>Statut</th>
-                                                        <th>Actions</th>
+                                                        <th width="5%" class="text-center">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" id="selectionner_tous_employes">
+                                                            </div>
+                                                        </th>
+                                                        <th width="25%">Employé</th>
+                                                        <th width="15%">Poste</th>
+                                                        <th width="15%">Grade</th>
+                                                        <th width="15%">État</th>
+                                                        <th width="15%" class="text-center">Pointages</th>
+                                                        <th width="10%" class="text-center">Actions</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
-                                                    <!-- Les employés seront chargés dynamiquement ici -->
+                                                <tbody id="tbody_employes">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center py-5 text-muted">
+                                                            <i class="fas fa-search fa-3x mb-3 d-block text-muted opacity-50"></i>
+                                                            <p class="mb-0">Sélectionnez un département pour afficher les employés</p>
+                                                        </td>
+                                                    </tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -733,507 +1033,657 @@
     </div>
 </div>
 
+<!-- Modal pour créer un critère départemental -->
+<div class="modal fade" id="modalCritereDepartemental" tabindex="-1" aria-labelledby="modalCritereDepartementalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalCritereDepartementalLabel">
+                    <i class="fas fa-building me-2"></i>Créer un critère départemental
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="form_critere_departemental" action="{{ route('criteres-pointage.store') }}" method="POST">
+                <div class="modal-body">
+                    @csrf
+                    <input type="hidden" name="niveau" value="departemental">
+                    <input type="hidden" name="departement_id" id="hidden_departement_id">
+                    
+                    <!-- Affichage des employés sélectionnés -->
+                    <div id="section_employes_selectionnes" class="mb-4">
+                        <h6 class="text-primary">
+                            <i class="fas fa-users me-2"></i>Employés qui recevront ce critère
+                        </h6>
+                        <div id="liste_employes_selectionnes" class="alert alert-light border">
+                            <!-- Liste dynamique des employés sélectionnés -->
+                        </div>
+                    </div>
+                    
+                    <!-- Configuration du critère -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="modal_date_debut" class="form-label">Date de début <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="modal_date_debut" name="date_debut" value="{{ date('Y-m-d') }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modal_date_fin" class="form-label">Date de fin <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="modal_date_fin" name="date_fin" value="{{ date('Y-m-d', strtotime('+1 year')) }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label for="modal_periode" class="form-label">Période <span class="text-danger">*</span></label>
+                            <select class="form-select" id="modal_periode" name="periode" required>
+                                <option value="jour">Jour</option>
+                                <option value="semaine">Semaine</option>
+                                <option value="mois" selected>Mois</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modal_nombre_pointages" class="form-label">Nombre de pointages <span class="text-danger">*</span></label>
+                            <select class="form-select" id="modal_nombre_pointages" name="nombre_pointages" required>
+                                <option value="1">1 (Présence uniquement)</option>
+                                <option value="2" selected>2 (Arrivée et départ)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label for="modal_tolerance_avant" class="form-label">Tolérance avant (min)</label>
+                            <input type="number" class="form-control" id="modal_tolerance_avant" name="tolerance_avant" value="10" min="0" max="60">
+                            <div class="form-text">Minutes de tolérance avant l'heure prévue</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modal_tolerance_apres" class="form-label">Tolérance après (min)</label>
+                            <input type="number" class="form-control" id="modal_tolerance_apres" name="tolerance_apres" value="10" min="0" max="60">
+                            <div class="form-text">Minutes de tolérance après l'heure prévue</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label for="modal_duree_pause" class="form-label">Durée de pause (min)</label>
+                            <input type="number" class="form-control" id="modal_duree_pause" name="duree_pause" value="0" min="0" max="240">
+                            <div class="form-text">Durée de pause non décomptée</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modal_source_pointage" class="form-label">Source de pointage</label>
+                            <select class="form-select" id="modal_source_pointage" name="source_pointage">
+                                <option value="tous" selected>Tous types de pointage</option>
+                                <option value="mobile">Mobile uniquement</option>
+                                <option value="web">Web uniquement</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Zone de message -->
+                    <div id="zone_message_modal" class="mt-3"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Annuler
+                    </button>
+                    <button type="submit" id="btn_valider_critere" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>Créer le critère départemental
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
-@section('scripts')
-<!-- Script personnalisé pour la gestion des critères de pointage -->
-<script src="{{ asset('js/criteres-pointage.js') }}"></script>
+@push('scripts')
 <script>
-    // Initialiser les tooltips pour les icônes d'action
-    document.addEventListener('DOMContentLoaded', function() {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl, {
-                placement: 'top',
-                trigger: 'hover'
-            });
-        });
-    });
+// Variables globales pour la configuration départementale
+let employesDepartement = [];
+let postesDepartement = [];
+let departementActuel = '';
+let criteresDepartementauxExistants = [];
+
+console.log('Configuration départementale - Script chargé');
+
+// Initialisation des fonctionnalités
+document.addEventListener('DOMContentLoaded', function() {
+    initConfigurationDepartement();
+});
+
+// Fonction d'initialisation principale
+function initConfigurationDepartement() {
+    console.log('Initialisation configuration départementale');
     
-    document.addEventListener('DOMContentLoaded', function() {
-        // Filtrage par département
-        const filterButton = document.getElementById('filterButton');
-        const departementFilter = document.getElementById('departement_filter');
-        const periodeFilter = document.getElementById('periode_filter');
-        const posteFilter = document.getElementById('poste_filter');
-        const employesContainer = document.getElementById('employes-container');
-        const departementStats = document.getElementById('departement-stats');
-        const departementNom = document.getElementById('departement-nom');
-        const employesCount = document.getElementById('employes-count');
-        const employesConfiguredCount = document.getElementById('employes-configured-count');
-        const employesTable = document.getElementById('employes-table')?.querySelector('tbody');
-        const showOnlyUnconfigured = document.getElementById('show-only-unconfigured');
-        const createDepartementCritere = document.getElementById('create-departement-critere');
-        
-        // Éléments pour le modal de critère départemental
-        const departementModal = document.getElementById('departementModal');
-        const departementSelect = document.getElementById('departement_id');
-        const periodeSelect = document.getElementById('periode');
-        const employesList = document.getElementById('employes-list');
-        
-        // Code pour le filtrage des employés dans la liste principale
-        
-        // Chargement des employés lors du changement de département dans le modal
-        if (departementSelect) {
-            departementSelect.addEventListener('change', function() {
-                const departementId = this.value;
-                if (departementId) {
-                    loadEmployesForSelection(departementId);
-                } else {
-                    employesList.innerHTML = '<div class="text-center">Veuillez sélectionner un département</div>';
+    const boutonCharger = document.getElementById('charger_departement_btn');
+    const selectDepartement = document.getElementById('departement_selector');
+    const formCritere = document.getElementById('form_critere_departemental');
+    
+    // Événement pour charger un département
+    if (boutonCharger) {
+        boutonCharger.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Bouton filtrer cliqué');
+            chargerDepartement();
+        });
+    }
+    
+    // Événement de changement de département
+    if (selectDepartement) {
+        selectDepartement.addEventListener('change', function() {
+            if (!this.value) {
+                masquerResultats();
                 }
             });
         }
         
-        // Mise à jour des postes lors du changement de département
-        if (departementFilter) {
-            departementFilter.addEventListener('change', function() {
-                const departementId = this.value;
-                if (departementId) {
-                    updatePostesByDepartement(departementId);
-                } else {
-                    // Réinitialiser le sélecteur de postes
-                    if (posteFilter) {
-                        posteFilter.innerHTML = '<option value="">Tous les postes</option>';
-                        posteFilter.disabled = true;
-                    }
-                    
-                    // Réinitialiser le sélecteur de grades
-                    const gradeFilter = document.getElementById('grade_filter');
-                    if (gradeFilter) {
-                        gradeFilter.innerHTML = '<option value="">Tous les grades</option>';
-                        gradeFilter.disabled = true;
-                    }
+    // Gestion du formulaire de création de critère départemental
+    if (formCritere) {
+        formCritere.addEventListener('submit', function(e) {
+            e.preventDefault();
+            creerCritereDepartemental();
+        });
+    }
+    
+    // Gestion de la sélection multiple des employés
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'selectionner_tous_employes') {
+            toggleSelectionTousEmployes(e.target.checked);
+        } else if (e.target.classList.contains('checkbox-employe')) {
+            mettreAJourSelectionTous();
+        } else if (e.target.id === 'filtre_sans_critere_individuel') {
+            filtrerEmployesSansCritere(e.target.checked);
                 }
             });
         }
         
-        // Mise à jour des grades lors du changement de poste
-        const posteFilter = document.getElementById('poste_filter');
-        const gradeFilter = document.getElementById('grade_filter');
-        
-        if (posteFilter) {
-            posteFilter.addEventListener('change', function() {
-                const posteId = this.value;
-                if (posteId) {
-                    updateGradesByPoste(posteId);
-                } else {
-                    // Réinitialiser le sélecteur de grades
-                    if (gradeFilter) {
-                        gradeFilter.innerHTML = '<option value="">Tous les grades</option>';
-                        gradeFilter.disabled = true;
-                    }
-                }
-            });
-        }
-        
-        // Fonction pour mettre à jour les postes en fonction du département
-        function updatePostesByDepartement(departementId) {
-            if (!posteFilter) return;
-            
-            fetch('{{ route("criteres-pointage.get-postes-departement") }}', {
+// Fonction pour charger les données d'un département
+async function chargerDepartement() {
+    const selectDepartement = document.getElementById('departement_selector');
+    const departementId = selectDepartement.value;
+    
+    console.log('Chargement département:', departementId);
+    
+    if (!departementId) {
+        afficherMessage('Veuillez sélectionner un département', 'warning');
+        return;
+    }
+    
+    // Affichage du loading
+    afficherLoading('Chargement des données du département...');
+    
+    try {
+        const response = await fetch('/criteres-pointage/get-employes-departement', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 },
                 body: JSON.stringify({
                     departement_id: departementId
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Réinitialiser le sélecteur de postes
-                posteFilter.innerHTML = '<option value="">Tous les postes</option>';
-                
-                // Ajouter les postes du département
-                data.postes.forEach(poste => {
-                    const option = document.createElement('option');
-                    option.value = poste.id;
-                    option.textContent = poste.nom;
-                    posteFilter.appendChild(option);
-                });
-                
-                // Activer le sélecteur de postes
-                posteFilter.disabled = false;
-                
-                // Réinitialiser le sélecteur de grades
-                if (gradeFilter) {
-                    gradeFilter.innerHTML = '<option value="">Tous les grades</option>';
-                    gradeFilter.disabled = true;
-                }
-            })
-            .catch(error => {
+        });
+        
+        console.log('Réponse reçue:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Données reçues:', data);
+        
+        if (data.success) {
+            departementActuel = departementId;
+            employesDepartement = data.employes || [];
+            postesDepartement = data.postes || [];
+            criteresDepartementauxExistants = data.criteres_departementaux || [];
+            
+            // Affichage des résultats
+            afficherResultatsDepartement(data);
+            masquerLoading();
+            
+        } else {
+            throw new Error(data.message || 'Erreur lors du chargement du département');
+        }
+        
+    } catch (error) {
                 console.error('Erreur:', error);
-                posteFilter.innerHTML = '<option value="">Erreur de chargement</option>';
-            });
-        }
-        
-        // Fonction pour mettre à jour les grades en fonction du poste
-        function updateGradesByPoste(posteId) {
-            if (!gradeFilter) return;
-            
-            fetch('{{ route("criteres-pointage.get-grades-poste") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    poste_id: posteId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Réinitialiser le sélecteur de grades
-                gradeFilter.innerHTML = '<option value="">Tous les grades</option>';
-                
-                // Ajouter les grades du poste
-                if (data.grades && data.grades.length > 0) {
-                    data.grades.forEach(grade => {
-                        const option = document.createElement('option');
-                        option.value = grade.id;
-                        option.textContent = grade.nom;
-                        gradeFilter.appendChild(option);
-                    });
-                    
-                    // Activer le sélecteur de grades
-                    gradeFilter.disabled = false;
-                    
-                    // Mettre à jour le message d'information
-                    const gradeInfoDiv = gradeFilter.nextElementSibling;
-                    if (gradeInfoDiv && gradeInfoDiv.classList.contains('form-text')) {
-                        gradeInfoDiv.innerHTML = `<i class="bi bi-info-circle"></i> ${data.grades.length} grade(s) disponible(s) pour ce poste`;
-                        gradeInfoDiv.classList.remove('text-muted');
-                        gradeInfoDiv.classList.add('text-primary');
-                    }
-                } else {
-                    // Aucun grade disponible pour ce poste
-                    gradeFilter.disabled = true;
-                    
-                    // Mettre à jour le message d'information
-                    const gradeInfoDiv = gradeFilter.nextElementSibling;
-                    if (gradeInfoDiv && gradeInfoDiv.classList.contains('form-text')) {
-                        gradeInfoDiv.innerHTML = `<i class="bi bi-exclamation-circle"></i> Aucun grade disponible pour ce poste`;
-                        gradeInfoDiv.classList.remove('text-muted');
-                        gradeInfoDiv.classList.add('text-warning');
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                gradeFilter.innerHTML = '<option value="">Erreur de chargement</option>';
-                gradeFilter.disabled = true;
-            });
-        }
-        
-        // Filtrer les employés par département
-        if (filterButton) {
-            filterButton.addEventListener('click', function() {
-                const departementId = departementFilter.value;
-                const periode = periodeFilter.value;
-                const posteId = posteFilter ? posteFilter.value : null;
-                const gradeId = gradeFilter ? gradeFilter.value : null;
-                
-                if (!departementId) {
-                    alert('Veuillez sélectionner un département');
-                    return;
-                }
-                
-                // Charger les employés du département
-                fetch('{{ route("criteres-pointage.get-employes-departement") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        departement_id: departementId,
-                        periode: periode,
-                        poste_id: posteId,
-                        grade_id: gradeId
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Afficher les statistiques du département
-                    departementStats.classList.remove('d-none');
-                    departementNom.textContent = data.departement;
-                    
-                    // Compter les employés configurés
-                    const employesConfigured = data.employes.filter(employe => employe.a_critere).length;
-                    employesCount.textContent = data.employes.length;
-                    employesConfiguredCount.textContent = employesConfigured;
-                    
-                    // Afficher la liste des employés
-                    employesContainer.classList.remove('d-none');
-                    renderEmployes(data.employes);
-                    
-                    // Mettre à jour le bouton de création de critère départemental
-                    if (createDepartementCritere) {
-                        createDepartementCritere.dataset.departementId = departementId;
-                        createDepartementCritere.dataset.periode = periode;
-                    }
-                    
-                    // Mettre à jour les postes dans le sélecteur
-                    if (data.postes && posteFilter) {
-                        posteFilter.innerHTML = '<option value="">Tous les postes</option>';
-                        data.postes.forEach(poste => {
-                            const option = document.createElement('option');
-                            option.value = poste.id;
-                            option.textContent = poste.nom;
-                            posteFilter.appendChild(option);
-                        });
-                        posteFilter.disabled = false;
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur:', error);
-                    alert('Une erreur est survenue lors du chargement des employés');
-                });
-            });
-        }
-        
-        // Filtrer les employés affichés (configurés/non configurés)
-        if (showOnlyUnconfigured) {
-            showOnlyUnconfigured.addEventListener('change', function() {
-                const rows = employesTable.querySelectorAll('tr');
-                rows.forEach(row => {
-                    if (this.checked && row.dataset.hasCritere === 'true') {
-                        row.classList.add('d-none');
-                    } else {
-                        row.classList.remove('d-none');
-                    }
-                });
-            });
-        }
-        
-        // Ouvrir le modal de création de critère départemental
-        if (createDepartementCritere) {
-            createDepartementCritere.addEventListener('click', function() {
-                const departementId = this.dataset.departementId;
-                const periode = this.dataset.periode;
-                
-                // Pré-remplir le formulaire
-                departementSelect.value = departementId;
-                document.getElementById('periode').value = periode;
-                
-                // Charger les employés pour la sélection
-                loadEmployesForSelection(departementId);
-                
-                // Ouvrir le modal
-                const modal = new bootstrap.Modal(departementModal);
-                modal.show();
-            });
-        }
-        
-        // Fonction pour charger les employés pour la sélection dans le modal départemental
-        function loadEmployesForSelection(departementId) {
-            if (!employesList) return;
-            
-            // Afficher un indicateur de chargement
-            employesList.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Chargement...</span></div><p class="mt-2">Chargement des employés...</p></div>';
-            
-            fetch('{{ route("criteres-pointage.get-employes-departement") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    departement_id: departementId,
-                    periode: periodeSelect ? periodeSelect.value : 'mois'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.employes && data.employes.length > 0) {
-                    employesList.innerHTML = '';
-                    
-                    // Créer une liste de cases à cocher pour les employés
-                    data.employes.forEach(employe => {
-                        const employeItem = document.createElement('div');
-                        employeItem.className = 'form-check mb-2';
-                        employeItem.innerHTML = `
-                            <input class="form-check-input" type="checkbox" name="employes[]" value="${employe.id}" id="employe-${employe.id}">
-                            <label class="form-check-label d-flex align-items-center" for="employe-${employe.id}">
-                                <img src="${employe.photo || '/images/default-avatar.png'}" alt="${employe.nom}" class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 50%;">
-                                <div>
-                                    <span class="fw-bold">${employe.nom} ${employe.prenom}</span>
-                                    <small class="d-block text-muted">${employe.poste || 'Non assigné'} ${employe.grade ? '- ' + employe.grade : ''}</small>
-                                </div>
-                            </label>
-                        `;
-                        employesList.appendChild(employeItem);
-                    });
-                    
-                    // Ajouter des boutons pour sélectionner/désélectionner tous
-                    const buttonsDiv = document.createElement('div');
-                    buttonsDiv.className = 'mt-3 d-flex gap-2';
-                    buttonsDiv.innerHTML = `
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="select-all-employes">Sélectionner tous</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="deselect-all-employes">Désélectionner tous</button>
-                    `;
-                    employesList.appendChild(buttonsDiv);
-                    
-                    // Ajouter les événements pour les boutons
-                    document.getElementById('select-all-employes').addEventListener('click', function() {
-                        const checkboxes = employesList.querySelectorAll('input[type="checkbox"]');
-                        checkboxes.forEach(checkbox => checkbox.checked = true);
-                    });
-                    
-                    document.getElementById('deselect-all-employes').addEventListener('click', function() {
-                        const checkboxes = employesList.querySelectorAll('input[type="checkbox"]');
-                        checkboxes.forEach(checkbox => checkbox.checked = false);
-                    });
-                } else {
-                    employesList.innerHTML = '<div class="alert alert-warning">Aucun employé trouvé dans ce département</div>';
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                employesList.innerHTML = '<div class="alert alert-danger">Une erreur est survenue lors du chargement des employés</div>';
-            });
-        }
-        
-        // Fonction pour afficher les employés dans le tableau
-        function renderEmployes(employes) {
-            employesTable.innerHTML = '';
-            
-            if (employes.length === 0) {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="5" class="text-center">Aucun employé trouvé dans ce département</td>`;
-                employesTable.appendChild(row);
-                return;
-            }
-            
-            employes.forEach(employe => {
-                const row = document.createElement('tr');
-                row.dataset.hasCritere = employe.a_critere;
-                
-                if (showOnlyUnconfigured && showOnlyUnconfigured.checked && employe.a_critere) {
-                    row.classList.add('d-none');
-                }
-                
-                row.innerHTML = `
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <img src="${employe.photo}" alt="${employe.nom}" class="employe-avatar me-2">
-                            <div>
-                                <div class="fw-bold">${employe.nom} ${employe.prenom}</div>
-                            </div>
+        afficherMessage(`Erreur: ${error.message}`, 'danger');
+        masquerLoading();
+    }
+}
+
+// Fonction pour afficher les résultats du département
+function afficherResultatsDepartement(data) {
+    console.log('Affichage des résultats pour:', data.departement);
+    
+    // Masquer le message d'instruction et afficher les résultats
+    document.getElementById('message_instruction').classList.add('d-none');
+    document.getElementById('resultats_departement').classList.remove('d-none');
+    
+    // Mise à jour du nom du département
+    document.getElementById('nom_departement_actuel').textContent = departementActuel;
+    
+    // Mise à jour des statistiques
+    mettreAJourStatistiques(data.statistiques);
+    
+    // Affichage des postes
+    afficherPostesDepartement(data.postes || []);
+    
+    // Affichage des employés
+    afficherEmployesDepartement(data.employes || []);
+    
+    // Gestion des critères départementaux existants
+    gererCriteresDepartementauxExistants(data.criteres_departementaux || []);
+    
+    // Scroll vers les résultats
+    document.getElementById('resultats_departement').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+    });
+}
+
+// Fonction pour mettre à jour les statistiques
+function mettreAJourStatistiques(stats) {
+    if (!stats) return;
+    
+    document.getElementById('stat_total_employes').textContent = stats.total_employes || 0;
+    document.getElementById('stat_avec_critere_individuel').textContent = stats.avec_critere_individuel || 0;
+    document.getElementById('stat_sans_critere').textContent = stats.sans_critere || 0;
+    document.getElementById('stat_eligible_departemental').textContent = stats.eligible_departemental || 0;
+}
+
+// Fonction pour afficher les postes du département
+function afficherPostesDepartement(postes) {
+    const conteneur = document.getElementById('conteneur_postes');
+    
+    if (!postes || postes.length === 0) {
+        conteneur.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-light border-0 text-center py-4">
+                    <i class="bi bi-briefcase fa-3x text-muted mb-3 d-block"></i>
+                    <h6 class="text-muted mb-2">Aucun poste défini</h6>
+                    <p class="text-muted small mb-0">Ce département ne contient aucun poste configuré.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    conteneur.innerHTML = postes.map(poste => `
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center bg-light">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="bi bi-briefcase fa-2x text-primary me-3"></i>
+                        <div class="text-start">
+                            <h6 class="mb-1 text-primary">${poste.nom || poste.poste}</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-people me-1"></i>${poste.nombre_employes || 0} employé(s)
+                            </small>
                         </div>
-                    </td>
-                    <td>${employe.poste}</td>
-                    <td>${employe.grade}</td>
-                    <td>
-                        ${employe.a_critere ? 
-                            '<span class="badge bg-success">Configuré</span>' : 
-                            '<span class="badge bg-warning text-dark">Non configuré</span>'}
-                    </td>
-                    <td>
-                        <a href="{{ route('criteres-pointage.create') }}?employe_id=${employe.id}" class="btn btn-sm btn-primary">
-                            <i class="fas fa-cog"></i> Configurer
-                        </a>
-                    </td>
-                `;
-                
-                employesTable.appendChild(row);
-            });
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Fonction pour afficher les employés du département
+function afficherEmployesDepartement(employes) {
+    const tbody = document.getElementById('tbody_employes');
+    
+    if (!employes || employes.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div class="d-flex flex-column align-items-center justify-content-center text-muted">
+                        <i class="bi bi-people-fill fa-4x mb-3 opacity-50"></i>
+                        <h6 class="text-muted mb-2">Aucun employé trouvé</h6>
+                        <p class="small mb-0">Ce département ne contient aucun employé actif.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = employes.map(employe => {
+        // Le backend envoie le nom complet dans le champ 'nom'
+        const nomComplet = employe.nom || 'Nom non défini';
+        
+        // Extraire les initiales du nom complet (format: "Prénom Nom")
+        let initiales = '';
+        const parties = nomComplet.trim().split(' ');
+        if (parties.length >= 2) {
+            // Prendre la première lettre du premier mot (prénom) et du dernier mot (nom)
+            initiales = parties[0].substring(0, 1).toUpperCase() + parties[parties.length - 1].substring(0, 1).toUpperCase();
+        } else if (parties.length === 1 && parties[0].length > 0) {
+            // Si un seul mot, prendre les deux premières lettres
+            initiales = parties[0].substring(0, 2).toUpperCase();
+        } else {
+            initiales = '??';
         }
         
-        // Le code pour le chargement des employés lors du changement de département
-        // a été déplacé dans le fichier criteres-pointage.js
-        // Initialiser la page si un département est déjà sélectionné
-        if (departementFilter && departementFilter.value) {
-            // Mettre à jour les postes d'abord
-            updatePostesByDepartement(departementFilter.value);
-            // Puis cliquer sur le bouton de filtrage
-            filterButton.click();
-        }
+        // Méthode simple et élégante comme dans gestion des employés
+        const avatarHtml = employe.photo && employe.photo !== '' && employe.photo !== 'null' && employe.photo !== null && employe.photo !== '/images/default-avatar.png' ?
+            `<img src="${employe.photo}" alt="Photo de ${nomComplet}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">` :
+            `<div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                ${initiales}
+             </div>`;
+        
+        return `
+        <tr data-employe-id="${employe.user_id}" class="ligne-employe ${employe.a_critere_individuel ? 'employe-avec-critere' : 'employe-sans-critere'}">
+            <td class="text-center">
+                ${employe.a_critere_individuel ? 
+                    '<i class="bi bi-lock-fill text-muted" title="Critère individuel existant" data-bs-toggle="tooltip"></i>' : 
+                    `<div class="form-check">
+                        <input class="form-check-input checkbox-employe" type="checkbox" 
+                               value="${employe.user_id}" id="employe_${employe.user_id}">
+                    </div>`
+                }
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    ${avatarHtml}
+                    <div>
+                        <div class="fw-medium text-dark">${nomComplet}</div>
+                        <small class="text-muted">${employe.email || 'Email non défini'}</small>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="badge bg-light text-dark border">
+                    <i class="bi bi-briefcase me-1"></i>${employe.poste || 'N/A'}
+                </span>
+            </td>
+            <td>
+                <span class="badge bg-light text-dark border">
+                    <i class="bi bi-award me-1"></i>${employe.grade || 'N/A'}
+                </span>
+            </td>
+            <td>${genererBadgeEtat(employe)}</td>
+            <td class="text-center">
+                <span class="badge ${employe.nombre_pointages ? 'bg-primary' : 'bg-light text-dark border'}">
+                    ${employe.nombre_pointages || 0} pointage(s)
+                </span>
+            </td>
+            <td class="text-center">
+                ${genererBoutonsActions(employe)}
+            </td>
+        </tr>
+        `;
+    }).join('');
+    
+    // Initialiser les tooltips
+    const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltips.forEach(tooltip => {
+        new bootstrap.Tooltip(tooltip);
+    });
+}
 
-        // Gérer la soumission AJAX du formulaire de critère départemental
-        const departementalForm = document.getElementById('critere-departemental-form');
-        const departementalMessageContainer = document.getElementById('departemental-message-container');
-        const departementModalElement = document.getElementById('departementModal');
+// Fonction pour générer le badge d'état
+function genererBadgeEtat(employe) {
+    if (employe.a_critere_individuel) {
+        return '<span class="badge bg-success"><i class="bi bi-person-check me-1"></i>Critère individuel</span>';
+    } else if (employe.a_critere_departemental) {
+        return '<span class="badge bg-primary"><i class="bi bi-building me-1"></i>Critère départemental</span>';
+    } else {
+        return '<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Sans critère</span>';
+    }
+}
 
-        if (departementalForm) {
-            departementalForm.addEventListener('submit', function(e) {
-                e.preventDefault(); // Empêche la soumission normale du formulaire
+// Fonction pour générer les boutons d'actions
+function genererBoutonsActions(employe) {
+    if (employe.a_critere_individuel) {
+        return `
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-info" 
+                        onclick="voirCritereIndividuel(${employe.user_id})" 
+                        title="Voir le critère individuel"
+                        data-bs-toggle="tooltip">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-success" 
+                        onclick="creerCritereIndividuel(${employe.user_id})" 
+                        title="Créer un critère individuel"
+                        data-bs-toggle="tooltip">
+                    <i class="bi bi-plus-circle"></i>
+                </button>
+            </div>
+        `;
+    }
+}
 
-                // Réinitialiser les messages et les erreurs
-                departementalMessageContainer.innerHTML = '';
-                document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-                const formData = new FormData(this);
-
-                fetch(this.action, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    },
-                    body: formData
-                })
-                .then(response => response.json().then(data => ({ status: response.status, body: data })))
-                .then(({ status, body }) => {
-                    if (status === 200 || status === 201) {
-                        // Succès
-                        departementalMessageContainer.innerHTML = `
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                ${body.message}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `;
-                        // Fermer le modal après un court délai
-                        setTimeout(() => {
-                            const modal = bootstrap.Modal.getInstance(departementModalElement);
-                            if (modal) {
-                                modal.hide();
-                            }
-                            // Recharger la page pour rafraîchir la liste des critères
-                            location.reload(); 
-                        }, 1500); 
-                    } else if (status === 422) {
-                        // Erreurs de validation
-                        let errorMessage = '<div class="alert alert-danger"><ul>';
-                        for (const key in body.errors) {
-                            if (body.errors.hasOwnProperty(key)) {
-                                const inputElement = departementalForm.querySelector(`[name="${key}"]`);
-                                if (inputElement) {
-                                    inputElement.classList.add('is-invalid');
-                                    const feedbackDiv = document.createElement('div');
-                                    feedbackDiv.classList.add('invalid-feedback');
-                                    feedbackDiv.textContent = body.errors[key][0];
-                                    inputElement.parentNode.appendChild(feedbackDiv);
-                                }
-                                errorMessage += `<li>${body.errors[key][0]}</li>`;
-                            }
-                        }
-                        errorMessage += '</ul></div>';
-                        departementalMessageContainer.innerHTML = errorMessage;
+// Fonction pour gérer les critères départementaux existants
+function gererCriteresDepartementauxExistants(criteres) {
+    const alerte = document.getElementById('alerte_critere_existant');
+    const details = document.getElementById('details_critere_existant');
+    
+    if (criteres && criteres.length > 0) {
+        const critere = criteres[0];
+        details.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <strong class="text-info">Période :</strong> ${critere.periode} | 
+                    <strong class="text-info">Pointages :</strong> ${critere.nombre_pointages}
+                </div>
+                <div class="col-md-6">
+                    <strong class="text-info">Du :</strong> ${critere.date_debut} <strong class="text-info">au :</strong> ${critere.date_fin}
+                </div>
+                <div class="col-12">
+                    <strong class="text-info">Tolérances :</strong> ${critere.tolerance_avant}min avant, ${critere.tolerance_apres}min après
+                    ${critere.duree_pause ? ` | <strong class="text-info">Pause :</strong> ${critere.duree_pause}min` : ''}
+                </div>
+            </div>
+        `;
+        alerte.classList.remove('d-none');
                     } else {
-                        // Autres erreurs serveur
-                        departementalMessageContainer.innerHTML = `
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                Une erreur est survenue lors de l'enregistrement.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `;
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur AJAX:', error);
-                    departementalMessageContainer.innerHTML = `
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            Erreur de connexion au serveur.
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    `;
-                });
-            });
+        alerte.classList.add('d-none');
+    }
+}
+
+// Fonctions utilitaires
+function toggleSelectionTousEmployes(selectionne) {
+    const checkboxes = document.querySelectorAll('.checkbox-employe');
+    checkboxes.forEach(checkbox => {
+        if (!checkbox.disabled) {
+            checkbox.checked = selectionne;
         }
     });
+}
+
+function mettreAJourSelectionTous() {
+    const checkboxTous = document.getElementById('selectionner_tous_employes');
+    const checkboxes = document.querySelectorAll('.checkbox-employe');
+    const checkboxesActives = Array.from(checkboxes).filter(cb => !cb.disabled);
+    const checkboxesCochees = Array.from(checkboxesActives).filter(cb => cb.checked);
+    
+    if (checkboxesCochees.length === 0) {
+        checkboxTous.indeterminate = false;
+        checkboxTous.checked = false;
+    } else if (checkboxesCochees.length === checkboxesActives.length) {
+        checkboxTous.indeterminate = false;
+        checkboxTous.checked = true;
+    } else {
+        checkboxTous.indeterminate = true;
+    }
+}
+
+function filtrerEmployesSansCritere(afficherUniquement) {
+    const lignes = document.querySelectorAll('.ligne-employe');
+    
+    lignes.forEach(ligne => {
+        if (afficherUniquement) {
+            if (ligne.classList.contains('employe-avec-critere')) {
+                ligne.style.display = 'none';
+            } else {
+                ligne.style.display = '';
+            }
+        } else {
+            ligne.style.display = '';
+        }
+    });
+}
+
+function masquerResultats() {
+    document.getElementById('message_instruction').classList.remove('d-none');
+    document.getElementById('resultats_departement').classList.add('d-none');
+    
+    employesDepartement = [];
+    postesDepartement = [];
+    departementActuel = '';
+}
+
+function afficherMessage(message, type = 'info') {
+    // Supprimer les anciennes alertes flottantes
+    const anciennesAlertes = document.querySelectorAll('.alerte-flottante');
+    anciennesAlertes.forEach(alerte => alerte.remove());
+    
+    // Icône selon le type de message
+    const icones = {
+        'success': 'bi bi-check-circle',
+        'danger': 'bi bi-exclamation-triangle',
+        'warning': 'bi bi-exclamation-circle',
+        'info': 'bi bi-info-circle'
+    };
+    
+    const alerte = document.createElement('div');
+    alerte.className = `alert alert-${type} alert-dismissible fade show alerte-flottante border-0 shadow`;
+    alerte.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 350px; max-width: 500px;';
+    alerte.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="${icones[type] || icones.info} me-3 fa-lg"></i>
+            <div class="flex-grow-1">${message}</div>
+            <button type="button" class="btn-close ms-2" data-bs-dismiss="alert"></button>
+                                </div>
+    `;
+    
+    document.body.appendChild(alerte);
+    
+    // Animation d'entrée
+    requestAnimationFrame(() => {
+        alerte.style.transform = 'translateX(0)';
+    });
+    
+    // Auto-suppression après 5 secondes
+    setTimeout(() => {
+        if (alerte.parentNode) {
+            alerte.classList.remove('show');
+            setTimeout(() => alerte.remove(), 150);
+        }
+    }, 5000);
+}
+
+function afficherLoading(message = 'Chargement en cours...') {
+    // Supprimer l'ancien loading s'il existe
+    masquerLoading();
+    
+    const loading = document.createElement('div');
+    loading.id = 'loading-overlay';
+    loading.className = 'position-fixed w-100 h-100 d-flex align-items-center justify-content-center';
+    loading.style.cssText = 'top: 0; left: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(2px); z-index: 9999;';
+    loading.innerHTML = `
+        <div class="card border-0 shadow-lg">
+            <div class="card-body text-center py-5 px-5">
+                <div class="mb-4">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Chargement...</span>
+                            </div>
+                        </div>
+                <h6 class="text-primary mb-2">${message}</h6>
+                <p class="text-muted small mb-0">Veuillez patienter...</p>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(loading);
+    
+    // Animation d'entrée
+    requestAnimationFrame(() => {
+        loading.style.opacity = '1';
+    });
+}
+
+function masquerLoading() {
+    const loading = document.getElementById('loading-overlay');
+    if (loading) {
+        loading.style.opacity = '0';
+        setTimeout(() => loading.remove(), 200);
+    }
+}
+
+// Fonctions pour les actions individuelles
+function creerCritereIndividuel(userId) {
+    // Ouvrir le modal de critère individuel
+    const modalIndividuel = document.getElementById('individuellModal');
+    if (modalIndividuel) {
+        const modal = new bootstrap.Modal(modalIndividuel);
+        modal.show();
+        
+        // Pré-sélectionner l'employé dans le modal s'il existe un select
+        setTimeout(() => {
+            const selectEmploye = modalIndividuel.querySelector('select[name="employe_id"]');
+            if (selectEmploye) {
+                selectEmploye.value = userId;
+                selectEmploye.dispatchEvent(new Event('change'));
+            }
+        }, 300);
+    } else {
+        // Si le modal n'existe pas, passer à l'onglet liste des critères
+        const ongletListe = document.querySelector('#criteres-tab');
+        if (ongletListe) {
+            ongletListe.click();
+            
+            setTimeout(() => {
+                // Essayer d'ouvrir le modal depuis l'autre onglet
+                const btnCritereIndividuel = document.querySelector('[data-bs-target="#individuellModal"]');
+                if (btnCritereIndividuel) {
+                    btnCritereIndividuel.click();
+                    
+                        setTimeout(() => {
+                        const selectUser = document.querySelector('select[name="employe_id"]');
+                        if (selectUser) {
+                            selectUser.value = userId;
+                            selectUser.dispatchEvent(new Event('change'));
+                        }
+                    }, 500);
+                }
+            }, 200);
+            
+            afficherMessage('Création de critère individuel pour l\'employé sélectionné', 'info');
+        }
+    }
+}
+
+function voirCritereIndividuel(userId) {
+    // Passer à l'onglet liste des critères pour voir le critère existant
+    const ongletListe = document.querySelector('#criteres-tab');
+    if (ongletListe) {
+        ongletListe.click();
+        afficherMessage('Consultez la liste des critères pour voir le critère individuel de cet employé', 'info');
+    }
+}
+
+// Fonction pour créer un critère départemental (simplifié pour l'instant)
+async function creerCritereDepartemental() {
+    const checkboxes = document.querySelectorAll('.checkbox-employe:checked');
+    const employesSelectionnes = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (employesSelectionnes.length === 0) {
+        afficherMessage('Veuillez sélectionner au moins un employé', 'warning');
+        return;
+    }
+    
+    afficherMessage(`Critère départemental pour ${employesSelectionnes.length} employé(s) - Fonctionnalité en cours de développement`, 'info');
+}
 </script>
-@endsection
+@endpush
+

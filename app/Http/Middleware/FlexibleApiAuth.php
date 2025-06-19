@@ -24,7 +24,7 @@ class FlexibleApiAuth
         if ($request->hasSession() && $request->session()->has('_token')) {
             $user = Auth::guard('web')->user();
             if ($user) {
-                return $next($request);
+        return $next($request);
             }
         }
         
