@@ -411,13 +411,7 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if ($critere->periode === 'jour')
-                                                        <span class="badge bg-secondary">Jour</span>
-                                                    @elseif ($critere->periode === 'semaine')
-                                                        <span class="badge bg-secondary">Semaine</span>
-                                                    @else
-                                                        <span class="badge bg-secondary">Mois</span>
-                                                    @endif
+                                                    <span class="badge bg-info">{{ $critere->periode_calculee }}</span>
                                                 </td>
                                                 <td>
                                                     {{ $critere->date_debut->format('d/m/Y') }} - {{ $critere->date_fin->format('d/m/Y') }}
@@ -777,15 +771,11 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="periode" class="form-label">Période <span class="text-danger">*</span></label>
-                            <select class="form-select @error('periode') is-invalid @enderror" id="periode" name="periode" required>
-                                <option value="jour" {{ old('periode') == 'jour' ? 'selected' : '' }}>Jour</option>
-                                <option value="semaine" {{ old('periode') == 'semaine' ? 'selected' : '' }}>Semaine</option>
-                                <option value="mois" {{ old('periode', 'mois') == 'mois' ? 'selected' : '' }}>Mois</option>
-                            </select>
-                            @error('periode')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label for="periode_preview" class="form-label">Période calculée</label>
+                            <input type="text" class="form-control" id="periode_preview" readonly placeholder="Sélectionnez les dates pour voir la période">
+                            <div class="form-text text-info">
+                                <i class="fas fa-info-circle me-1"></i>La période est calculée automatiquement à partir des dates sélectionnées
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label for="nombre_pointages" class="form-label">Nombre de pointages <span class="text-danger">*</span></label>
@@ -935,12 +925,11 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label for="periode" class="form-label">Période</label>
-                            <select class="form-select" id="periode" name="periode" required>
-                                <option value="jour">Jour</option>
-                                <option value="semaine">Semaine</option>
-                                <option value="mois" selected>Mois</option>
-                            </select>
+                            <label for="periode_preview_dept" class="form-label">Période calculée</label>
+                            <input type="text" class="form-control" id="periode_preview_dept" readonly placeholder="Sélectionnez les dates pour voir la période">
+                            <div class="form-text text-info">
+                                <i class="fas fa-info-circle me-1"></i>La période est calculée automatiquement à partir des dates sélectionnées
+                            </div>
                         </div>
                     </div>
                     
@@ -1684,6 +1673,90 @@ async function creerCritereDepartemental() {
     
     afficherMessage(`Critère départemental pour ${employesSelectionnes.length} employé(s) - Fonctionnalité en cours de développement`, 'info');
 }
+
+// Fonction pour calculer automatiquement la période à partir des dates
+function calculerPeriode(dateDebut, dateFin) {
+    if (!dateDebut || !dateFin) {
+        return 'Sélectionnez les dates';
+    }
+    
+    const debut = new Date(dateDebut);
+    const fin = new Date(dateFin);
+    
+    // Même jour
+    if (debut.toDateString() === fin.toDateString()) {
+        return debut.toLocaleDateString('fr-FR');
+    }
+    
+    // Même semaine (approximatif)
+    const diffTime = Math.abs(fin - debut);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 7) {
+        return `Semaine du ${debut.toLocaleDateString('fr-FR')}`;
+    }
+    
+    // Même mois
+    if (debut.getMonth() === fin.getMonth() && debut.getFullYear() === fin.getFullYear()) {
+        const premierJour = new Date(debut.getFullYear(), debut.getMonth(), 1);
+        const dernierJour = new Date(debut.getFullYear(), debut.getMonth() + 1, 0);
+        
+        if (debut.getDate() === 1 && fin.getDate() === dernierJour.getDate()) {
+            // Mois complet
+            return debut.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        } else {
+            // Partie du mois
+            return `Du ${debut.getDate()} au ${fin.getDate()} ${debut.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+        }
+    }
+    
+    // Même année
+    if (debut.getFullYear() === fin.getFullYear()) {
+        return `Du ${debut.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} au ${fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    
+    // Années différentes
+    return `Du ${debut.toLocaleDateString('fr-FR')} au ${fin.toLocaleDateString('fr-FR')}`;
+}
+
+// Event listeners pour la mise à jour automatique de la période
+document.addEventListener('DOMContentLoaded', function() {
+    // Pour le formulaire individuel
+    const dateDebutIndividuel = document.getElementById('date_debut');
+    const dateFinIndividuel = document.getElementById('date_fin');
+    const periodePreviewIndividuel = document.getElementById('periode_preview');
+    
+    if (dateDebutIndividuel && dateFinIndividuel && periodePreviewIndividuel) {
+        function mettreAJourPeriodeIndividuelle() {
+            const periode = calculerPeriode(dateDebutIndividuel.value, dateFinIndividuel.value);
+            periodePreviewIndividuel.value = periode;
+        }
+        
+        dateDebutIndividuel.addEventListener('change', mettreAJourPeriodeIndividuelle);
+        dateFinIndividuel.addEventListener('change', mettreAJourPeriodeIndividuelle);
+        
+        // Calcul initial si les dates sont déjà remplies
+        mettreAJourPeriodeIndividuelle();
+    }
+    
+    // Pour le formulaire départemental
+    const dateDebutDept = document.querySelector('#departementModal [name="date_debut"]');
+    const dateFinDept = document.querySelector('#departementModal [name="date_fin"]');
+    const periodePreviewDept = document.getElementById('periode_preview_dept');
+    
+    if (dateDebutDept && dateFinDept && periodePreviewDept) {
+        function mettreAJourPeriodeDepartementale() {
+            const periode = calculerPeriode(dateDebutDept.value, dateFinDept.value);
+            periodePreviewDept.value = periode;
+        }
+        
+        dateDebutDept.addEventListener('change', mettreAJourPeriodeDepartementale);
+        dateFinDept.addEventListener('change', mettreAJourPeriodeDepartementale);
+        
+        // Calcul initial si les dates sont déjà remplies
+        mettreAJourPeriodeDepartementale();
+    }
+});
 </script>
 @endpush
 

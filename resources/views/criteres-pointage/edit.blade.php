@@ -57,15 +57,12 @@
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <label class="form-label">Période</label>
+                                            <label class="form-label">Période calculée</label>
                                             <div class="form-control-plaintext">
-                                                @if ($criterePointage->periode === 'jour')
-                                                    <span class="badge bg-secondary">Jour</span>
-                                                @elseif ($criterePointage->periode === 'semaine')
-                                                    <span class="badge bg-secondary">Semaine</span>
-                                                @else
-                                                    <span class="badge bg-secondary">Mois</span>
-                                                @endif
+                                                <span class="badge bg-info">{{ $criterePointage->periode_calculee }}</span>
+                                                <div class="form-text text-info mt-1">
+                                                    <i class="fas fa-info-circle me-1"></i>La période est calculée automatiquement à partir des dates
+                                                </div>
                                             </div>
                                         </div>
                                         

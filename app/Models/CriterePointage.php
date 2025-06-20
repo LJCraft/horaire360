@@ -18,7 +18,6 @@ class CriterePointage extends Model
         'departement_id', // si niveau = 'departemental'
         'date_debut',
         'date_fin',
-        'periode', // 'jour', 'semaine', 'mois'
         'nombre_pointages', // 1 ou 2
         'tolerance_avant', // en minutes
         'tolerance_apres', // en minutes
@@ -30,6 +29,8 @@ class CriterePointage extends Model
         'created_by',
         'priorite', // 1 (haute) à 3 (basse)
     ];
+
+    protected $appends = ['periode_calculee'];
 
     protected $casts = [
         'date_debut' => 'date',
@@ -66,6 +67,56 @@ class CriterePointage extends Model
     public function createur()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Génère automatiquement la période à partir des dates
+     */
+    public function getPeriodeCalculeeAttribute()
+    {
+        if (!$this->date_debut || !$this->date_fin) {
+            return 'Période non définie';
+        }
+
+        $debut = Carbon::parse($this->date_debut);
+        $fin = Carbon::parse($this->date_fin);
+
+        // Même jour
+        if ($debut->isSameDay($fin)) {
+            return $debut->format('d/m/Y');
+        }
+
+        // Même semaine
+        if ($debut->weekOfYear === $fin->weekOfYear && $debut->year === $fin->year) {
+            return 'Semaine du ' . $debut->format('d/m/Y');
+        }
+
+        // Même mois
+        if ($debut->month === $fin->month && $debut->year === $fin->year) {
+            if ($debut->day === 1 && $fin->day === $debut->daysInMonth) {
+                // Mois complet
+                return $debut->locale('fr')->format('F Y');
+            } else {
+                // Partie du mois
+                return 'Du ' . $debut->format('d') . ' au ' . $fin->format('d') . ' ' . $debut->locale('fr')->format('F Y');
+            }
+        }
+
+        // Même année
+        if ($debut->year === $fin->year) {
+            return 'Du ' . $debut->locale('fr')->format('d M') . ' au ' . $fin->locale('fr')->format('d M Y');
+        }
+
+        // Années différentes
+        return 'Du ' . $debut->locale('fr')->format('d M Y') . ' au ' . $fin->locale('fr')->format('d M Y');
+    }
+
+    /**
+     * Alias pour la compatibilité
+     */
+    public function getPeriodeAttribute()
+    {
+        return $this->periode_calculee;
     }
 
     /**

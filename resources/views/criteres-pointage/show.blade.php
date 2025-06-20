@@ -62,13 +62,7 @@
                                             <tr>
                                                 <th>Période</th>
                                                 <td>
-                                                    @if ($criterePointage->periode === 'jour')
-                                                        <span class="badge bg-secondary">Jour</span>
-                                                    @elseif ($criterePointage->periode === 'semaine')
-                                                        <span class="badge bg-secondary">Semaine</span>
-                                                    @else
-                                                        <span class="badge bg-secondary">Mois</span>
-                                                    @endif
+                                                    <span class="badge bg-info">{{ $criterePointage->periode_calculee }}</span>
                                                 </td>
                                             </tr>
                                             <tr>

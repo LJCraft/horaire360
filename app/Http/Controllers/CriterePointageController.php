@@ -231,7 +231,6 @@ class CriterePointageController extends Controller
         // Définir les règles de validation
         $rules = [
             'niveau' => 'required|in:individuel,departemental',
-            'periode' => 'required|in:jour,semaine,mois',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'nombre_pointages' => 'required|in:1,2',
@@ -306,7 +305,6 @@ class CriterePointageController extends Controller
                 $critere->employe_id = $request->employe_id;
                 $critere->date_debut = $request->date_debut;
                 $critere->date_fin = $request->date_fin;
-                $critere->periode = $request->periode;
                 $critere->nombre_pointages = $request->nombre_pointages;
                 $critere->tolerance_avant = $request->tolerance_avant;
                 $critere->tolerance_apres = $request->tolerance_apres;
@@ -350,7 +348,6 @@ class CriterePointageController extends Controller
                 $critere->departement_id = $request->departement_id;
                 $critere->date_debut = $request->date_debut;
                 $critere->date_fin = $request->date_fin;
-                $critere->periode = $request->periode;
                 $critere->nombre_pointages = $request->nombre_pointages;
                 $critere->tolerance_avant = $request->tolerance_avant;
                 $critere->tolerance_apres = $request->tolerance_apres;
@@ -416,7 +413,6 @@ class CriterePointageController extends Controller
                     $critereIndividuel->departement_id = $request->departement_id; // Lien avec le département pour la traçabilité
                     $critereIndividuel->date_debut = $request->date_debut;
                     $critereIndividuel->date_fin = $request->date_fin;
-                    $critereIndividuel->periode = $request->periode;
                     $critereIndividuel->nombre_pointages = $request->nombre_pointages;
                     $critereIndividuel->tolerance_avant = $request->tolerance_avant;
                     $critereIndividuel->tolerance_apres = $request->tolerance_apres;
