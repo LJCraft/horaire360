@@ -197,8 +197,17 @@ class PresenceController extends Controller
             ->where('date_debut', '<=', $presence->date)
             ->where('date_fin', '>=', $presence->date)
             ->first();
+        
+        // Récupérer le détail du planning pour le jour spécifique
+        $planningDetail = null;
+        if ($planning) {
+            $jourSemaine = $presence->date->dayOfWeekIso; // 1 (lundi) à 7 (dimanche)
+            $planningDetail = $planning->details()
+                ->where('jour', $jourSemaine)
+                ->first();
+        }
             
-        return view('presences.show', compact('presence', 'planning'));
+        return view('presences.show', compact('presence', 'planning', 'planningDetail'));
     }
     
     /**

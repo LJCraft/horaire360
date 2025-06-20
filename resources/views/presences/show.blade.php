@@ -124,7 +124,7 @@
             </div>
         </div>
         
-        @if($planning)
+        @if($planning && $planningDetail)
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-white">
                 <h5 class="card-title mb-0">Planning associé</h5>
@@ -134,19 +134,30 @@
                     <tbody>
                         <tr>
                             <th>Horaire prévu</th>
-                            <td>{{ $planning->heure_debut }} - {{ $planning->heure_fin }}</td>
+                            <td>
+                                @if($planningDetail->jour_repos)
+                                    <span class="text-muted">Jour de repos</span>
+                                @elseif($planningDetail->jour_entier)
+                                    <span class="text-info">Journée entière (8h)</span>
+                                @elseif($planningDetail->heure_debut && $planningDetail->heure_fin)
+                                    {{ \Carbon\Carbon::parse($planningDetail->heure_debut)->format('H:i') }} - {{ \Carbon\Carbon::parse($planningDetail->heure_fin)->format('H:i') }}
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <th>Durée prévue</th>
-                            <td>{{ $planning->duree }} heures</td>
+                            <td>{{ $planningDetail->duree }}</td>
                         </tr>
+                        @if(!$planningDetail->jour_repos && $planningDetail->heure_debut && $planningDetail->heure_fin)
                         <tr>
                             <th>Écart d'arrivée</th>
                             <td>
                                 @php
                                     $heureArrivee = \Carbon\Carbon::parse($presence->heure_arrivee);
-                                    $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut);
-                                    $diffMinutes = $heureArrivee->diffInMinutes($heureDebutPlanning, false);
+                                    $heureDebutPlanning = \Carbon\Carbon::parse($planningDetail->heure_debut);
+                                    $diffMinutes = $heureDebutPlanning->diffInMinutes($heureArrivee, false);
                                 @endphp
                                 
                                 @if($diffMinutes > 0)
@@ -164,8 +175,8 @@
                             <td>
                                 @php
                                     $heureDepart = \Carbon\Carbon::parse($presence->heure_depart);
-                                    $heureFinPlanning = \Carbon\Carbon::parse($planning->heure_fin);
-                                    $diffMinutes = $heureDepart->diffInMinutes($heureFinPlanning, false);
+                                    $heureFinPlanning = \Carbon\Carbon::parse($planningDetail->heure_fin);
+                                    $diffMinutes = $heureFinPlanning->diffInMinutes($heureDepart, false);
                                 @endphp
                                 
                                 @if($diffMinutes < 0)
@@ -178,12 +189,22 @@
                             </td>
                         </tr>
                         @endif
+                        @endif
                     </tbody>
                 </table>
                 <div class="d-grid mt-3">
                     <a href="{{ route('plannings.show', $planning) }}" class="btn btn-outline-primary">
                         <i class="bi bi-calendar-week"></i> Voir le planning
                     </a>
+                </div>
+            </div>
+        </div>
+        @elseif($planning && !$planningDetail)
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="alert alert-warning mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Un planning existe pour cet employé, mais aucun détail n'est défini pour le {{ $presence->date->locale('fr')->isoFormat('dddd') }}.
                 </div>
             </div>
         </div>
