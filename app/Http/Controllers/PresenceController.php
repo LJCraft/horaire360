@@ -390,18 +390,6 @@ class PresenceController extends Controller
      */
     private function getCriterePointage($employeId, $date)
     {
-        // Convertir la date en objet Carbon
-        $dateCarbon = \Carbon\Carbon::parse($date);
-        
-        // Déterminer la période (jour, semaine, mois)
-        $jourSemaine = $dateCarbon->dayOfWeek; // 0 (dimanche) à 6 (samedi)
-        $semaine = $dateCarbon->weekOfYear;
-        $mois = $dateCarbon->month;
-        
-        // Récupérer l'employé pour connaître son département
-        $employe = \App\Models\Employe::with('poste.departement')->find($employeId);
-        $departementId = $employe->poste->departement->id ?? null;
-        
         // Rechercher les critères de pointage applicables par ordre de priorité
         
         // 1. Critère individuel pour cette date spécifique
@@ -418,18 +406,16 @@ class PresenceController extends Controller
         }
         
         // 2. Critère départemental pour cette date spécifique
-        if ($departementId) {
-            $critereDepartemental = \App\Models\CriterePointage::where('departement_id', $departementId)
-                ->where('niveau', 'departemental')
-                ->where('date_debut', '<=', $date)
-                ->where('date_fin', '>=', $date)
-                ->where('actif', true)
-                ->orderBy('priorite')
-                ->first();
-                
-            if ($critereDepartemental) {
-                return $critereDepartemental;
-            }
+        // Rechercher tous les critères départementaux actifs pour cette période
+        $critereDepartemental = \App\Models\CriterePointage::where('niveau', 'departemental')
+            ->where('date_debut', '<=', $date)
+            ->where('date_fin', '>=', $date)
+            ->where('actif', true)
+            ->orderBy('priorite')
+            ->first();
+            
+        if ($critereDepartemental) {
+            return $critereDepartemental;
         }
         
         // Aucun critère applicable trouvé
