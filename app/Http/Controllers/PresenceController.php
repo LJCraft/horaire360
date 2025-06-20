@@ -141,29 +141,42 @@ class PresenceController extends Controller
             $presence->heures_supplementaires = 0;
             
             if ($planning) {
-                // Création des objets Carbon du planning
-                $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut);
-                $heureFinPlanning   = \Carbon\Carbon::parse($planning->heure_fin);
+                // Récupérer le détail du planning pour le jour spécifique
+                $jourSemaine = \Carbon\Carbon::parse($validatedData['date'])->dayOfWeekIso;
+                $planningDetail = $planning->details()
+                    ->where('jour', $jourSemaine)
+                    ->first();
                 
-                // Appliquer les tolérances (10 minutes)
-                $heureDebutPlanningTol  = (clone $heureDebutPlanning)->addMinutes(10);
-                $heureFinPlanningTol    = (clone $heureFinPlanning)->subMinutes(10);
-                
-                if ($presence->heure_arrivee) {
-                    $heureArrivee = \Carbon\Carbon::parse($presence->heure_arrivee);
-                    $presence->retard = $heureArrivee->gt($heureDebutPlanningTol);
-                }
-                
-                if ($presence->heure_depart) {
-                    $heureDepart = \Carbon\Carbon::parse($presence->heure_depart);
-                    $presence->depart_anticipe = $heureDepart->lt($heureFinPlanningTol);
+                if ($planningDetail && !$planningDetail->jour_repos && $planningDetail->heure_debut && $planningDetail->heure_fin) {
+                    // Récupérer les critères de pointage pour les tolérances
+                    $critere = $this->getCriterePointage($validatedData['employe_id'], $validatedData['date']);
+                    $toleranceAvant = $critere ? $critere->tolerance_avant : 10;
+                    $toleranceApres = $critere ? $critere->tolerance_apres : 10;
                     
-                    // Heures supplémentaires (simple calcul : durée réelle - durée prévue)
-                    $dureeReelle = $presence->heure_arrivee ?
-                        \Carbon\Carbon::parse($presence->heure_arrivee)->diffInMinutes($heureDepart) : 0;
-                    $dureePrevue = $heureDebutPlanning->diffInMinutes($heureFinPlanning);
-                    if ($dureeReelle > $dureePrevue) {
-                        $presence->heures_supplementaires = $dureeReelle - $dureePrevue;
+                    // Création des objets Carbon du planning détail
+                    $heureDebutPlanning = \Carbon\Carbon::parse($planningDetail->heure_debut);
+                    $heureFinPlanning   = \Carbon\Carbon::parse($planningDetail->heure_fin);
+                    
+                    // Appliquer les tolérances
+                    $heureDebutPlanningTol  = (clone $heureDebutPlanning)->addMinutes($toleranceAvant);
+                    $heureFinPlanningTol    = (clone $heureFinPlanning)->subMinutes($toleranceApres);
+                    
+                    if ($presence->heure_arrivee) {
+                        $heureArrivee = \Carbon\Carbon::parse($presence->heure_arrivee);
+                        $presence->retard = $heureArrivee->gt($heureDebutPlanningTol);
+                    }
+                    
+                    if ($presence->heure_depart) {
+                        $heureDepart = \Carbon\Carbon::parse($presence->heure_depart);
+                        $presence->depart_anticipe = $heureDepart->lt($heureFinPlanningTol);
+                        
+                        // Heures supplémentaires (simple calcul : durée réelle - durée prévue)
+                        $dureeReelle = $presence->heure_arrivee ?
+                            \Carbon\Carbon::parse($presence->heure_arrivee)->diffInMinutes($heureDepart) : 0;
+                        $dureePrevue = $heureDebutPlanning->diffInMinutes($heureFinPlanning);
+                        if ($dureeReelle > $dureePrevue) {
+                            $presence->heures_supplementaires = $dureeReelle - $dureePrevue;
+                        }
                     }
                 }
             }
@@ -271,18 +284,31 @@ class PresenceController extends Controller
                     ->with('error', "Impossible de mettre à jour ce pointage : aucun planning n'est défini pour {$nomEmploye} à la date du {$dateFormatee}. Veuillez d'abord créer un planning pour cet employé à cette date.");
             }
             
-            // Déterminer si l'employé est en retard (tolérance de 10 minutes)
+            // Récupérer le détail du planning pour le jour spécifique
+            $jourSemaine = \Carbon\Carbon::parse($validatedData['date'])->dayOfWeekIso;
+            $planningDetail = $planning->details()
+                ->where('jour', $jourSemaine)
+                ->first();
+            
+            // Déterminer si l'employé est en retard
             $retard = false;
             $departAnticipe = false;
             
-            $heureDebutPlanning = \Carbon\Carbon::parse($planning->heure_debut)->addMinutes(10);
-            $heureArriveeCarbon = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
-            $retard = $heureArriveeCarbon > $heureDebutPlanning;
-            
-            if (isset($validatedData['heure_depart']) && $planning->heure_fin) {
-                $heureFinPlanning = \Carbon\Carbon::parse($planning->heure_fin)->subMinutes(10);
-                $heureDepartCarbon = \Carbon\Carbon::parse($validatedData['heure_depart']);
-                $departAnticipe = $heureDepartCarbon < $heureFinPlanning;
+            if ($planningDetail && !$planningDetail->jour_repos && $planningDetail->heure_debut && $planningDetail->heure_fin) {
+                // Récupérer les critères de pointage pour les tolérances
+                $critere = $this->getCriterePointage($validatedData['employe_id'], $validatedData['date']);
+                $toleranceAvant = $critere ? $critere->tolerance_avant : 10;
+                $toleranceApres = $critere ? $critere->tolerance_apres : 10;
+                
+                $heureDebutPlanning = \Carbon\Carbon::parse($planningDetail->heure_debut)->addMinutes($toleranceAvant);
+                $heureArriveeCarbon = \Carbon\Carbon::parse($validatedData['heure_arrivee']);
+                $retard = $heureArriveeCarbon > $heureDebutPlanning;
+                
+                if (isset($validatedData['heure_depart'])) {
+                    $heureFinPlanning = \Carbon\Carbon::parse($planningDetail->heure_fin)->subMinutes($toleranceApres);
+                    $heureDepartCarbon = \Carbon\Carbon::parse($validatedData['heure_depart']);
+                    $departAnticipe = $heureDepartCarbon < $heureFinPlanning;
+                }
             }
             
             // Ajout des champs de retard et départ anticipé
@@ -291,12 +317,12 @@ class PresenceController extends Controller
             
             // Calcul des heures supplémentaires
             $validatedData['heures_supplementaires'] = 0;
-            if (isset($validatedData['heure_depart']) && $planning->heure_fin) {
+            if (isset($validatedData['heure_depart']) && $planningDetail && $planningDetail->heure_fin) {
                 $heuresSupplementaires = $this->calculerHeuresSupplementaires(
                     $validatedData['employe_id'],
                     $validatedData['date'],
                     $validatedData['heure_depart'],
-                    $planning->heure_fin
+                    $planningDetail->heure_fin
                 );
                 $validatedData['heures_supplementaires'] = $heuresSupplementaires;
             }
