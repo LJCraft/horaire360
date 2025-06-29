@@ -6,6 +6,10 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Poste;
 use Illuminate\Support\Facades\Schema;
+use App\Services\BiometricSync\BiometricSyncService;
+use App\Services\BiometricSync\Factories\DriverFactory;
+use App\Services\BiometricSync\Factories\ApiConnectorFactory;
+use App\Services\BiometricSync\DataProcessors\BiometricDataProcessor;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,7 +18,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        
+        // Register biometric sync services
+        $this->app->singleton(DriverFactory::class);
+        $this->app->singleton(ApiConnectorFactory::class);
+        $this->app->singleton(BiometricDataProcessor::class);
+        $this->app->singleton(BiometricSyncService::class);
     }
 
     /**

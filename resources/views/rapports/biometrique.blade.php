@@ -247,13 +247,13 @@
         <div class="col-md-3">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white">
-                    <h5 class="mb-0 text-success"><i class="bi bi-arrow-repeat me-2"></i>Synchronisation Mobile</h5>
+                    <h5 class="mb-0 text-success"><i class="bi bi-arrow-clockwise me-2"></i>Synchronisation des appareils</h5>
                 </div>
                 <div class="card-body text-center">
                     <div class="mb-3">
-                        <i class="bi bi-phone text-success" style="font-size: 2rem;"></i>
+                        <i class="bi bi-hdd-network text-success" style="font-size: 2rem;"></i>
                     </div>
-                    <p class="text-muted small mb-3">Synchroniser les pointages depuis l'application mobile</p>
+                    <p class="text-muted small mb-3">Synchroniser automatiquement tous les appareils biométriques connectés</p>
                     
                     <div class="mb-2">
                         <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="modal" data-bs-target="#syncInfoModal">
@@ -261,8 +261,8 @@
                         </button>
                     </div>
                     
-                    <button id="syncBtn" class="btn btn-success w-100" onclick="synchroniserMobile()">
-                        <i class="bi bi-arrow-repeat me-1"></i>
+                    <button id="syncBtn" class="btn btn-success w-100" onclick="synchroniserAppareils()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
                         <span id="syncBtnText">Synchroniser</span>
                     </button>
                     
@@ -278,6 +278,30 @@
                     <div id="syncResult" class="mt-3 d-none">
                         <div class="alert alert-sm mb-0" id="syncAlert">
                             <div id="syncMessage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs de synchronisation récents -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-secondary"><i class="bi bi-clock-history me-2"></i>Dernières synchronisations</h6>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#syncLogsCollapse" aria-expanded="false" aria-controls="syncLogsCollapse">
+                        <i class="bi bi-eye"></i> Afficher/Masquer
+                    </button>
+                </div>
+                <div class="collapse" id="syncLogsCollapse">
+                    <div class="card-body">
+                        <div id="syncLogsContainer">
+                            <p class="text-muted text-center">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Utilisez le bouton "Synchroniser" pour effectuer une synchronisation et voir les logs ici.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -432,11 +456,14 @@
                             </td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{{ route('presences.edit', $pointage->id) }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ route('presences.edit', $pointage->id) }}" class="btn btn-sm btn-outline-primary" title="Modifier">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailsModal{{ $pointage->id }}">
+                                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailsModal{{ $pointage->id }}" title="Voir les détails">
                                         <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete({{ $pointage->id }})" title="Supprimer le pointage">
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
                             </td>
@@ -456,16 +483,41 @@
                 </table>
             </div>
         </div>
-        <div class="card-footer bg-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="text-muted small">
-                    Affichage de {{ $pointages->firstItem() ?? 0 }} à {{ $pointages->lastItem() ?? 0 }} sur {{ $pointages->total() }} pointages
-                </div>
-                <div>
-                    {{ $pointages->appends(request()->query())->links() }}
+        <!-- Pagination simplifiée -->
+        @if($pointages->hasPages())
+        <div class="card-footer bg-white py-2">
+            <div class="d-flex justify-content-center align-items-center">
+                <div class="btn-group btn-group-sm" role="group">
+                    <!-- Bouton Précédent -->
+                    @if($pointages->onFirstPage())
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="bi bi-chevron-left"></i> Précédent
+                        </button>
+                    @else
+                        <a href="{{ $pointages->previousPageUrl() }}" class="btn btn-outline-primary">
+                            <i class="bi bi-chevron-left"></i> Précédent
+                        </a>
+                    @endif
+                    
+                    <!-- Indicateur de page compact -->
+                    <button class="btn btn-outline-secondary" disabled>
+                        Page {{ $pointages->currentPage() }}/{{ $pointages->lastPage() }}
+                    </button>
+                    
+                    <!-- Bouton Suivant -->
+                    @if($pointages->hasMorePages())
+                        <a href="{{ $pointages->nextPageUrl() }}" class="btn btn-outline-primary">
+                            Suivant <i class="bi bi-chevron-right"></i>
+                        </a>
+                    @else
+                        <button class="btn btn-outline-secondary" disabled>
+                            Suivant <i class="bi bi-chevron-right"></i>
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
+        @endif
     </div>
 </div>
 
@@ -853,7 +905,7 @@
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="syncInfoModalLabel">
-                    <i class="bi bi-arrow-repeat me-2"></i>Synchronisation Mobile - Guide
+                    <i class="bi bi-arrow-clockwise me-2"></i>Synchronisation des appareils - Guide
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
@@ -862,47 +914,48 @@
                     <div class="col-md-6">
                         <h6 class="text-primary">🎯 Qu'est-ce que c'est ?</h6>
                         <p class="small">
-                            La synchronisation mobile permet de récupérer automatiquement les pointages 
-                            effectués via l'application mobile de reconnaissance faciale par les employés.
+                            La synchronisation des appareils permet de récupérer automatiquement les pointages 
+                            depuis tous les appareils biométriques connectés au réseau.
                         </p>
                         
                         <h6 class="text-primary mt-3">🔄 Comment ça fonctionne ?</h6>
                         <ol class="small">
-                            <li><strong>Mapping intelligent</strong> : Reconnaît automatiquement différents formats de données</li>
-                            <li><strong>Validation stricte</strong> : Vérifie l'existence des employés et la validité des données</li>
-                            <li><strong>Géolocalisation</strong> : Capture et stocke la position GPS des pointages mobiles</li>
-                            <li><strong>Détection de doublons</strong> : Évite les pointages en double entre sources</li>
-                            <li><strong>Calcul automatique</strong> : Applique les règles de planning (retards, heures sup)</li>
+                            <li><strong>Détection automatique</strong> : Trouve tous les appareils actifs et connectés</li>
+                            <li><strong>Connexion sécurisée</strong> : Se connecte à chaque appareil via IP/TCP ou API REST</li>
+                            <li><strong>Récupération des données</strong> : Télécharge tous les nouveaux pointages</li>
+                            <li><strong>Validation intelligente</strong> : Vérifie l'existence des employés et évite les doublons</li>
+                            <li><strong>Traitement automatique</strong> : Applique les règles métier et calcule retards/heures sup</li>
                         </ol>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="text-success">✅ Formats acceptés</h6>
+                        <h6 class="text-success">✅ Types d'appareils supportés</h6>
                         <div class="bg-light p-2 rounded small">
-                            <strong>Format 1:</strong> Avec géolocalisation<br>
-                            <code>{"userId": 123, "timestamp": "2025-01-21T08:05:30Z", "type": "entry", "location": {"lat": 48.8566, "lng": 2.3522}}</code><br><br>
+                            <strong>Terminaux biométriques IP :</strong><br>
+                            • Lecteurs d'empreintes digitales<br>
+                            • Scanners de reconnaissance faciale<br>
+                            • Terminaux hybrides (empreinte + visage)<br><br>
                             
-                            <strong>Format 2:</strong> Position GPS séparée<br>
-                            <code>{"emp_id": "123", "date": "2025-01-21", "hour": "08:05:30", "status": 1, "latitude": 48.8566, "longitude": 2.3522}</code><br><br>
-                            
-                            <strong>Format 3:</strong> Coordonnées dans gps<br>
-                            <code>{"employee_id": 123, "action": "checkin", "gps": {"lat": 48.8566, "lng": 2.3522}}</code>
+                            <strong>API REST :</strong><br>
+                            • Applications mobiles avec API<br>
+                            • Systèmes tiers compatibles<br>
+                            • Interfaces web personnalisées
                         </div>
                         
-                        <h6 class="text-warning mt-3">⚠️ Sécurité</h6>
+                        <h6 class="text-warning mt-3">⚠️ Prérequis techniques</h6>
                         <ul class="small">
-                            <li>Authentification requise (session web ou token API)</li>
-                            <li>Traçabilité complète des synchronisations</li>
-                            <li>Protection contre les appels malveillants</li>
-                            <li>Logs détaillés de toutes les opérations</li>
+                            <li>Appareils configurés et connectés au réseau</li>
+                            <li>Adresses IP et ports d'accès définis</li>
+                            <li>Authentification configurée si nécessaire</li>
+                            <li>Synchronisation horaire des appareils</li>
                         </ul>
                     </div>
                 </div>
                 
                 <div class="alert alert-info mt-3">
-                    <h6><i class="bi bi-lightbulb me-2"></i>Mode démonstration</h6>
+                    <h6><i class="bi bi-lightbulb me-2"></i>Fonctionnement en un clic</h6>
                     <p class="mb-0 small">
-                        Le bouton "Synchroniser" utilise actuellement des données de test pour démontrer le fonctionnement. 
-                        En production, il se connectera directement à l'API de l'application mobile.
+                        Le bouton "Synchroniser" lance automatiquement la synchronisation de tous les appareils configurés. 
+                        Aucune intervention manuelle n'est nécessaire - le système gère tout automatiquement.
                     </p>
                 </div>
                 
@@ -916,8 +969,8 @@
                             <div class="col-3">
                                 <div class="card border-primary">
                                     <div class="card-body py-2">
-                                        <i class="bi bi-inbox text-primary fs-4"></i>
-                                        <div class="small"><strong>Reçus</strong></div>
+                                        <i class="bi bi-hdd-network text-primary fs-4"></i>
+                                        <div class="small"><strong>Appareils</strong></div>
                                     </div>
                                 </div>
                             </div>
@@ -925,23 +978,23 @@
                                 <div class="card border-success">
                                     <div class="card-body py-2">
                                         <i class="bi bi-check-circle text-success fs-4"></i>
-                                        <div class="small"><strong>Insérés</strong></div>
+                                        <div class="small"><strong>Synchronisés</strong></div>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-3">
                                 <div class="card border-info">
                                     <div class="card-body py-2">
-                                        <i class="bi bi-arrow-up-circle text-info fs-4"></i>
-                                        <div class="small"><strong>Mis à jour</strong></div>
+                                        <i class="bi bi-download text-info fs-4"></i>
+                                        <div class="small"><strong>Récupérés</strong></div>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-3">
                                 <div class="card border-warning">
                                     <div class="card-body py-2">
-                                        <i class="bi bi-exclamation-triangle text-warning fs-4"></i>
-                                        <div class="small"><strong>Ignorés</strong></div>
+                                        <i class="bi bi-database text-warning fs-4"></i>
+                                        <div class="small"><strong>Traités</strong></div>
                                     </div>
                                 </div>
                             </div>
@@ -950,8 +1003,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="synchroniserMobile()">
-                    <i class="bi bi-arrow-repeat me-1"></i>Essayer maintenant
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="synchroniserAppareils()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Essayer maintenant
                 </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
             </div>
@@ -982,6 +1035,14 @@
     </div>
 </div>
 
+<!-- Formulaires cachés pour la suppression des pointages -->
+@foreach($pointages as $pointage)
+<form id="delete-pointage-{{ $pointage->id }}" action="{{ route('presences.destroy', $pointage->id) }}" method="POST" class="d-none">
+    @csrf
+    @method('DELETE')
+</form>
+@endforeach
+
 @endsection
 
 @push('scripts')
@@ -993,8 +1054,8 @@
         }
     });
 
-    // Fonction de synchronisation mobile
-    async function synchroniserMobile() {
+    // Fonction de synchronisation des appareils connectés
+    async function synchroniserAppareils() {
         const syncBtn = document.getElementById('syncBtn');
         const syncBtnText = document.getElementById('syncBtnText');
         const syncStatus = document.getElementById('syncStatus');
@@ -1007,32 +1068,12 @@
         syncResult.classList.add('d-none');
         
         try {
-            // Charger les données de test depuis le fichier JSON
-            // En production, ces données viendront directement de l'application mobile
-            let donneesTest;
-            try {
-                const testResponse = await fetch('/test_sync_mobile.json');
-                donneesTest = await testResponse.json();
-            } catch (testError) {
-                // Fallback si le fichier n'est pas disponible
-                donneesTest = [
-                    {"userId": 1, "timestamp": new Date().toISOString(), "type": "entry"},
-                    {"userId": 2, "timestamp": new Date().toISOString(), "type": "entry"},
-                    {"userId": 1, "timestamp": new Date(Date.now() + 8*60*60*1000).toISOString(), "type": "exit"}
-                ];
-            }
-            
-            const response = await fetch('/api/sync/biometric', {
+            const response = await fetch('/rapports/biometrique/synchronize-all', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    data: donneesTest,
-                    source_app: 'mobile_demo',
-                    version: '1.0.0'
-                })
+                }
             });
             
             const result = await response.json();
@@ -1040,8 +1081,15 @@
             // Masquer le statut de chargement
             syncStatus.classList.add('d-none');
             
-            if (response.ok && result.status === 'success') {
+            if (response.ok) {
                 afficherResultatSync(result, true);
+                
+                // Recharger la page seulement si des données ont été traitées
+                if (result.processed_records > 0) {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                }
             } else {
                 afficherResultatSync(result, false);
             }
@@ -1055,10 +1103,121 @@
             }, false);
         } finally {
             // Réactiver le bouton
-                setTimeout(() => {
+            setTimeout(() => {
                 syncBtn.disabled = false;
                 syncBtnText.textContent = 'Synchroniser';
             }, 2000);
+        }
+    }
+
+    function actualiserPage() {
+        window.location.reload();
+    }
+
+    // Fonction pour mettre à jour les logs de synchronisation
+    function updateSyncLogs(data) {
+        const syncLogsContainer = document.getElementById('syncLogsContainer');
+        const collapse = document.getElementById('syncLogsCollapse');
+        
+        let logsHtml = `
+            <div class="border rounded p-3 bg-light">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 text-primary">
+                        <i class="bi bi-clock me-2"></i>Synchronisation du ${new Date().toLocaleString('fr-FR')}
+                    </h6>
+                    <span class="badge bg-success">Réussie</span>
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-primary mb-1">${data.total_devices}</div>
+                            <div class="small text-muted">Appareils trouvés</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-success mb-1">${data.synchronized_devices}</div>
+                            <div class="small text-muted">Synchronisés</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-info mb-1">${data.total_records}</div>
+                            <div class="small text-muted">Enregistrements récupérés</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-warning mb-1">${data.processed_records}</div>
+                            <div class="small text-muted">Traités avec succès</div>
+                        </div>
+                    </div>
+                </div>
+        `;
+        
+        if (data.devices_results && data.devices_results.length > 0) {
+            logsHtml += `
+                <h6 class="text-secondary mb-2">Détails par appareil :</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Appareil</th>
+                                <th>Statut</th>
+                                <th>Enregistrements trouvés</th>
+                                <th>Traités</th>
+                                <th>Temps (s)</th>
+                                <th>Erreurs</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.devices_results.forEach(device => {
+                const statusClass = device.success ? 'text-success' : 'text-danger';
+                const statusIcon = device.success ? 'bi-check-circle' : 'bi-x-circle';
+                const statusText = device.success ? 'Réussi' : 'Échec';
+                
+                logsHtml += `
+                    <tr>
+                        <td><strong>${device.device_name}</strong></td>
+                        <td><span class="${statusClass}"><i class="bi ${statusIcon} me-1"></i>${statusText}</span></td>
+                        <td class="text-center">${device.total_records}</td>
+                        <td class="text-center">${device.processed_records}</td>
+                        <td class="text-center">${device.execution_time}</td>
+                        <td>
+                            ${device.errors && device.errors.length > 0 ? 
+                                `<small class="text-danger">${device.errors.join('<br>')}</small>` : 
+                                '<span class="text-muted">Aucune</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            logsHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        logsHtml += `
+                <div class="mt-3 text-end">
+                    <small class="text-muted">
+                        Temps total d'exécution : <strong>${data.execution_time}s</strong>
+                    </small>
+                </div>
+            </div>
+        `;
+        
+        // Remplacer le contenu des logs
+        syncLogsContainer.innerHTML = logsHtml;
+        
+        // Ouvrir automatiquement la section des logs si elle est fermée
+        if (!collapse.classList.contains('show')) {
+            const bsCollapse = new bootstrap.Collapse(collapse, { show: true });
         }
     }
     
@@ -1068,38 +1227,83 @@
         const syncAlert = document.getElementById('syncAlert');
         const syncMessage = document.getElementById('syncMessage');
         
-        // Mise à jour des classes d'alerte
-        syncAlert.className = success ? 'alert alert-success alert-sm mb-0' : 'alert alert-danger alert-sm mb-0';
+        // Afficher le résultat
+        syncResult.classList.remove('d-none');
         
-        if (success) {
+        if (success && result.total_devices === 0) {
+            // Aucun appareil connecté
+            syncAlert.className = 'alert alert-warning alert-sm mb-0';
             syncMessage.innerHTML = `
-                <div class="d-flex align-items-center mb-2">
-                    <i class="bi bi-check-circle-fill text-success me-2"></i>
-                    <strong>Synchronisation réussie!</strong>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <div>
+                        <strong>Aucun appareil connecté</strong><br>
+                        <small>Vérifiez que vos appareils biométriques sont bien configurés et connectés au réseau.</small>
+                    </div>
                 </div>
-                <small class="text-muted">${result.message}</small>
+            `;
+        } else if (success && result.synchronized_devices === 0) {
+            // Appareils détectés mais erreurs de synchronisation
+            syncAlert.className = 'alert alert-danger alert-sm mb-0';
+            syncMessage.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-x-circle me-2"></i>
+                    <div>
+                        <strong>Erreur de synchronisation</strong><br>
+                        <small>${result.total_devices} appareil(s) détecté(s) mais aucun synchronisé avec succès.</small>
+                        ${result.errors && result.errors.length > 0 ? '<br><small class="text-muted">Erreurs: ' + result.errors.join(', ') + '</small>' : ''}
+                    </div>
+                </div>
+            `;
+        } else if (success && result.total_records === 0) {
+            // Synchronisation réussie mais aucune nouvelle donnée
+            syncAlert.className = 'alert alert-info alert-sm mb-0';
+            syncMessage.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <div>
+                        <strong>Synchronisation terminée</strong><br>
+                        <small>${result.synchronized_devices} appareil(s) synchronisé(s), aucune nouvelle donnée trouvée.</small>
+                    </div>
+                </div>
+            `;
+        } else if (success) {
+            // Synchronisation réussie avec des données
+            syncAlert.className = 'alert alert-success alert-sm mb-0';
+            syncMessage.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <div>
+                        <strong>Synchronisation réussie !</strong><br>
+                        <small>${result.synchronized_devices}/${result.total_devices} appareil(s) synchronisé(s)</small><br>
+                        <small><strong>${result.processed_records}</strong> pointages traités en <strong>${result.execution_time}s</strong></small>
+                    </div>
+                </div>
             `;
             
-            // Afficher le modal détaillé
-            setTimeout(() => {
-                afficherModalResultats(result);
-            }, 1000);
+            // Mettre à jour les logs de synchronisation
+            if (result) {
+                updateSyncLogs(result);
+            }
         } else {
+            // Erreur générale
+            syncAlert.className = 'alert alert-danger alert-sm mb-0';
             syncMessage.innerHTML = `
-                <div class="d-flex align-items-center mb-2">
-                    <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
-                    <strong>Erreur de synchronisation</strong>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <div>
+                        <strong>Erreur de synchronisation</strong><br>
+                        <small>${result.message || result.error || (result.errors ? result.errors.join(', ') : 'Erreur inconnue')}</small>
+                    </div>
                 </div>
-                <small class="text-muted">${result.message || result.error || 'Erreur inconnue'}</small>
             `;
         }
         
-        syncResult.classList.remove('d-none');
-        
-        // Masquer automatiquement après 5 secondes
+        // Masquer automatiquement après 8 secondes (sauf si des données ont été traitées)
+        const hideDelay = (success && result.processed_records > 0) ? 10000 : 8000;
         setTimeout(() => {
             syncResult.classList.add('d-none');
-        }, 5000);
+        }, hideDelay);
     }
     
     // Fonction pour afficher le modal détaillé des résultats
@@ -1340,6 +1544,31 @@
     function actualiserPage() {
         window.location.reload();
     }
+
+    // Fonction pour confirmer et supprimer un pointage
+    function confirmDelete(pointageId) {
+        // Vérifier que l'ID est valide
+        if (!pointageId) {
+            console.error('ID de pointage manquant');
+            return;
+        }
+
+        // Confirmation avant suppression
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce pointage ?\n\nCette action est irréversible.')) {
+            // Chercher le formulaire correspondant
+            const form = document.getElementById('delete-pointage-' + pointageId);
+            
+            if (form) {
+                // Soumettre le formulaire de suppression
+                form.submit();
+            } else {
+                console.error('Formulaire de suppression non trouvé pour le pointage ID:', pointageId);
+                alert('Erreur : Impossible de supprimer ce pointage. Veuillez actualiser la page et réessayer.');
+            }
+        }
+    }
+
+
 
     // Variables globales pour les cartes Leaflet
     const maps = {};

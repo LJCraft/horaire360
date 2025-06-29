@@ -13,6 +13,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\CriterePointageController;
 use App\Http\Controllers\RapportControllerAdditions;
+use App\Http\Controllers\BiometricDeviceController;
 
 
 /*
@@ -95,6 +96,170 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
     // Resource route (must be after all other custom routes)
     Route::resource('presences', PresenceController::class);
     
+    // Routes pour les appareils biométriques - Version temporaire simplifiée
+    Route::prefix('biometric-devices')->group(function () {
+        // Route principale simplifiée
+        Route::get('/', function() {
+            // Récupérer tous les appareils biométriques
+            $devices = \App\Models\BiometricDevice::orderBy('created_at', 'desc')->get();
+            
+            // Calculer les statistiques
+            $totalDevices = $devices->count();
+            $activeDevices = $devices->where('is_active', true)->count();
+            $connectedDevices = $devices->where('connection_status', 'connected')->count();
+            
+            return view('biometric-devices.index', [
+                'devices' => $devices,
+                'stats' => [
+                    'total_devices' => $totalDevices,
+                    'active_devices' => $activeDevices,
+                    'connected_devices' => $connectedDevices,
+                ]
+            ]);
+        })->name('biometric-devices.index');
+        
+        // Route de création simplifiée
+        Route::get('/create', function() {
+            $brands = [
+                'zkteco' => 'ZKTeco',
+                'suprema' => 'Suprema',
+                'hikvision' => 'Hikvision',
+                'anviz' => 'Anviz'
+            ];
+            return view('biometric-devices.create', compact('brands'));
+        })->name('biometric-devices.create');
+        
+        // Route pour traiter le formulaire de création
+        Route::post('/', function(\Illuminate\Http\Request $request) {
+            // Validation des données
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'brand' => 'required|string',
+                'model' => 'nullable|string|max:255',
+                'connection_type' => 'required|in:ip,api',
+                'ip_address' => 'nullable|required_if:connection_type,ip|ip',
+                'port' => 'nullable|required_if:connection_type,ip|integer|between:1,65535',
+                'api_url' => 'nullable|required_if:connection_type,api|url',
+                'sync_interval' => 'nullable|integer|min:60|max:86400',
+                'active' => 'nullable|boolean',
+            ]);
+            
+            try {
+                // Créer l'appareil biométrique
+                $device = \App\Models\BiometricDevice::create([
+                    'name' => $validated['name'],
+                    'brand' => $validated['brand'],
+                    'model' => $validated['model'] ?? null,
+                    'connection_type' => $validated['connection_type'],
+                    'ip_address' => $validated['ip_address'] ?? null,
+                    'port' => $validated['port'] ?? null,
+                    'api_url' => $validated['api_url'] ?? null,
+                    'sync_interval' => $validated['sync_interval'] ?? 300,
+                    'is_active' => $request->has('active') ?? true,
+                    'connection_status' => 'disconnected',
+                    'last_sync_at' => null,
+                ]);
+                
+                return redirect()->route('biometric-devices.index')
+                    ->with('success', 'Appareil biométrique créé avec succès !');
+                    
+            } catch (\Exception $e) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Erreur lors de la création : ' . $e->getMessage());
+            }
+                 })->name('biometric-devices.store');
+        
+        // Route pour supprimer un appareil
+        Route::delete('/{id}', function($id) {
+            try {
+                $device = \App\Models\BiometricDevice::findOrFail($id);
+                $deviceName = $device->name;
+                $device->delete();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => "L'appareil \"{$deviceName}\" a été supprimé avec succès."
+                ]);
+                
+            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Appareil introuvable.'
+                ], 404);
+                
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de la suppression : ' . $e->getMessage()
+                ], 500);
+            }
+        })->name('biometric-devices.destroy');
+        
+        // Route pour tester la connexion d'un appareil
+        Route::post('/{id}/test-connection', function($id) {
+            try {
+                $device = \App\Models\BiometricDevice::findOrFail($id);
+                
+                // Simuler un test de connexion
+                $isConnected = rand(0, 1); // En production, tester la vraie connexion
+                
+                if ($isConnected) {
+                    $device->update(['connection_status' => 'connected']);
+                    return response()->json([
+                        'success' => true,
+                        'message' => "Connexion réussie à l'appareil \"{$device->name}\""
+                    ]);
+                } else {
+                    $device->update(['connection_status' => 'disconnected']);
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Impossible de se connecter à l'appareil \"{$device->name}\""
+                    ], 422);
+                }
+                
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors du test : ' . $e->getMessage()
+                ], 500);
+            }
+        })->name('biometric-devices.test-connection');
+        
+        // Route de test ultra-simple
+        Route::get('/simple-test', function() {
+            return '<h1>Test Simple Réussi</h1><p>Si vous voyez ceci, PHP fonctionne correctement.</p><p>Timestamp: ' . date('Y-m-d H:i:s') . '</p>';
+        })->name('biometric-devices.simple-test');
+        
+        // Route de test pour vérifier les données
+        Route::get('/debug-data', function() {
+            try {
+                $devices = \App\Models\BiometricDevice::all();
+                $count = $devices->count();
+                
+                $html = '<h1>Debug - Appareils Biométriques</h1>';
+                $html .= '<p><strong>Nombre total:</strong> ' . $count . '</p>';
+                
+                if ($count > 0) {
+                    $html .= '<h2>Liste des appareils:</h2><ul>';
+                    foreach ($devices as $device) {
+                        $html .= '<li><strong>' . $device->name . '</strong> - ' . $device->brand . ' (' . $device->connection_type . ')</li>';
+                    }
+                    $html .= '</ul>';
+                } else {
+                    $html .= '<p style="color: red;">Aucun appareil trouvé en base de données.</p>';
+                }
+                
+                return $html;
+            } catch (\Exception $e) {
+                return '<h1>Erreur</h1><p style="color: red;">' . $e->getMessage() . '</p>';
+            }
+        })->name('biometric-devices.debug-data');
+    });
+
+    // Route pour synchroniser tous les appareils biométriques connectés (depuis les rapports)
+    Route::post('/rapports/biometrique/synchronize-all', [RapportController::class, 'synchronizeAllDevices'])->name('rapports.biometrique.synchronize-all');
+
     // Routes pour les critères de pointage
     // Route personnalisée pour l'édition des critères de pointage
     Route::get('/criteres-pointage/edit/{id}', [CriterePointageController::class, 'edit'])->name('criteres-pointage.edit-custom');

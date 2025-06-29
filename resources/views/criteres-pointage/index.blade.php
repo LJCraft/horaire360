@@ -458,33 +458,17 @@
                                                         <a href="/criteres-pointage/edit/{{ $critere->id }}" data-bs-toggle="tooltip" title="Modifier le critère">
                                                             <i class="bi bi-pencil-square fs-5 text-warning"></i>
                                                         </a>
-                                                        <a href="#" data-bs-toggle="modal" data-bs-target="#deleteModal{{ $critere->id }}" title="Supprimer le critère">
+                                                        <a href="#" onclick="supprimerCritere({{ $critere->id }})" title="Supprimer le critère">
                                                             <i class="bi bi-trash-fill fs-5 text-danger"></i>
                                                         </a>
+                                                        
+                                                        <!-- Formulaire de suppression caché -->
+                                                        <form id="delete-form-{{ $critere->id }}" action="{{ route('criteres-pointage.destroy', $critere) }}" method="POST" style="display: none;">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                        </form>
                                                     </div>
-                                                    
-                                                    <!-- Modal de suppression -->
-                                                    <div class="modal fade" id="deleteModal{{ $critere->id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ $critere->id }}" aria-hidden="true">
-                                                        <div class="modal-dialog">
-                                                            <div class="modal-content">
-                                                                <div class="modal-header bg-danger text-white">
-                                                                    <h5 class="modal-title" id="deleteModalLabel{{ $critere->id }}">Confirmation de suppression</h5>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    Êtes-vous sûr de vouloir supprimer ce critère de pointage ?
-                                                                </div>
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                                                                    <form action="{{ route('criteres-pointage.destroy', $critere) }}" method="POST">
-                                                                        @csrf
-                                                                        @method('DELETE')
-                                                                        <button type="submit" class="btn btn-danger">Supprimer</button>
-                                                                    </form>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+
                                                 </td>
                                             </tr>
                                         @empty
@@ -1757,6 +1741,20 @@ document.addEventListener('DOMContentLoaded', function() {
         mettreAJourPeriodeDepartementale();
     }
 });
+
+// Fonction pour supprimer un critère
+function supprimerCritere(critereId) {
+    if (confirm('Êtes-vous vraiment sûr de vouloir supprimer ce critère de pointage ?')) {
+        // Soumettre le formulaire de suppression
+        const form = document.getElementById('delete-form-' + critereId);
+        if (form) {
+            form.submit();
+        } else {
+            console.error('Formulaire de suppression non trouvé pour le critère ID:', critereId);
+            alert('Erreur: Impossible de supprimer le critère. Veuillez recharger la page.');
+        }
+    }
+}
 </script>
 @endpush
 

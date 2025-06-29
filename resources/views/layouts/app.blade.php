@@ -470,6 +470,11 @@ use Illuminate\Support\Facades\Route;
                                     </li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
+                                        <a class="dropdown-item" href="{{ route('biometric-devices.index') }}">
+                                            <i class="bi bi-device-hdd me-2"></i> Configuration des appareils
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a class="dropdown-item" href="{{ route('criteres-pointage.index') }}">
                                             <i class="bi bi-sliders me-2"></i> Configuration des critères
                                         </a>

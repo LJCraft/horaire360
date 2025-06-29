@@ -2766,4 +2766,104 @@ class RapportController extends Controller
         return $query;
     }
 
+    /**
+     * === NOUVELLE MÉTHODE : Synchronisation avec validation en temps réel ===
+     * Synchroniser tous les appareils connectés avec validation
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function synchronizeAllDevices(Request $request)
+    {
+        try {
+            // Vérifier la disponibilité du service de synchronisation
+            if (!class_exists(\App\Services\BiometricSynchronizationService::class)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Service de synchronisation non disponible',
+                    'error' => 'BiometricSynchronizationService manquant'
+                ], 500);
+            }
+
+            // Appeler le service de synchronisation
+            $syncService = app(\App\Services\BiometricSynchronizationService::class);
+            $result = $syncService->synchronizeAllConnectedDevices();
+
+            // Vérifier si des appareils sont connectés
+            if (empty($result['devices_results'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun appareil biométrique connecté trouvé',
+                    'devices_found' => 0,
+                    'recommendation' => 'Vérifiez la configuration et la connectivité des appareils'
+                ], 200);
+            }
+
+            // Compter les succès et échecs
+            $successCount = 0;
+            $errorCount = 0;
+            $devicesProcessed = [];
+
+            foreach ($result['devices_results'] as $deviceResult) {
+                if ($deviceResult['success']) {
+                    $successCount++;
+                } else {
+                    $errorCount++;
+                }
+                
+                $devicesProcessed[] = [
+                    'device' => $deviceResult['device_name'] ?? 'Appareil inconnu',
+                    'status' => $deviceResult['success'] ? 'Réussi' : 'Échec',
+                    'records' => $deviceResult['processed_records'] ?? 0,
+                    'errors' => $deviceResult['errors'] ?? []
+                ];
+            }
+
+            // Construire la réponse
+            $responseData = [
+                'success' => $successCount > 0,
+                'message' => $this->buildSyncMessage($successCount, $errorCount, $result['processed_records']),
+                'devices_connected' => count($result['devices_results']),
+                'devices_success' => $successCount,
+                'devices_failed' => $errorCount,
+                'total_records' => $result['total_records'],
+                'processed_records' => $result['processed_records'],
+                'execution_time' => $result['execution_time'],
+                'devices_details' => $devicesProcessed,
+                'sync_session_id' => $result['sync_session_id'] ?? uniqid('sync_')
+            ];
+
+            return response()->json($responseData);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la synchronisation des appareils', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur technique lors de la synchronisation',
+                'error' => $e->getMessage(),
+                'recommendation' => 'Vérifiez les logs système pour plus de détails'
+            ], 500);
+        }
+    }
+
+    /**
+     * Construire le message de synchronisation
+     */
+    private function buildSyncMessage(int $successCount, int $errorCount, int $totalRecords): string
+    {
+        if ($successCount === 0 && $errorCount > 0) {
+            return "Synchronisation échouée : Aucun appareil n'a pu être synchronisé ($errorCount échecs)";
+        }
+        
+        if ($errorCount === 0) {
+            return "Synchronisation réussie ! $successCount appareils synchronisés, $totalRecords pointages traités";
+        }
+        
+        return "Synchronisation partielle : $successCount réussites, $errorCount échecs, $totalRecords pointages traités";
+    }
+
 }
