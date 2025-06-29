@@ -25,6 +25,13 @@
                     <i class="bi bi-file-earmark-excel"></i> Télécharger le modèle
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
+                <li><a href="{{ route('presences.downloadPointageTemplate') }}" class="dropdown-item">
+                    <i class="bi bi-file-earmark-excel-fill"></i> Télécharger le template de pointage
+                </a></li>
+                <li><a href="{{ route('presences.importPointageForm') }}" class="dropdown-item">
+                    <i class="bi bi-upload"></i> Importer un template de pointage
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a href="{{ route('presences.export') }}" class="dropdown-item">
                     <i class="bi bi-download"></i> Exporter les pointages
                 </a></li>
@@ -77,12 +84,23 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label for="statut" class="form-label">Statut</label>
+                <select class="form-select" id="statut" name="statut">
+                    <option value="">Tous</option>
+                    <option value="present" {{ (isset($statut) && $statut == 'present') ? 'selected' : '' }}>Présent</option>
+                    <option value="retard" {{ (isset($statut) && $statut == 'retard') ? 'selected' : '' }}>Retard</option>
+                    <option value="absent" {{ (isset($statut) && $statut == 'absent') ? 'selected' : '' }}>Absent</option>
+                    <option value="depart_anticipe" {{ (isset($statut) && $statut == 'depart_anticipe') ? 'selected' : '' }}>Départ anticipé</option>
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label for="source_pointage" class="form-label">Source</label>
                 <select class="form-select" id="source_pointage" name="source_pointage">
                     <option value="">Toutes</option>
                     <option value="manuel" {{ (isset($sourcePointage) && $sourcePointage == 'manuel') ? 'selected' : '' }}>Saisie manuelle</option>
                     <option value="biometrique" {{ (isset($sourcePointage) && $sourcePointage == 'biometrique') ? 'selected' : '' }}>Import .dat</option>
                     <option value="synchronisation" {{ (isset($sourcePointage) && $sourcePointage == 'synchronisation') ? 'selected' : '' }}>Sync mobile</option>
+                    <option value="import_template" {{ (isset($sourcePointage) && $sourcePointage == 'import_template') ? 'selected' : '' }}>Template pointage</option>
                 </select>
             </div>
             <div class="col-md-2 d-flex align-items-end">
@@ -134,14 +152,26 @@
                             <td>{{ $presence->heure_depart ?: '-' }}</td>
                             <td>{{ $presence->duree ? number_format($presence->duree, 2) . ' h' : '-' }}</td>
                             <td>
-                                @if($presence->retard)
-                                    <span class="badge bg-warning">Retard</span>
-                                @else
-                                    <span class="badge bg-success">À l'heure</span>
-                                @endif
+                                @php
+                                    $statut = $presence->statut ?? 'present';
+                                    $statutLabels = [
+                                        'present' => ['label' => 'Présent', 'class' => 'success'],
+                                        'retard' => ['label' => 'Retard', 'class' => 'warning'],
+                                        'depart_anticipe' => ['label' => 'Départ anticipé', 'class' => 'warning'],
+                                        'retard_et_depart_anticipe' => ['label' => 'Retard + Départ anticipé', 'class' => 'danger'],
+                                        'absent' => ['label' => 'Absent', 'class' => 'danger'],
+                                        'present_sans_planning' => ['label' => 'Présent (sans planning)', 'class' => 'info'],
+                                    ];
+                                    $statutInfo = $statutLabels[$statut] ?? ['label' => ucfirst($statut), 'class' => 'secondary'];
+                                @endphp
+                                <span class="badge bg-{{ $statutInfo['class'] }}">
+                                    {{ $statutInfo['label'] }}
+                                </span>
                                 
-                                @if($presence->depart_anticipe && $presence->heure_depart)
-                                    <span class="badge bg-warning">Départ anticipé</span>
+                                @if($presence->heures_supplementaires && $presence->heures_supplementaires > 0)
+                                    <span class="badge bg-primary">
+                                        +{{ number_format($presence->heures_supplementaires, 1) }}h sup.
+                                    </span>
                                 @endif
                             </td>
                             <td>
