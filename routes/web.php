@@ -93,6 +93,11 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
     Route::get('/presences/export', [PresenceController::class, 'export'])->name('presences.export');
     Route::get('/presences/export/excel', [PresenceController::class, 'exportExcel'])->name('presences.export.excel');
     Route::get('/presences/export/pdf', [PresenceController::class, 'exportPdf'])->name('presences.export.pdf');
+    
+    // Template de pointage (nouveau)
+    Route::get('/presences/template-pointage', [PresenceController::class, 'downloadPointageTemplate'])->name('presences.downloadPointageTemplate');
+    Route::get('/presences/import-pointage', [PresenceController::class, 'importPointageForm'])->name('presences.importPointageForm');
+    Route::post('/presences/import-pointage', [PresenceController::class, 'importPointage'])->name('presences.importPointage');
     // Resource route (must be after all other custom routes)
     Route::resource('presences', PresenceController::class);
     

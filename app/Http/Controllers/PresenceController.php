@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Exports\PresencesExport;
 use App\Exports\PresencesTemplateExport;
+use App\Exports\PointageTemplateExport;
 use App\Imports\PresencesImport;
+use App\Imports\PointageImport;
 use App\Models\Presence;
 use App\Models\Employe;
 use App\Models\Planning;
@@ -28,6 +30,7 @@ class PresenceController extends Controller
         $retard = $request->query('retard');
         $departAnticipe = $request->query('depart_anticipe');
         $sourcePointage = $request->query('source_pointage');
+        $statut = $request->query('statut');
         
         // Filtrage par employé pour les utilisateurs non admin
         if (!auth()->user()->is_admin && auth()->user()->employe) {
@@ -67,13 +70,18 @@ class PresenceController extends Controller
             $presencesQuery->where('source_pointage', $sourcePointage);
         }
         
+        // Filtre par statut
+        if ($statut !== null && $statut !== '') {
+            $presencesQuery->where('statut', $statut);
+        }
+        
         // Récupération des présences
         $presences = $presencesQuery->orderBy('date', 'desc')->orderBy('heure_arrivee')->paginate(15);
         
         // Récupération des employés pour le filtre
         $employes = Employe::where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
         
-        return view('presences.index', compact('presences', 'employes', 'employe', 'date', 'retard', 'departAnticipe', 'sourcePointage'));
+        return view('presences.index', compact('presences', 'employes', 'employe', 'date', 'retard', 'departAnticipe', 'sourcePointage', 'statut'));
     }
     
     /**
@@ -457,6 +465,57 @@ class PresenceController extends Controller
     public function template()
     {
         return Excel::download(new PresencesTemplateExport, 'modele_presences.xlsx');
+    }
+
+    /**
+     * Télécharger le template de pointage avec tous les employés
+     */
+    public function downloadPointageTemplate()
+    {
+        $filename = 'template_pointage_' . Carbon::now()->format('Y-m-d') . '.xlsx';
+        return Excel::download(new PointageTemplateExport, $filename);
+    }
+
+    /**
+     * Afficher le formulaire d'importation du template de pointage
+     */
+    public function importPointageForm()
+    {
+        return view('presences.import-pointage');
+    }
+
+    /**
+     * Importer les données du template de pointage
+     */
+    public function importPointage(Request $request)
+    {
+        $request->validate([
+            'fichier' => 'required|file|mimes:xlsx,xls',
+            'date' => 'required|date',
+        ]);
+
+        try {
+            $date = $request->input('date');
+            $import = new PointageImport($date);
+            
+            Excel::import($import, $request->file('fichier'));
+            
+            $stats = $import->getStats();
+            
+            $message = "Importation terminée pour le {$date} : ";
+            $message .= "{$stats['imported']} nouvelles présences, ";
+            $message .= "{$stats['updated']} présences mises à jour, ";
+            $message .= "{$stats['skipped']} lignes ignorées.";
+            
+            return redirect()->route('presences.index')
+                ->with('success', $message);
+                
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de l\'importation du template de pointage : ' . $e->getMessage());
+            
+            return redirect()->back()
+                ->with('error', 'Une erreur est survenue lors de l\'importation : ' . $e->getMessage());
+        }
     }
     
     /**
