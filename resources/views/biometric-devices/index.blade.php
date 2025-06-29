@@ -143,6 +143,11 @@
                                         <button class="btn btn-sm btn-primary btn-test-connection" data-device-id="{{ $device->id }}" title="Tester la connexion">
                                             <i class="bi bi-wifi"></i>
                                         </button>
+                                        @if($device->connection_status === 'connected')
+                                            <button class="btn btn-sm btn-warning btn-disconnect" data-device-id="{{ $device->id }}" data-device-name="{{ $device->name }}" title="Déconnecter cet appareil">
+                                                <i class="bi bi-plug"></i>
+                                            </button>
+                                        @endif
                                         <button class="btn btn-sm btn-danger btn-delete" data-device-id="{{ $device->id }}" data-device-name="{{ $device->name }}" title="Supprimer cet appareil">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -234,6 +239,69 @@ function testConnection(deviceId, button) {
     });
 }
 
+// Fonction pour déconnecter un appareil
+function disconnectDevice(deviceId, deviceName, button) {
+    console.log('🔌 Déconnexion pour appareil ID:', deviceId, 'Nom:', deviceName);
+    
+    if (!deviceId) {
+        alert('❌ Erreur: ID de l\'appareil manquant');
+        return;
+    }
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (!csrfToken) {
+        alert('❌ Erreur: Token CSRF manquant');
+        console.error('Token CSRF non trouvé dans la page');
+        return;
+    }
+    
+    // Confirmation de déconnexion
+    if (!confirm(`⚠️ Êtes-vous sûr de vouloir déconnecter l'appareil "${deviceName}" ?\n\nL'appareil ne sera plus synchronisé jusqu'à une nouvelle connexion.`)) {
+        return;
+    }
+    
+    // Désactiver le bouton et changer l'icône
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    
+    const url = `/biometric-devices/${deviceId}/disconnect`;
+    console.log('🌐 URL de déconnexion:', url);
+    
+    // Requête AJAX
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('📡 Réponse reçue:', response.status, response.statusText);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Données de réponse:', data);
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+            // Recharger la page pour mettre à jour le statut
+            window.location.reload();
+        } else {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-plug"></i>';
+            alert('❌ ' + (data.message || 'Erreur lors de la déconnexion'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Erreur lors de la déconnexion:', error);
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-plug"></i>';
+        alert('❌ Erreur lors de la déconnexion: ' + error.message);
+    });
+}
+
 // Fonction pour supprimer un appareil
 function deleteDevice(deviceId, deviceName, button) {
     console.log('🗑️ Suppression pour appareil ID:', deviceId, 'Nom:', deviceName);
@@ -304,9 +372,11 @@ function initBiometricDevices() {
     
     // Compter les boutons
     const testButtons = document.querySelectorAll('.btn-test-connection');
+    const disconnectButtons = document.querySelectorAll('.btn-disconnect');
     const deleteButtons = document.querySelectorAll('.btn-delete');
     
     console.log('🔍 Boutons de test trouvés:', testButtons.length);
+    console.log('🔌 Boutons de déconnexion trouvés:', disconnectButtons.length);
     console.log('🗑️ Boutons de suppression trouvés:', deleteButtons.length);
     
     // Attacher les événements aux boutons de test
@@ -318,6 +388,19 @@ function initBiometricDevices() {
             
             const deviceId = this.getAttribute('data-device-id');
             testConnection(deviceId, this);
+        });
+    });
+    
+    // Attacher les événements aux boutons de déconnexion
+    disconnectButtons.forEach(function(button, index) {
+        console.log(`📌 Attachement événement déconnexion bouton ${index + 1}`);
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🖱️ Clic détecté sur bouton de déconnexion');
+            
+            const deviceId = this.getAttribute('data-device-id');
+            const deviceName = this.getAttribute('data-device-name');
+            disconnectDevice(deviceId, deviceName, this);
         });
     });
     

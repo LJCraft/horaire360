@@ -108,6 +108,7 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
         Route::post('/', [App\Http\Controllers\BiometricDeviceController::class, 'store'])->name('store');
         Route::delete('/{id}', [App\Http\Controllers\BiometricDeviceController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/test-connection', [App\Http\Controllers\BiometricDeviceController::class, 'testConnection'])->name('test-connection');
+        Route::post('/{id}/disconnect', [App\Http\Controllers\BiometricDeviceController::class, 'disconnect'])->name('disconnect');
         
         // Route de test ultra-simple
         Route::get('/simple-test', function() {

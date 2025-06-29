@@ -266,6 +266,51 @@ class BiometricDeviceController extends Controller
     }
 
     /**
+     * Déconnecter un appareil du système
+     */
+    public function disconnect($id)
+    {
+        try {
+            $device = BiometricDevice::findOrFail($id);
+            
+            Log::info('Déconnexion de l\'appareil biométrique', [
+                'device_id' => $device->id,
+                'name' => $device->name,
+                'current_status' => $device->connection_status
+            ]);
+            
+            // Mettre à jour le statut de connexion
+            $device->update([
+                'connection_status' => 'disconnected',
+                'last_sync_at' => null
+            ]);
+            
+            Log::info('Appareil déconnecté avec succès', ['device_id' => $device->id]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => "L'appareil \"{$device->name}\" a été déconnecté avec succès."
+            ]);
+            
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::warning('Tentative de déconnexion d\'un appareil inexistant', ['id' => $id]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Appareil introuvable.'
+            ], 404);
+            
+        } catch (Exception $e) {
+            Log::error('Erreur lors de la déconnexion de l\'appareil: ' . $e->getMessage(), [
+                'id' => $id
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la déconnexion : ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Tester la connexion API
      */
     private function testApiConnection($apiUrl): bool
