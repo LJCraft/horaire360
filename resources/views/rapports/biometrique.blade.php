@@ -398,23 +398,98 @@
                                 <div class="text-center">
                                     @php
                                         $metaDataTable = json_decode($pointage->meta_data, true);
-                                    @endphp
-                                    <div class="d-flex align-items-center justify-content-center">
-                                        <span class="badge bg-info">Terminal 1</span>
-                                        @if(isset($metaDataTable['geolocation']))
-                                            <i class="bi bi-geo-alt-fill text-success ms-1" title="Position GPS disponible"></i>
-                                    @endif
-                                    </div>
-                                    @php
+                                        
+                                        // Déterminer l'appareil source
+                                        $deviceInfo = ['name' => 'Inconnu', 'type' => 'Manuel', 'class' => 'secondary', 'icon' => 'bi-pencil'];
+                                        
+                                        if (isset($metaDataTable['device_id']) && $metaDataTable['device_id']) {
+                                            // Récupérer l'appareil depuis la base de données
+                                            $device = \App\Models\BiometricDevice::find($metaDataTable['device_id']);
+                                            if ($device) {
+                                                $deviceInfo = [
+                                                    'name' => $device->name,
+                                                    'type' => $device->brand . ' (' . $device->connection_type . ')',
+                                                    'class' => 'info',
+                                                    'icon' => $device->connection_type === 'ip' ? 'bi-hdd-network' : 'bi-wifi'
+                                                ];
+                                            }
+                                        } elseif (isset($metaDataTable['terminal_id'])) {
+                                            // Identifier par terminal_id - d'abord essayer de mapper vers un device_id réel
+                                            $terminalId = $metaDataTable['terminal_id'];
+                                            
+                                            // Essayer de trouver l'appareil correspondant au terminal_id
+                                            $device = \App\Models\BiometricDevice::find($terminalId);
+                                            if ($device) {
+                                                $deviceInfo = [
+                                                    'name' => $device->name,
+                                                    'type' => $device->brand . ' (' . $device->connection_type . ')',
+                                                    'class' => 'info',
+                                                    'icon' => $device->connection_type === 'ip' ? 'bi-hdd-network' : 'bi-wifi'
+                                                ];
+                                            } else {
+                                                // Fallback pour les anciens données
+                                                if ($terminalId == 1 || $terminalId == '1') {
+                                                    $deviceInfo = [
+                                                        'name' => 'Terminal Principal',
+                                                        'type' => 'Reconnaissance faciale',
+                                                        'class' => 'info',
+                                                        'icon' => 'bi-camera'
+                                                    ];
+                                                } else {
+                                                    $deviceInfo = [
+                                                        'name' => 'Terminal ' . $terminalId,
+                                                        'type' => 'Appareil biométrique',
+                                                        'class' => 'info',
+                                                        'icon' => 'bi-fingerprint'
+                                                    ];
+                                                }
+                                            }
+                                        } elseif (isset($metaDataTable['source']) && $metaDataTable['source'] === 'reconnaissance_faciale_mobile') {
+                                            $deviceInfo = [
+                                                'name' => 'Mobile App',
+                                                'type' => 'Application mobile',
+                                                'class' => 'success',
+                                                'icon' => 'bi-phone'
+                                            ];
+                                        }
+                                        
+                                        // Déterminer la source de synchronisation
                                         $source = $pointage->source_pointage ?? 'manuel';
                                         $sourceLabels = [
                                             'manuel' => ['label' => 'Saisie manuelle', 'class' => 'secondary'],
                                             'biometrique' => ['label' => 'Import .dat', 'class' => 'primary'],
-                                            'synchronisation' => ['label' => 'Sync mobile', 'class' => 'success'],
+                                            'synchronisation' => ['label' => 'Sync auto', 'class' => 'success'],
                                         ];
+                                        
+                                        // Affinage selon les métadonnées
+                                        if ($source === 'synchronisation' && isset($metaDataTable['sync_type'])) {
+                                            $syncType = $metaDataTable['sync_type'];
+                                            $sourceLabels['synchronisation']['label'] = 'Sync ' . ucfirst($syncType);
+                                        } elseif ($source === 'synchronisation' && isset($metaDataTable['source'])) {
+                                            if ($metaDataTable['source'] === 'reconnaissance_faciale_mobile') {
+                                                $sourceLabels['synchronisation']['label'] = 'Sync Mobile';
+                                            } elseif (strpos($metaDataTable['source'], 'api') !== false) {
+                                                $sourceLabels['synchronisation']['label'] = 'Sync API';
+                                            } elseif (strpos($metaDataTable['source'], 'ip') !== false) {
+                                                $sourceLabels['synchronisation']['label'] = 'Sync IP/TCP';
+                                            }
+                                        }
+                                        
                                         $sourceInfo = $sourceLabels[$source] ?? ['label' => ucfirst($source), 'class' => 'secondary'];
                                     @endphp
-                                    <small class="badge bg-{{ $sourceInfo['class'] }} rounded-pill">{{ $sourceInfo['label'] }}</small>
+                                    <div class="d-flex align-items-center justify-content-center flex-column">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-{{ $deviceInfo['class'] }} d-flex align-items-center">
+                                                <i class="{{ $deviceInfo['icon'] }} me-1"></i>
+                                                {{ $deviceInfo['name'] }}
+                                            </span>
+                                            @if(isset($metaDataTable['geolocation']))
+                                                <i class="bi bi-geo-alt-fill text-success ms-1" title="Position GPS disponible"></i>
+                                            @endif
+                                        </div>
+                                        <small class="text-muted mt-1" style="font-size: 0.75em;">{{ $deviceInfo['type'] }}</small>
+                                        <small class="badge bg-{{ $sourceInfo['class'] }} rounded-pill mt-1">{{ $sourceInfo['label'] }}</small>
+                                    </div>
                                 </div>
                             </td>
                             <td>
@@ -625,23 +700,108 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th>Terminal</th>
+                                    <th>Appareil source</th>
                                     <td>
-                                        <span class="badge bg-info">Terminal 1</span>
-                                        <br><small class="text-muted">Reconnaissance faciale mobile</small>
+                                        @php
+                                            // Utiliser la même logique que dans le tableau
+                                            $deviceInfo = ['name' => 'Inconnu', 'type' => 'Manuel', 'class' => 'secondary', 'icon' => 'bi-pencil'];
+                                            
+                                            if (isset($metaData['device_id']) && $metaData['device_id']) {
+                                                $device = \App\Models\BiometricDevice::find($metaData['device_id']);
+                                                if ($device) {
+                                                    $deviceInfo = [
+                                                        'name' => $device->name,
+                                                        'type' => $device->brand . ' (' . $device->connection_type . ')',
+                                                        'class' => 'info',
+                                                        'icon' => $device->connection_type === 'ip' ? 'bi-hdd-network' : 'bi-wifi'
+                                                    ];
+                                                }
+                                                                                         } elseif (isset($metaData['terminal_id'])) {
+                                                 $terminalId = $metaData['terminal_id'];
+                                                 
+                                                 // Essayer de trouver l'appareil correspondant au terminal_id
+                                                 $device = \App\Models\BiometricDevice::find($terminalId);
+                                                 if ($device) {
+                                                     $deviceInfo = [
+                                                         'name' => $device->name,
+                                                         'type' => $device->brand . ' (' . $device->connection_type . ')',
+                                                         'class' => 'info',
+                                                         'icon' => $device->connection_type === 'ip' ? 'bi-hdd-network' : 'bi-wifi'
+                                                     ];
+                                                 } else {
+                                                     // Fallback pour les anciens données
+                                                     if ($terminalId == 1 || $terminalId == '1') {
+                                                         $deviceInfo = [
+                                                             'name' => 'Terminal Principal',
+                                                             'type' => 'Reconnaissance faciale',
+                                                             'class' => 'info',
+                                                             'icon' => 'bi-camera'
+                                                         ];
+                                                     } else {
+                                                         $deviceInfo = [
+                                                             'name' => 'Terminal ' . $terminalId,
+                                                             'type' => 'Appareil biométrique',
+                                                             'class' => 'info',
+                                                             'icon' => 'bi-fingerprint'
+                                                         ];
+                                                     }
+                                                 }
+                                            } elseif (isset($metaData['source']) && $metaData['source'] === 'reconnaissance_faciale_mobile') {
+                                                $deviceInfo = [
+                                                    'name' => 'Mobile App',
+                                                    'type' => 'Application mobile',
+                                                    'class' => 'success',
+                                                    'icon' => 'bi-phone'
+                                                ];
+                                            }
+                                        @endphp
+                                        <span class="badge bg-{{ $deviceInfo['class'] }} d-flex align-items-center" style="width: fit-content;">
+                                            <i class="{{ $deviceInfo['icon'] }} me-1"></i>
+                                            {{ $deviceInfo['name'] }}
+                                        </span>
+                                        <br><small class="text-muted">{{ $deviceInfo['type'] }}</small>
+                                        
+                                        @if(isset($metaData['device_ip']))
+                                            <br><small class="text-muted">IP: {{ $metaData['device_ip'] }}</small>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th>Source</th>
+                                    <th>Mode de synchronisation</th>
                                     <td>
                                         @php
                                             $source = $pointage->source_pointage ?? 'manuel';
                                             $sourceDisplay = [
                                                 'manuel' => ['icon' => 'bi-pencil', 'text' => 'Saisie manuelle', 'class' => 'secondary'],
                                                 'import_dat' => ['icon' => 'bi-file-earmark-text', 'text' => 'Fichier .dat importé', 'class' => 'primary'],
-                                                'synchronisation' => ['icon' => 'bi-phone', 'text' => 'Synchronisation mobile', 'class' => 'success'],
+                                                'synchronisation' => ['icon' => 'bi-arrow-clockwise', 'text' => 'Synchronisation automatique', 'class' => 'success'],
                                                 'biometrique' => ['icon' => 'bi-file-earmark-text', 'text' => 'Import .dat', 'class' => 'primary']
                                             ];
+                                            
+                                            // Affinage selon les métadonnées pour les synchronisations
+                                            if ($source === 'synchronisation') {
+                                                if (isset($metaData['sync_type'])) {
+                                                    $syncType = $metaData['sync_type'];
+                                                    $sourceDisplay['synchronisation']['text'] = 'Sync ' . ucfirst($syncType);
+                                                    if ($syncType === 'ip') {
+                                                        $sourceDisplay['synchronisation']['icon'] = 'bi-hdd-network';
+                                                    } elseif ($syncType === 'api') {
+                                                        $sourceDisplay['synchronisation']['icon'] = 'bi-cloud-arrow-down';
+                                                    }
+                                                } elseif (isset($metaData['source'])) {
+                                                    if ($metaData['source'] === 'reconnaissance_faciale_mobile') {
+                                                        $sourceDisplay['synchronisation']['text'] = 'Sync Application Mobile';
+                                                        $sourceDisplay['synchronisation']['icon'] = 'bi-phone';
+                                                    } elseif (strpos($metaData['source'], 'api') !== false) {
+                                                        $sourceDisplay['synchronisation']['text'] = 'Sync API REST';
+                                                        $sourceDisplay['synchronisation']['icon'] = 'bi-cloud-arrow-down';
+                                                    } elseif (strpos($metaData['source'], 'ip') !== false) {
+                                                        $sourceDisplay['synchronisation']['text'] = 'Sync IP/TCP';
+                                                        $sourceDisplay['synchronisation']['icon'] = 'bi-hdd-network';
+                                                    }
+                                                }
+                                            }
+                                            
                                             $display = $sourceDisplay[$source] ?? ['icon' => 'bi-question', 'text' => ucfirst($source), 'class' => 'secondary'];
                                         @endphp
                                         <i class="{{ $display['icon'] }} text-{{ $display['class'] }} me-1"></i>
@@ -653,6 +813,23 @@
                                         
                                         @if($source === 'synchronisation' && isset($metaData['source_app']))
                                             <br><small class="text-muted">App: {{ $metaData['source_app'] }}</small>
+                                        @endif
+                                        
+                                        @if(isset($metaData['sync_timestamp']))
+                                            <br><small class="text-muted">Horodatage: 
+                                                @php
+                                                    $timestamp = $metaData['sync_timestamp'];
+                                                    if (is_string($timestamp)) {
+                                                        // Si c'est une chaîne, essayer de la convertir
+                                                        try {
+                                                            $timestamp = strtotime($timestamp);
+                                                        } catch (Exception $e) {
+                                                            $timestamp = null;
+                                                        }
+                                                    }
+                                                    echo $timestamp ? date('d/m/Y H:i:s', $timestamp) : 'Format invalide';
+                                                @endphp
+                                            </small>
                                         @endif
                                     </td>
                                 </tr>

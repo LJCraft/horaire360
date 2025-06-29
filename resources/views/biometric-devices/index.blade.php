@@ -113,12 +113,12 @@
                             @foreach($devices as $device)
                                 <tr>
                                     <td>{{ $device->name }}</td>
-                                    <td><span class="badge badge-secondary">{{ strtoupper($device->brand) }}</span></td>
+                                    <td><span class="badge bg-secondary">{{ strtoupper($device->brand) }}</span></td>
                                     <td>
                                         @if($device->connection_type === 'ip')
-                                            <span class="badge badge-info">IP</span>
+                                            <span class="badge bg-info">IP</span>
                                         @else
-                                            <span class="badge badge-warning">API</span>
+                                            <span class="badge bg-warning">API</span>
                                         @endif
                                     </td>
                                     <td>
@@ -168,56 +168,188 @@
 
 @push('scripts')
 <script>
-$(document).ready(function() {
-    $('.btn-test-connection').click(function() {
-        const deviceId = $(this).data('device-id');
-        const btn = $(this);
+// Vérification du chargement des dépendances
+console.log('=== DIAGNOSTIC APPAREILS BIOMETRIQUES ===');
+console.log('jQuery chargé:', typeof $ !== 'undefined');
+console.log('Bootstrap chargé:', typeof bootstrap !== 'undefined');
+console.log('Document ready état:', document.readyState);
+
+// Fonction pour tester la connexion d'un appareil
+function testConnection(deviceId, button) {
+    console.log('🔗 Test de connexion pour appareil ID:', deviceId);
+    
+    if (!deviceId) {
+        alert('❌ Erreur: ID de l\'appareil manquant');
+        return;
+    }
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (!csrfToken) {
+        alert('❌ Erreur: Token CSRF manquant');
+        console.error('Token CSRF non trouvé dans la page');
+        return;
+    }
+    
+    // Désactiver le bouton et changer l'icône
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    
+    const url = `/biometric-devices/${deviceId}/test-connection`;
+    console.log('🌐 URL de test:', url);
+    
+    // Requête AJAX
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('📡 Réponse reçue:', response.status, response.statusText);
+        return response.json();
+    })
+         .then(data => {
+         console.log('📊 Données de réponse:', data);
+         button.disabled = false;
+         button.innerHTML = '<i class="bi bi-wifi"></i>';
+         
+         if (data.success) {
+             alert('✅ ' + data.message);
+         } else {
+             alert('❌ ' + (data.message || 'Test de connexion échoué'));
+         }
+         
+         // Recharger la page pour voir le nouveau statut (succès OU échec)
+         console.log('🔄 Rechargement de la page pour mettre à jour le statut...');
+         window.location.reload();
+     })
+    .catch(error => {
+        console.error('💥 Erreur lors du test:', error);
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-wifi"></i>';
+        alert('❌ Erreur lors du test de connexion: ' + error.message);
+    });
+}
+
+// Fonction pour supprimer un appareil
+function deleteDevice(deviceId, deviceName, button) {
+    console.log('🗑️ Suppression pour appareil ID:', deviceId, 'Nom:', deviceName);
+    
+    if (!deviceId) {
+        alert('❌ Erreur: ID de l\'appareil manquant');
+        return;
+    }
+    
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (!csrfToken) {
+        alert('❌ Erreur: Token CSRF manquant');
+        console.error('Token CSRF non trouvé dans la page');
+        return;
+    }
+    
+    // Confirmation de suppression
+    if (!confirm(`⚠️ Êtes-vous sûr de vouloir supprimer l'appareil "${deviceName}" ?\n\nCette action est irréversible.`)) {
+        return;
+    }
+    
+    // Désactiver le bouton et changer l'icône
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    
+    const url = `/biometric-devices/${deviceId}`;
+    console.log('🌐 URL de suppression:', url);
+    
+    // Requête AJAX
+    fetch(url, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('📡 Réponse reçue:', response.status, response.statusText);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Données de réponse:', data);
         
-        btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
-        
-        $.ajax({
-            url: `/biometric-devices/${deviceId}/test-connection`,
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                btn.prop('disabled', false).html('<i class="bi bi-wifi"></i>');
-                alert(response.message);
-            },
-            error: function(xhr) {
-                btn.prop('disabled', false).html('<i class="bi bi-wifi"></i>');
-                alert('Erreur lors du test de connexion');
-            }
+        if (data.success) {
+            alert('✅ ' + data.message);
+            // Recharger la page pour mettre à jour la liste
+            window.location.reload();
+        } else {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-trash"></i>';
+            alert('❌ ' + (data.message || 'Erreur lors de la suppression'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Erreur lors de la suppression:', error);
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-trash"></i>';
+        alert('❌ Erreur lors de la suppression: ' + error.message);
+    });
+}
+
+// Initialisation quand le DOM est prêt
+function initBiometricDevices() {
+    console.log('🚀 Initialisation des appareils biométriques');
+    
+    // Compter les boutons
+    const testButtons = document.querySelectorAll('.btn-test-connection');
+    const deleteButtons = document.querySelectorAll('.btn-delete');
+    
+    console.log('🔍 Boutons de test trouvés:', testButtons.length);
+    console.log('🗑️ Boutons de suppression trouvés:', deleteButtons.length);
+    
+    // Attacher les événements aux boutons de test
+    testButtons.forEach(function(button, index) {
+        console.log(`📌 Attachement événement test bouton ${index + 1}`);
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🖱️ Clic détecté sur bouton de test');
+            
+            const deviceId = this.getAttribute('data-device-id');
+            testConnection(deviceId, this);
         });
     });
     
-    $('.btn-delete').click(function() {
-        const deviceId = $(this).data('device-id');
-        const deviceName = $(this).data('device-name');
-        const btn = $(this);
-        
-        // Confirmation de suppression
-        if (confirm(`Êtes-vous sûr de vouloir supprimer l'appareil "${deviceName}" ?\n\nCette action est irréversible.`)) {
-            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+    // Attacher les événements aux boutons de suppression
+    deleteButtons.forEach(function(button, index) {
+        console.log(`📌 Attachement événement suppression bouton ${index + 1}`);
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🖱️ Clic détecté sur bouton de suppression');
             
-            $.ajax({
-                url: `/biometric-devices/${deviceId}`,
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                success: function(response) {
-                    // Recharger la page pour mettre à jour la liste
-                    location.reload();
-                },
-                error: function(xhr) {
-                    btn.prop('disabled', false).html('<i class="bi bi-trash"></i>');
-                    alert('Erreur lors de la suppression de l\'appareil');
-                }
-            });
-        }
+            const deviceId = this.getAttribute('data-device-id');
+            const deviceName = this.getAttribute('data-device-name');
+            deleteDevice(deviceId, deviceName, this);
+        });
     });
-});
+    
+    console.log('✅ Initialisation terminée');
+}
+
+// Lancer l'initialisation
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBiometricDevices);
+} else {
+    initBiometricDevices();
+}
+
+// Vérification supplémentaire avec jQuery si disponible
+if (typeof $ !== 'undefined') {
+    $(document).ready(function() {
+        console.log('✅ jQuery prêt - vérification supplémentaire effectuée');
+    });
+}
+
+
 </script>
 @endpush

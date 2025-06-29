@@ -106,8 +106,13 @@ class PresenceController extends Controller
                 return redirect()->back()->withInput()->with('error', "Veuillez renseigner l'heure d'arrivée ou de départ.");
             }
             
-            // Définir la source de pointage (manuel par défaut)
+            // Définir la source de pointage (manuel par défaut pour la page "nouveau pointage")
             $validatedData['source_pointage'] = $request->input('source_pointage', 'manuel');
+            
+            // S'assurer explicitement que les pointages créés via le formulaire sont marqués comme "manuel"
+            if (empty($request->input('source_pointage'))) {
+                $validatedData['source_pointage'] = 'manuel';
+            }
             
             // Vérifier s'il existe déjà un pointage pour cet employé et cette date
             $presence = Presence::firstOrNew([
@@ -249,6 +254,11 @@ class PresenceController extends Controller
         
         // Définir la source de pointage (conserver l'existante ou utiliser manuel par défaut)
         $validatedData['source_pointage'] = $request->input('source_pointage', $presence->source_pointage ?? 'manuel');
+        
+        // S'assurer explicitement que les modifications via le formulaire conservent la source "manuel" si non spécifiée
+        if (empty($request->input('source_pointage')) && empty($presence->source_pointage)) {
+            $validatedData['source_pointage'] = 'manuel';
+        }
         
         try {
             // Vérifier si une présence existe déjà pour cette date et cet employé (sauf celle-ci)

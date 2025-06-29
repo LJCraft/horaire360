@@ -192,8 +192,9 @@ class BiometricSynchronizationService
                         'date' => $date,
                         'time' => $time,
                         'type' => $type,
-                        'terminal_id' => 1,
-                        'raw_line' => "{$employeId}  {$date}  {$time}  {$type}  1"
+                        'terminal_id' => $device->id, // Utiliser l'ID de l'appareil
+                        'device_id' => $device->id,
+                        'raw_line' => "{$employeId}  {$date}  {$time}  {$type}  {$device->id}"
                     ];
                 }
                 
@@ -307,9 +308,14 @@ class BiometricSynchronizationService
             'source' => 'synchronisation_automatique',
             'device_id' => $device->id,
             'device_name' => $device->name,
+            'device_brand' => $device->brand,
+            'device_ip' => $device->ip_address,
+            'connection_type' => $device->connection_type,
             'terminal_id' => $record['terminal_id'] ?? $device->id,
             'type_pointage' => $type,
-            'sync_timestamp' => now()->toISOString()
+            'sync_type' => $device->connection_type, // ip, api, etc.
+            'sync_timestamp' => now()->timestamp,
+            'sync_session' => 'sync_' . $device->id . '_' . now()->format('YmdHis')
         ];
 
         if (isset($record['raw_line'])) {
