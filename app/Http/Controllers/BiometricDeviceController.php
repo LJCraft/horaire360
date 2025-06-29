@@ -46,7 +46,9 @@ class BiometricDeviceController extends Controller
             'zkteco' => 'ZKTeco',
             'suprema' => 'Suprema',
             'hikvision' => 'Hikvision',
-            'anviz' => 'Anviz'
+            'anviz' => 'Anviz',
+            'api-facial' => 'API-FACIAL',
+            'generic' => 'Générique'
         ];
         
         return view('biometric-devices.create', compact('brands'));
@@ -58,18 +60,49 @@ class BiometricDeviceController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validation des données
-            $validated = $request->validate([
+            // Validation des données avec règles spécifiques pour API-FACIAL
+            $rules = [
                 'name' => 'required|string|max:255',
                 'brand' => 'required|string',
                 'model' => 'nullable|string|max:255',
                 'connection_type' => 'required|in:ip,api',
-                'ip_address' => 'nullable|required_if:connection_type,ip|ip',
-                'port' => 'nullable|required_if:connection_type,ip|integer|between:1,65535',
-                'api_url' => 'nullable|required_if:connection_type,api|url',
                 'sync_interval' => 'nullable|integer|min:60|max:86400',
                 'active' => 'nullable|boolean',
-            ]);
+            ];
+
+            // Règles conditionnelles selon la marque
+            if ($request->brand === 'api-facial') {
+                // Pour API-FACIAL, forcer connection_type à 'api' et valider l'URL spécifique
+                $rules['api_facial_url'] = 'required|url';
+                $rules['api_facial_token'] = 'nullable|string|max:500';
+                $rules['api_facial_format'] = 'nullable|in:json,xml';
+                // Pas besoin de valider connection_type pour API-FACIAL, on le force à 'api'
+                $request->merge(['connection_type' => 'api']);
+            } else {
+                // Pour les autres marques, connection_type est requis
+                $rules['connection_type'] = 'required|in:ip,api';
+                if ($request->connection_type === 'ip') {
+                    $rules['ip_address'] = 'required|ip';
+                    $rules['port'] = 'required|integer|between:1,65535';
+                } elseif ($request->connection_type === 'api') {
+                    $rules['api_url'] = 'required|url';
+                }
+            }
+
+            $validated = $request->validate($rules);
+            
+            // Déterminer l'URL API selon la marque
+            $apiUrl = null;
+            $username = null;
+            $password = null;
+            
+            if ($validated['brand'] === 'api-facial') {
+                $apiUrl = $validated['api_facial_url'] ?? null;
+                $username = $validated['api_facial_token'] ?? null; // Stocker le token dans username
+                $password = $validated['api_facial_format'] ?? 'json'; // Stocker le format dans password
+            } else {
+                $apiUrl = $validated['api_url'] ?? null;
+            }
             
             // Créer l'appareil biométrique
             $device = BiometricDevice::create([
@@ -79,9 +112,11 @@ class BiometricDeviceController extends Controller
                 'connection_type' => $validated['connection_type'],
                 'ip_address' => $validated['ip_address'] ?? null,
                 'port' => $validated['port'] ?? null,
-                'api_url' => $validated['api_url'] ?? null,
+                'api_url' => $apiUrl,
+                'username' => $username,
+                'password' => $password,
                 'sync_interval' => $validated['sync_interval'] ?? 300,
-                'is_active' => $request->has('active') ?? true,
+                'is_active' => $request->has('active'),
                 'connection_status' => 'disconnected',
                 'last_sync_at' => null,
             ]);

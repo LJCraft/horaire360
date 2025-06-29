@@ -21,6 +21,31 @@
                     </h6>
                 </div>
                 <div class="card-body">
+                    <!-- Affichage des erreurs de validation -->
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <h6><i class="bi bi-exclamation-triangle"></i> Erreurs de validation :</h6>
+                            <ul class="mb-0">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <!-- Affichage des messages de succès/erreur -->
+                    @if (session('success'))
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> {{ session('success') }}
+                        </div>
+                    @endif
+
+                    @if (session('error'))
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> {{ session('error') }}
+                        </div>
+                    @endif
+
                     <form action="{{ route('biometric-devices.store') }}" method="POST">
                         @csrf
                         
@@ -29,20 +54,27 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="name" class="form-label">Nom de l'appareil <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="name" name="name" required>
+                                    <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name') }}" required>
+                                    @error('name')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="brand" class="form-label">Marque <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="brand" name="brand" required>
+                                    <select class="form-select @error('brand') is-invalid @enderror" id="brand" name="brand" required>
                                         <option value="">Sélectionnez une marque</option>
-                                        <option value="zkteco">ZKTeco</option>
-                                        <option value="hikvision">Hikvision</option>
-                                        <option value="anviz">Anviz</option>
-                                        <option value="suprema">Suprema</option>
-                                        <option value="generic">Générique</option>
+                                        <option value="zkteco" {{ old('brand') === 'zkteco' ? 'selected' : '' }}>ZKTeco</option>
+                                        <option value="hikvision" {{ old('brand') === 'hikvision' ? 'selected' : '' }}>Hikvision</option>
+                                        <option value="anviz" {{ old('brand') === 'anviz' ? 'selected' : '' }}>Anviz</option>
+                                        <option value="suprema" {{ old('brand') === 'suprema' ? 'selected' : '' }}>Suprema</option>
+                                        <option value="api-facial" {{ old('brand') === 'api-facial' ? 'selected' : '' }}>API-FACIAL</option>
+                                        <option value="generic" {{ old('brand') === 'generic' ? 'selected' : '' }}>Générique</option>
                                     </select>
+                                    @error('brand')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -96,6 +128,49 @@
                             </div>
                         </div>
 
+                        <!-- Configuration API-FACIAL spécifique -->
+                        <div id="api_facial_config" style="display: none;">
+                            <hr>
+                            <h6 class="text-primary">Configuration API-FACIAL</h6>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Application mobile de reconnaissance faciale</strong><br>
+                                Connectez votre app mobile comme un appareil biométrique distant avec synchronisation automatique.
+                            </div>
+                            <div class="mb-3">
+                                <label for="api_facial_url" class="form-label">URL de l'API de pointages <span class="text-danger">*</span></label>
+                                <input type="url" class="form-control @error('api_facial_url') is-invalid @enderror" id="api_facial_url" name="api_facial_url" 
+                                       value="{{ old('api_facial_url') }}" placeholder="https://votre-api.com/pointages?nameEntreprise=VotreEntreprise">
+                                @error('api_facial_url')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <div class="form-text">
+                                    Format attendu : <code>https://votre-api.com/pointages?nameEntreprise=VotreEntreprise</code>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="api_facial_token" class="form-label">Token d'authentification (optionnel)</label>
+                                        <input type="text" class="form-control @error('api_facial_token') is-invalid @enderror" id="api_facial_token" name="api_facial_token" 
+                                               value="{{ old('api_facial_token') }}" placeholder="Bearer token ou clé API">
+                                        @error('api_facial_token')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="api_facial_format" class="form-label">Format de réponse</label>
+                                        <select class="form-select" id="api_facial_format" name="api_facial_format">
+                                            <option value="json">JSON (par défaut)</option>
+                                            <option value="xml">XML</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Options avancées -->
                         <hr>
                         <h6 class="text-primary">Options avancées</h6>
@@ -130,24 +205,82 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const brandSelect = document.getElementById('brand');
     const connectionType = document.getElementById('connection_type');
     const ipConfig = document.getElementById('ip_config');
     const apiConfig = document.getElementById('api_config');
+    const apiFacialConfig = document.getElementById('api_facial_config');
     
-    connectionType.addEventListener('change', function() {
-        const type = this.value;
+    // Gestion du changement de marque
+    brandSelect.addEventListener('change', function() {
+        const brand = this.value;
+        
+        // Masquer les alertes d'erreur existantes quand on change de marque
+        const alertErrors = document.querySelectorAll('.alert-danger');
+        alertErrors.forEach(alert => alert.style.display = 'none');
+        
+        if (brand === 'api-facial') {
+            // Pour API-FACIAL, forcer le type de connexion API et masquer le sélecteur
+            connectionType.value = 'api';
+            // Ne pas disabled, juste masquer visuellement pour que la valeur soit envoyée
+            connectionType.style.pointerEvents = 'none'; // Empêche les clics
+            connectionType.closest('.mb-3').style.display = 'none';
+            
+            // Afficher la configuration spécifique API-FACIAL
+            showApiFacialConfig();
+        } else {
+            // Pour les autres marques, réactiver le sélecteur de type
+            connectionType.style.pointerEvents = 'auto'; // Réactive les clics
+            connectionType.closest('.mb-3').style.display = 'block';
+            
+            // Masquer la configuration API-FACIAL
+            apiFacialConfig.style.display = 'none';
+            
+            // Gérer l'affichage normal selon le type de connexion
+            handleConnectionTypeChange();
+        }
+    });
+    
+    // Gestion du changement de type de connexion
+    connectionType.addEventListener('change', handleConnectionTypeChange);
+    
+    function handleConnectionTypeChange() {
+        const type = connectionType.value;
+        const brand = brandSelect.value;
         
         // Masquer toutes les configurations
         ipConfig.style.display = 'none';
         apiConfig.style.display = 'none';
+        apiFacialConfig.style.display = 'none';
         
         // Afficher la configuration correspondante
-        if (type === 'ip') {
+        if (brand === 'api-facial') {
+            showApiFacialConfig();
+        } else if (type === 'ip') {
             ipConfig.style.display = 'block';
         } else if (type === 'api') {
             apiConfig.style.display = 'block';
         }
-    });
+    }
+    
+    function showApiFacialConfig() {
+        apiFacialConfig.style.display = 'block';
+        // Masquer les autres configurations
+        ipConfig.style.display = 'none';
+        apiConfig.style.display = 'none';
+    }
+    
+    // Réafficher la configuration correcte si on revient après une erreur de validation
+    @if(old('brand') === 'api-facial')
+        // API-FACIAL était sélectionné, réafficher sa configuration
+        connectionType.value = 'api';
+        connectionType.style.pointerEvents = 'none';
+        connectionType.closest('.mb-3').style.display = 'none';
+        showApiFacialConfig();
+    @elseif(old('brand') && old('connection_type'))
+        // Autre marque avec type de connexion, réafficher la configuration appropriée
+        handleConnectionTypeChange();
+    @endif
 });
 </script>
 @endsection

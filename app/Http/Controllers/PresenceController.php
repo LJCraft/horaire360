@@ -438,10 +438,21 @@ class PresenceController extends Controller
     public function destroy(Presence $presence)
     {
         try {
+            // Récupérer les paramètres de la requête actuelle pour maintenir le contexte de pagination
+            $currentPage = request()->get('page', 1);
+            $perPage = 15; // Même valeur que dans la méthode index
+            $searchFilters = request()->except(['_token', '_method']);
+            
             // Suppression de la présence
             $presence->delete();
             
-            return redirect()->route('presences.index')
+            // Calculer la page correcte après suppression
+            $redirectPage = $this->calculateCorrectPageAfterDeletion($searchFilters, $currentPage, $perPage);
+            
+            // Construire l'URL de redirection avec les bons paramètres
+            $redirectUrl = route('presences.index', array_merge($searchFilters, ['page' => $redirectPage]));
+            
+            return redirect($redirectUrl)
                 ->with('success', 'Présence supprimée avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de la suppression de la présence : ' . $e->getMessage());
@@ -449,6 +460,56 @@ class PresenceController extends Controller
             return redirect()->back()
                 ->with('error', 'Une erreur est survenue lors de la suppression de la présence.');
         }
+    }
+
+    /**
+     * Calculer la page correcte après suppression d'une présence
+     */
+    private function calculateCorrectPageAfterDeletion($filters, $currentPage, $perPage)
+    {
+        // Reconstruire la requête avec les mêmes filtres que la page courante
+        $presencesQuery = Presence::with('employe');
+        
+        // Appliquer les mêmes filtres que dans la méthode index
+        if (isset($filters['employe']) && !empty($filters['employe'])) {
+            $presencesQuery->where('employe_id', $filters['employe']);
+        }
+        
+        if (isset($filters['date']) && !empty($filters['date'])) {
+            $presencesQuery->whereDate('date', $filters['date']);
+        }
+        
+        if (isset($filters['retard']) && $filters['retard'] !== '') {
+            $presencesQuery->where('retard', (bool) $filters['retard']);
+        }
+        
+        if (isset($filters['depart_anticipe']) && $filters['depart_anticipe'] !== '') {
+            $presencesQuery->where('depart_anticipe', (bool) $filters['depart_anticipe']);
+        }
+        
+        if (isset($filters['source_pointage']) && !empty($filters['source_pointage'])) {
+            $presencesQuery->where('source_pointage', $filters['source_pointage']);
+        }
+        
+        // Compter le nombre total de présences restantes
+        $totalPresences = $presencesQuery->count();
+        
+        // Si aucune présence ne reste, rediriger vers la page 1
+        if ($totalPresences === 0) {
+            return 1;
+        }
+        
+        // Calculer le nombre total de pages
+        $totalPages = ceil($totalPresences / $perPage);
+        
+        // Si la page courante est supérieure au nombre total de pages, 
+        // rediriger vers la dernière page disponible
+        if ($currentPage > $totalPages) {
+            return max(1, $totalPages);
+        }
+        
+        // Sinon, rester sur la page courante
+        return $currentPage;
     }
     
     /**

@@ -196,9 +196,11 @@
             </div>
             
             <!-- Pagination -->
+            @if($plannings->hasPages())
             <div class="d-flex justify-content-center mt-4">
                 {{ $plannings->appends(request()->except('page'))->links() }}
             </div>
+            @endif
         </div>
     </div>
 

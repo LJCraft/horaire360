@@ -255,10 +255,24 @@
                     </div>
                     <p class="text-muted small mb-3">Synchroniser automatiquement tous les appareils biométriques connectés</p>
                     
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="modal" data-bs-target="#syncInfoModal">
                             <i class="bi bi-info-circle me-1"></i>Comment ça marche ?
                         </button>
+                    </div>
+
+                    <!-- Options de synchronisation -->
+                    <div class="mb-3">
+                        <div class="form-check form-check-sm">
+                            <input class="form-check-input" type="checkbox" value="1" id="skip_existing_sync" name="skip_existing_sync" checked>
+                            <label class="form-check-label small" for="skip_existing_sync">
+                                ✅ Ignorer les pointages déjà existants dans la base
+                            </label>
+                        </div>
+                        <div class="form-text text-muted small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Recommandé pour éviter les doublons lors de synchronisations répétées
+                        </div>
                     </div>
                     
                     <button id="syncBtn" class="btn btn-success w-100" onclick="synchroniserAppareils()">
@@ -560,36 +574,34 @@
         </div>
         <!-- Pagination simplifiée -->
         @if($pointages->hasPages())
-        <div class="card-footer bg-white py-2">
-            <div class="d-flex justify-content-center align-items-center">
-                <div class="btn-group btn-group-sm" role="group">
-                    <!-- Bouton Précédent -->
-                    @if($pointages->onFirstPage())
-                        <button class="btn btn-outline-secondary" disabled>
-                            <i class="bi bi-chevron-left"></i> Précédent
-                        </button>
-                    @else
-                        <a href="{{ $pointages->previousPageUrl() }}" class="btn btn-outline-primary">
-                            <i class="bi bi-chevron-left"></i> Précédent
-                        </a>
-                    @endif
-                    
-                    <!-- Indicateur de page compact -->
-                    <button class="btn btn-outline-secondary" disabled>
-                        Page {{ $pointages->currentPage() }}/{{ $pointages->lastPage() }}
+        <div class="card-footer bg-white py-3">
+            <div class="d-flex justify-content-center align-items-center gap-3">
+                <!-- Bouton Précédent -->
+                @if($pointages->onFirstPage())
+                    <button class="btn btn-outline-secondary btn-sm" disabled>
+                        <i class="bi bi-chevron-left"></i> Précédent
                     </button>
-                    
-                    <!-- Bouton Suivant -->
-                    @if($pointages->hasMorePages())
-                        <a href="{{ $pointages->nextPageUrl() }}" class="btn btn-outline-primary">
-                            Suivant <i class="bi bi-chevron-right"></i>
-                        </a>
-                    @else
-                        <button class="btn btn-outline-secondary" disabled>
-                            Suivant <i class="bi bi-chevron-right"></i>
-                        </button>
-                    @endif
-                </div>
+                @else
+                    <a href="{{ $pointages->previousPageUrl() }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-chevron-left"></i> Précédent
+                    </a>
+                @endif
+                
+                <!-- Indicateur de page compact -->
+                <span class="px-3 py-2 bg-light rounded text-muted small">
+                    Page {{ $pointages->currentPage() }} sur {{ $pointages->lastPage() }}
+                </span>
+                
+                <!-- Bouton Suivant -->
+                @if($pointages->hasMorePages())
+                    <a href="{{ $pointages->nextPageUrl() }}" class="btn btn-outline-primary btn-sm">
+                        Suivant <i class="bi bi-chevron-right"></i>
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary btn-sm" disabled>
+                        Suivant <i class="bi bi-chevron-right"></i>
+                    </button>
+                @endif
             </div>
         </div>
         @endif
@@ -1237,6 +1249,7 @@
         const syncBtnText = document.getElementById('syncBtnText');
         const syncStatus = document.getElementById('syncStatus');
         const syncResult = document.getElementById('syncResult');
+        const skipExisting = document.getElementById('skip_existing_sync').checked;
         
         // Désactiver le bouton et afficher le statut de chargement
         syncBtn.disabled = true;
@@ -1250,7 +1263,12 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+                },
+                body: JSON.stringify({
+                    skip_existing: skipExisting,
+                    validate_production_data: true,
+                    max_data_age_hours: 48
+                })
             });
             
             const result = await response.json();
@@ -1435,25 +1453,51 @@
         } else if (success && result.total_records === 0) {
             // Synchronisation réussie mais aucune nouvelle donnée
             syncAlert.className = 'alert alert-info alert-sm mb-0';
+            let warningsHtml = '';
+            if (result.warnings && result.warnings.length > 0) {
+                warningsHtml = '<br><small class="text-warning">⚠️ ' + result.warnings.join('<br>⚠️ ') + '</small>';
+            }
             syncMessage.innerHTML = `
                 <div class="d-flex align-items-center">
                     <i class="bi bi-info-circle me-2"></i>
                     <div>
                         <strong>Synchronisation terminée</strong><br>
                         <small>${result.synchronized_devices} appareil(s) synchronisé(s), aucune nouvelle donnée trouvée.</small>
+                        ${warningsHtml}
                     </div>
                 </div>
             `;
         } else if (success) {
             // Synchronisation réussie avec des données
             syncAlert.className = 'alert alert-success alert-sm mb-0';
+            
+            // Construire les statistiques détaillées
+            let statsHtml = `<small><strong>${result.processed_records}</strong> pointages traités`;
+            if (result.skipped_records > 0) {
+                statsHtml += `, <span class="text-info">${result.skipped_records} ignorés (doublons)</span>`;
+            }
+            if (result.invalid_records > 0) {
+                statsHtml += `, <span class="text-warning">${result.invalid_records} invalides</span>`;
+            }
+            statsHtml += ` en <strong>${result.execution_time}s</strong></small>`;
+            
+            // Avertissements s'il y en a
+            let warningsHtml = '';
+            if (result.warnings && result.warnings.length > 0) {
+                warningsHtml = '<br><small class="text-warning">⚠️ ' + result.warnings.slice(0, 2).join('<br>⚠️ ') + '</small>';
+                if (result.warnings.length > 2) {
+                    warningsHtml += '<br><small class="text-muted">... et ' + (result.warnings.length - 2) + ' autre(s) avertissement(s)</small>';
+                }
+            }
+            
             syncMessage.innerHTML = `
                 <div class="d-flex align-items-center">
                     <i class="bi bi-check-circle me-2"></i>
                     <div>
                         <strong>Synchronisation réussie !</strong><br>
                         <small>${result.synchronized_devices}/${result.total_devices} appareil(s) synchronisé(s)</small><br>
-                        <small><strong>${result.processed_records}</strong> pointages traités en <strong>${result.execution_time}s</strong></small>
+                        ${statsHtml}
+                        ${warningsHtml}
                     </div>
                 </div>
             `;

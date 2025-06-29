@@ -185,9 +185,36 @@
             </table>
         </div>
         
-        <div class="d-flex justify-content-end mt-3 px-3 pb-3">
-            {{ $presences->links() }}
+        @if($presences->hasPages())
+        <div class="d-flex justify-content-center align-items-center gap-3 mt-3 px-3 pb-3">
+            <!-- Bouton Précédent -->
+            @if($presences->onFirstPage())
+                <button class="btn btn-outline-secondary btn-sm" disabled>
+                    <i class="bi bi-chevron-left"></i> Précédent
+                </button>
+            @else
+                <a href="{{ $presences->previousPageUrl() }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-chevron-left"></i> Précédent
+                </a>
+            @endif
+            
+            <!-- Indicateur de page compact -->
+            <span class="px-3 py-2 bg-light rounded text-muted small">
+                Page {{ $presences->currentPage() }} sur {{ $presences->lastPage() }}
+            </span>
+            
+            <!-- Bouton Suivant -->
+            @if($presences->hasMorePages())
+                <a href="{{ $presences->nextPageUrl() }}" class="btn btn-outline-primary btn-sm">
+                    Suivant <i class="bi bi-chevron-right"></i>
+                </a>
+            @else
+                <button class="btn btn-outline-secondary btn-sm" disabled>
+                    Suivant <i class="bi bi-chevron-right"></i>
+                </button>
+            @endif
         </div>
+        @endif
     </div>
 </div>
 

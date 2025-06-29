@@ -487,9 +487,11 @@
                                 </table>
                             </div>
                             
+                            @if($criteres->hasPages())
                             <div class="d-flex justify-content-center mt-3">
                                 {{ $criteres->links() }}
                             </div>
+                            @endif
                         </div>
                         
                         <!-- Onglet Configuration par département -->

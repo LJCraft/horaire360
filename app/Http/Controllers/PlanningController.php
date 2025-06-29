@@ -161,12 +161,77 @@ class PlanningController extends Controller
      */
     public function destroy(Planning $planning)
     {
+        // Récupérer les paramètres de la requête actuelle pour maintenir le contexte de pagination
+        $currentPage = request()->get('page', 1);
+        $perPage = 15; // Même valeur que dans la méthode index
+        $searchFilters = request()->except(['_token', '_method']);
+        
         // Supprimer les détails du planning puis le planning
         $planning->details()->delete();
         $planning->delete();
         
-        return redirect()->route('plannings.index')
+        // Calculer la page correcte après suppression
+        $redirectPage = $this->calculateCorrectPageAfterDeletion($searchFilters, $currentPage, $perPage);
+        
+        // Construire l'URL de redirection avec les bons paramètres
+        $redirectUrl = route('plannings.index', array_merge($searchFilters, ['page' => $redirectPage]));
+        
+        return redirect($redirectUrl)
             ->with('success', 'Planning supprimé avec succès.');
+    }
+
+    /**
+     * Calculer la page correcte après suppression d'un planning
+     */
+    private function calculateCorrectPageAfterDeletion($filters, $currentPage, $perPage)
+    {
+        // Reconstruire la requête avec les mêmes filtres que la page courante
+        $query = Planning::with('employe');
+        
+        // Appliquer les mêmes filtres que dans la méthode index
+        if (isset($filters['employe_id']) && !empty($filters['employe_id'])) {
+            $query->where('employe_id', $filters['employe_id']);
+        }
+        
+        if (isset($filters['statut']) && !empty($filters['statut'])) {
+            $now = now();
+            if ($filters['statut'] === 'en_cours') {
+                $query->where('date_debut', '<=', $now)
+                      ->where('date_fin', '>=', $now);
+            } elseif ($filters['statut'] === 'a_venir') {
+                $query->where('date_debut', '>', $now);
+            } elseif ($filters['statut'] === 'termine') {
+                $query->where('date_fin', '<', $now);
+            }
+        }
+        
+        if (isset($filters['date_debut']) && !empty($filters['date_debut'])) {
+            $query->where('date_debut', '>=', $filters['date_debut']);
+        }
+        
+        if (isset($filters['date_fin']) && !empty($filters['date_fin'])) {
+            $query->where('date_fin', '<=', $filters['date_fin']);
+        }
+        
+        // Compter le nombre total de plannings restants
+        $totalPlannings = $query->count();
+        
+        // Si aucun planning ne reste, rediriger vers la page 1
+        if ($totalPlannings === 0) {
+            return 1;
+        }
+        
+        // Calculer le nombre total de pages
+        $totalPages = ceil($totalPlannings / $perPage);
+        
+        // Si la page courante est supérieure au nombre total de pages, 
+        // rediriger vers la dernière page disponible
+        if ($currentPage > $totalPages) {
+            return max(1, $totalPages);
+        }
+        
+        // Sinon, rester sur la page courante
+        return $currentPage;
     }
     
     /**

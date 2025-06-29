@@ -297,6 +297,7 @@ function deleteDevice(deviceId, deviceName, button) {
     });
 }
 
+
 // Initialisation quand le DOM est prêt
 function initBiometricDevices() {
     console.log('🚀 Initialisation des appareils biométriques');

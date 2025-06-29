@@ -2776,6 +2776,13 @@ class RapportController extends Controller
     public function synchronizeAllDevices(Request $request)
     {
         try {
+            // Valider les options de synchronisation
+            $validated = $request->validate([
+                'skip_existing' => 'boolean',
+                'validate_production_data' => 'boolean',
+                'max_data_age_hours' => 'integer|min:1|max:168' // 1 heure à 1 semaine
+            ]);
+
             // Vérifier la disponibilité du service de synchronisation
             if (!class_exists(\App\Services\BiometricSynchronizationService::class)) {
                 return response()->json([
@@ -2785,9 +2792,18 @@ class RapportController extends Controller
                 ], 500);
             }
 
-            // Appeler le service de synchronisation
+            // Configurer les options de synchronisation avec des valeurs par défaut
+            $syncOptions = [
+                'skip_existing' => $validated['skip_existing'] ?? true,
+                'validate_production_data' => $validated['validate_production_data'] ?? true,
+                'max_data_age_hours' => $validated['max_data_age_hours'] ?? 48,
+                'user_id' => auth()->id(),
+                'client_ip' => $request->ip()
+            ];
+
+            // Appeler le service de synchronisation avec les options
             $syncService = app(\App\Services\BiometricSynchronizationService::class);
-            $result = $syncService->synchronizeAllConnectedDevices();
+            $result = $syncService->synchronizeAllConnectedDevices($syncOptions);
 
             // Vérifier si des appareils sont connectés
             if (empty($result['devices_results'])) {

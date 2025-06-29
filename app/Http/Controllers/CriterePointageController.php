@@ -571,10 +571,75 @@ class CriterePointageController extends Controller
             return redirect()->route('home')->with('error', 'Accès non autorisé.');
         }
         
+        // Récupérer les paramètres de la requête actuelle pour maintenir le contexte de pagination
+        $currentPage = request()->get('page', 1);
+        $perPage = 15; // Même valeur que dans la méthode index
+        $searchFilters = request()->except(['_token', '_method']);
+        
         $criterePointage->delete();
         
-        return redirect()->route('criteres-pointage.index')
+        // Calculer la page correcte après suppression
+        $redirectPage = $this->calculateCorrectPageAfterDeletion($searchFilters, $currentPage, $perPage);
+        
+        // Construire l'URL de redirection avec les bons paramètres
+        $redirectUrl = route('criteres-pointage.index', array_merge($searchFilters, ['page' => $redirectPage]));
+        
+        return redirect($redirectUrl)
             ->with('success', 'Le critère de pointage a été supprimé avec succès.');
+    }
+
+    /**
+     * Calculer la page correcte après suppression d'un critère de pointage
+     */
+    private function calculateCorrectPageAfterDeletion($filters, $currentPage, $perPage)
+    {
+        // Reconstruire la requête avec les mêmes filtres que la page courante
+        $criteresQuery = CriterePointage::with(['employe.poste', 'departement', 'createur']);
+        
+        // Appliquer les mêmes filtres que dans la méthode index
+        if (isset($filters['departement_id']) && !empty($filters['departement_id'])) {
+            $criteresQuery->where(function($query) use ($filters) {
+                $query->where('niveau', 'departemental')
+                      ->where('departement_id', $filters['departement_id'])
+                      ->orWhereHas('employe', function($q) use ($filters) {
+                          $q->whereHas('poste', function($p) use ($filters) {
+                              $p->where('departement', $filters['departement_id']);
+                          });
+                      });
+            });
+        }
+        
+        if (isset($filters['niveau']) && !empty($filters['niveau'])) {
+            $criteresQuery->where('niveau', $filters['niveau']);
+        }
+        
+        if (isset($filters['statut'])) {
+            if ($filters['statut'] === 'actif') {
+                $criteresQuery->where('actif', true);
+            } elseif ($filters['statut'] === 'inactif') {
+                $criteresQuery->where('actif', false);
+            }
+        }
+        
+        // Compter le nombre total de critères restants
+        $totalCriteres = $criteresQuery->count();
+        
+        // Si aucun critère ne reste, rediriger vers la page 1
+        if ($totalCriteres === 0) {
+            return 1;
+        }
+        
+        // Calculer le nombre total de pages
+        $totalPages = ceil($totalCriteres / $perPage);
+        
+        // Si la page courante est supérieure au nombre total de pages, 
+        // rediriger vers la dernière page disponible
+        if ($currentPage > $totalPages) {
+            return max(1, $totalPages);
+        }
+        
+        // Sinon, rester sur la page courante
+        return $currentPage;
     }
     
     /**

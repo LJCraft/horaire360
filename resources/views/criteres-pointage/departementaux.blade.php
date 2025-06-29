@@ -263,9 +263,11 @@
                 </div>
                 
                 <!-- Pagination -->
+                @if($criteres->hasPages())
                 <div class="card-footer bg-white">
                     {{ $criteres->appends(request()->query())->links() }}
                 </div>
+                @endif
             @else
                 <div class="text-center py-5">
                     <div class="text-muted mb-3">

@@ -401,6 +401,11 @@ class EmployeController extends Controller
     public function destroy(Employe $employe)
     {
         try {
+            // Récupérer les paramètres de la requête actuelle pour maintenir le contexte de pagination
+            $currentPage = request()->get('page', 1);
+            $perPage = request()->get('per_page', 25);
+            $searchFilters = request()->except(['_token', '_method']);
+            
             // Commencer une transaction pour garantir l'intégrité des données
             DB::beginTransaction();
             
@@ -448,7 +453,13 @@ class EmployeController extends Controller
             // Valider la transaction
             DB::commit();
             
-            return redirect()->route('employes.index')
+            // Calculer la page correcte après suppression
+            $redirectPage = $this->calculateCorrectPageAfterDeletion($searchFilters, $currentPage, $perPage);
+            
+            // Construire l'URL de redirection avec les bons paramètres
+            $redirectUrl = route('employes.index', array_merge($searchFilters, ['page' => $redirectPage]));
+            
+            return redirect($redirectUrl)
                 ->with('success', 'Employé et toutes ses données associées supprimés définitivement.');
                 
         } catch (\Exception $e) {
@@ -461,6 +472,66 @@ class EmployeController extends Controller
             return redirect()->route('employes.index')
                 ->with('error', 'Erreur lors de la suppression : ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Calculer la page correcte après suppression d'un employé
+     */
+    private function calculateCorrectPageAfterDeletion($filters, $currentPage, $perPage)
+    {
+        // Reconstruire la requête avec les mêmes filtres que la page courante
+        $query = Employe::with('poste');
+        
+        // Appliquer les mêmes filtres que dans la méthode index
+        if (Auth::user()->role_id !== 1) {
+            $query->where('utilisateur_id', Auth::id());
+        }
+        
+        if (isset($filters['search']) && !empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('nom', 'like', "%$search%")
+                  ->orWhere('prenom', 'like', "%$search%")
+                  ->orWhere('email', 'like', "%$search%")
+                  ->orWhere('matricule', 'like', "%$search%");
+            });
+        }
+        
+        if (isset($filters['poste_id']) && !empty($filters['poste_id'])) {
+            $query->where('poste_id', $filters['poste_id']);
+        }
+        
+        if (isset($filters['statut']) && !empty($filters['statut'])) {
+            $query->where('statut', $filters['statut']);
+        }
+        
+        if (isset($filters['acces']) && !empty($filters['acces'])) {
+            if ($filters['acces'] === 'avec') {
+                $query->whereNotNull('utilisateur_id');
+            } elseif ($filters['acces'] === 'sans') {
+                $query->whereNull('utilisateur_id');
+            }
+        }
+        
+        // Compter le nombre total d'employés restants
+        $totalEmployes = $query->count();
+        
+        // Si aucun employé ne reste, rediriger vers la page 1
+        if ($totalEmployes === 0) {
+            return 1;
+        }
+        
+        // Calculer le nombre total de pages
+        $totalPages = ceil($totalEmployes / $perPage);
+        
+        // Si la page courante est supérieure au nombre total de pages, 
+        // rediriger vers la dernière page disponible
+        if ($currentPage > $totalPages) {
+            return max(1, $totalPages);
+        }
+        
+        // Sinon, rester sur la page courante
+        return $currentPage;
     }
 
     /**

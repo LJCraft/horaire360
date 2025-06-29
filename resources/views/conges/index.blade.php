@@ -198,9 +198,11 @@
             </table>
         </div>
         
+        @if($conges->hasPages())
         <div class="d-flex justify-content-end mt-3 px-3 pb-3">
             {{ $conges->links() }}
         </div>
+        @endif
     </div>
 </div>
 

@@ -481,9 +481,11 @@
             </div>
             
             <!-- Pagination -->
+            @if($employes->hasPages())
             <div class="d-flex justify-content-center mt-4">
                 {{ $employes->appends(request()->except('page'))->links() }}
             </div>
+            @endif
         </div>
     </div>
     

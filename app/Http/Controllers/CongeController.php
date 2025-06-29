@@ -178,10 +178,21 @@ class CongeController extends Controller
         }
         
         try {
+            // Récupérer les paramètres de la requête actuelle pour maintenir le contexte de pagination
+            $currentPage = request()->get('page', 1);
+            $perPage = 15; // Même valeur que dans la méthode index
+            $searchFilters = request()->except(['_token', '_method']);
+            
             // Suppression du congé
             $conge->delete();
             
-            return redirect()->route('conges.index')
+            // Calculer la page correcte après suppression
+            $redirectPage = $this->calculateCorrectPageAfterDeletion($searchFilters, $currentPage, $perPage);
+            
+            // Construire l'URL de redirection avec les bons paramètres
+            $redirectUrl = route('conges.index', array_merge($searchFilters, ['page' => $redirectPage]));
+            
+            return redirect($redirectUrl)
                 ->with('success', 'Demande de congé supprimée avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de la suppression de la demande de congé : ' . $e->getMessage());
@@ -189,6 +200,53 @@ class CongeController extends Controller
             return redirect()->back()
                 ->with('error', 'Une erreur est survenue lors de la suppression de la demande de congé.');
         }
+    }
+    
+    /**
+     * Calculer la page correcte après suppression d'un congé
+     */
+    private function calculateCorrectPageAfterDeletion($filters, $currentPage, $perPage)
+    {
+        // Reconstruire la requête avec les mêmes filtres que la page courante
+        $congesQuery = Conge::with(['employe', 'traitePar']);
+        
+        // Filtrage par employé pour les utilisateurs non admin
+        if (!auth()->user()->is_admin && auth()->user()->employe) {
+            $congesQuery->where('employe_id', auth()->user()->employe->id);
+        }
+        
+        // Appliquer les mêmes filtres que dans la méthode index
+        if (isset($filters['employe']) && !empty($filters['employe'])) {
+            $congesQuery->where('employe_id', $filters['employe']);
+        }
+        
+        if (isset($filters['statut']) && !empty($filters['statut'])) {
+            $congesQuery->where('statut', $filters['statut']);
+        }
+        
+        if (isset($filters['type']) && !empty($filters['type'])) {
+            $congesQuery->where('type', $filters['type']);
+        }
+        
+        // Compter le nombre total de congés restants
+        $totalConges = $congesQuery->count();
+        
+        // Si aucun congé ne reste, rediriger vers la page 1
+        if ($totalConges === 0) {
+            return 1;
+        }
+        
+        // Calculer le nombre total de pages
+        $totalPages = ceil($totalConges / $perPage);
+        
+        // Si la page courante est supérieure au nombre total de pages, 
+        // rediriger vers la dernière page disponible
+        if ($currentPage > $totalPages) {
+            return max(1, $totalPages);
+        }
+        
+        // Sinon, rester sur la page courante
+        return $currentPage;
     }
     
     /**
