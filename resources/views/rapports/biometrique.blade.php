@@ -350,9 +350,9 @@
                     <tbody>
                         @forelse($pointages as $pointage)
                         @php
-                            $metaData = json_decode($pointage->meta_data, true);
+                            $metaData = $pointage->meta_data ?? [];
                         @endphp
-                        <tr>
+                        <tr id="pointage-row-{{ $pointage->id }}">
                             <td>
                                 <span class="badge bg-primary">{{ $pointage->employe->id }}</span>
                             </td>
@@ -411,7 +411,7 @@
                             <td>
                                 <div class="text-center">
                                     @php
-                                        $metaDataTable = json_decode($pointage->meta_data, true);
+                                        $metaDataTable = $pointage->meta_data ?? [];
                                         
                                         // Déterminer l'appareil source
                                         $deviceInfo = ['name' => 'Inconnu', 'type' => 'Manuel', 'class' => 'secondary', 'icon' => 'bi-pencil'];
@@ -551,7 +551,7 @@
                                     <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailsModal{{ $pointage->id }}" title="Voir les détails">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete({{ $pointage->id }})" title="Supprimer le pointage">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete({{ $pointage->id }}, this)" title="Supprimer le pointage">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -576,32 +576,32 @@
         @if($pointages->hasPages())
         <div class="card-footer bg-white py-3">
             <div class="d-flex justify-content-center align-items-center gap-3">
-                <!-- Bouton Précédent -->
-                @if($pointages->onFirstPage())
+                    <!-- Bouton Précédent -->
+                    @if($pointages->onFirstPage())
                     <button class="btn btn-outline-secondary btn-sm" disabled>
-                        <i class="bi bi-chevron-left"></i> Précédent
-                    </button>
-                @else
+                            <i class="bi bi-chevron-left"></i> Précédent
+                        </button>
+                    @else
                     <a href="{{ $pointages->previousPageUrl() }}" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-chevron-left"></i> Précédent
-                    </a>
-                @endif
-                
-                <!-- Indicateur de page compact -->
+                            <i class="bi bi-chevron-left"></i> Précédent
+                        </a>
+                    @endif
+                    
+                    <!-- Indicateur de page compact -->
                 <span class="px-3 py-2 bg-light rounded text-muted small">
                     Page {{ $pointages->currentPage() }} sur {{ $pointages->lastPage() }}
                 </span>
-                
-                <!-- Bouton Suivant -->
-                @if($pointages->hasMorePages())
+                    
+                    <!-- Bouton Suivant -->
+                    @if($pointages->hasMorePages())
                     <a href="{{ $pointages->nextPageUrl() }}" class="btn btn-outline-primary btn-sm">
-                        Suivant <i class="bi bi-chevron-right"></i>
-                    </a>
-                @else
+                            Suivant <i class="bi bi-chevron-right"></i>
+                        </a>
+                    @else
                     <button class="btn btn-outline-secondary btn-sm" disabled>
-                        Suivant <i class="bi bi-chevron-right"></i>
-                    </button>
-                @endif
+                            Suivant <i class="bi bi-chevron-right"></i>
+                        </button>
+                    @endif
             </div>
         </div>
         @endif
@@ -688,7 +688,7 @@
                         <h6 class="text-primary">Données biométriques (.dat)</h6>
                         <div class="bg-light p-3 rounded">
                             @php
-                                $metaData = json_decode($pointage->meta_data, true);
+                                $metaData = $pointage->meta_data ?? [];
                             @endphp
                             <table class="table table-sm mb-0">
                                 <tr>
@@ -1766,8 +1766,8 @@
         window.location.reload();
     }
 
-    // Fonction pour confirmer et supprimer un pointage
-    function confirmDelete(pointageId) {
+    // Fonction pour confirmer et supprimer un pointage avec AJAX
+    function confirmDelete(pointageId, buttonElement) {
         // Vérifier que l'ID est valide
         if (!pointageId) {
             console.error('ID de pointage manquant');
@@ -1776,15 +1776,128 @@
 
         // Confirmation avant suppression
         if (confirm('Êtes-vous sûr de vouloir supprimer ce pointage ?\n\nCette action est irréversible.')) {
-            // Chercher le formulaire correspondant
-            const form = document.getElementById('delete-pointage-' + pointageId);
+            // Récupérer le bouton (soit passé en paramètre, soit via l'événement)
+            const button = buttonElement || (window.event ? window.event.target.closest('button') : null);
             
-            if (form) {
-                // Soumettre le formulaire de suppression
-                form.submit();
-            } else {
-                console.error('Formulaire de suppression non trouvé pour le pointage ID:', pointageId);
-                alert('Erreur : Impossible de supprimer ce pointage. Veuillez actualiser la page et réessayer.');
+            if (!button) {
+                console.error('Bouton de suppression non trouvé');
+                return;
+            }
+            
+            // Afficher un indicateur de chargement
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<i class="bi bi-spinner-border spinner-border-sm"></i> Suppression...';
+            button.disabled = true;
+
+            // Récupérer le token CSRF
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            if (!token) {
+                console.error('Token CSRF manquant');
+                alert('Erreur : Token de sécurité manquant. Veuillez actualiser la page.');
+                button.innerHTML = originalContent;
+                button.disabled = false;
+                return;
+            }
+
+            // Effectuer la suppression en AJAX
+            fetch(`/presences/${pointageId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Erreur HTTP: ' + response.status);
+                }
+            })
+            .then(data => {
+                // Suppression réussie
+                console.log('Pointage supprimé avec succès');
+                
+                // Supprimer la ligne du tableau
+                const row = document.querySelector(`#pointage-row-${pointageId}`);
+                if (row) {
+                    row.remove();
+                    
+                    // Afficher un message de succès
+                    showSuccessMessage('Pointage supprimé avec succès !');
+                    
+                    // Mettre à jour les statistiques si nécessaire
+                    updateStatsAfterDeletion();
+                } else {
+                    // Si la ligne n'est pas trouvée, recharger la page
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la suppression:', error);
+                alert('Erreur lors de la suppression du pointage. Veuillez réessayer.');
+                
+                // Restaurer le bouton
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            });
+        }
+    }
+
+    // Fonction pour afficher un message de succès
+    function showSuccessMessage(message) {
+        // Créer ou mettre à jour l'alerte de succès
+        let alertContainer = document.querySelector('#success-alert-container');
+        if (!alertContainer) {
+            alertContainer = document.createElement('div');
+            alertContainer.id = 'success-alert-container';
+            alertContainer.className = 'position-fixed top-0 end-0 p-3';
+            alertContainer.style.zIndex = '9999';
+            document.body.appendChild(alertContainer);
+        }
+
+        const alertId = 'success-alert-' + Date.now();
+        alertContainer.innerHTML = `
+            <div id="${alertId}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle me-2"></i>${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+
+        // Auto-supprimer l'alerte après 5 secondes
+        setTimeout(() => {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+
+    // Fonction pour mettre à jour les statistiques après suppression
+    function updateStatsAfterDeletion() {
+        // Compter le nombre de lignes restantes
+        const remainingRows = document.querySelectorAll('tbody tr:not(.no-data)').length;
+        
+        // Mettre à jour l'affichage du nombre de pointages s'il existe
+        const countElement = document.querySelector('#pointages-count');
+        if (countElement) {
+            countElement.textContent = remainingRows;
+        }
+
+        // Si plus aucun pointage, afficher le message "Aucun pointage trouvé"
+        if (remainingRows === 0) {
+            const tbody = document.querySelector('tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr class="no-data">
+                        <td colspan="10" class="text-center py-4">
+                            <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                            <p class="text-muted mt-2 mb-0">Aucun pointage trouvé pour les critères sélectionnés</p>
+                        </td>
+                    </tr>
+                `;
             }
         }
     }
@@ -1799,7 +1912,7 @@
     function initLeafletMaps() {
         @foreach($pointages as $pointage)
             @php
-                $metaData = json_decode($pointage->meta_data, true);
+                $metaData = $pointage->meta_data ?? [];
             @endphp
             @if(isset($metaData['geolocation']))
                 @php
@@ -1876,7 +1989,7 @@
     // Fonctions pour centrer les cartes
     @foreach($pointages as $pointage)
         @php
-            $metaData = json_decode($pointage->meta_data, true);
+            $metaData = $pointage->meta_data ?? [];
         @endphp
         @if(isset($metaData['geolocation']))
             function centerMap{{ $pointage->id }}() {

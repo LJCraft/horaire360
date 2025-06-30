@@ -84,5 +84,13 @@ Route::prefix('sync')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/mobile/test', [SynchronisationBiometriqueController::class, 'test']);
         Route::post('/mobile/biometric', [SynchronisationBiometriqueController::class, 'synchroniser']);
+        
+        // Nouvelles routes spécialisées pour le mobile
+        Route::post('/mobile/test-data', [SynchronisationBiometriqueController::class, 'testMobile']);
+        Route::post('/mobile/sync-firebase', [SynchronisationBiometriqueController::class, 'synchroniserMobile']);
     });
+    
+    // Routes de test sans authentification (pour debug initial)
+    Route::get('/test-public', [SynchronisationBiometriqueController::class, 'test']);
+    Route::post('/mobile/test-public', [SynchronisationBiometriqueController::class, 'testMobile']);
 });

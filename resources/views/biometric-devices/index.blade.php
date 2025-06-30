@@ -21,9 +21,14 @@
             <h1 class="h3 mb-0 text-gray-800">Configuration des Appareils Biométriques</h1>
             <p class="text-muted mb-0">Gérez vos appareils de pointage biométriques</p>
         </div>
+        <div>
+            <a href="{{ route('biometric-devices.debug-mobile') }}" class="btn btn-info me-2">
+                <i class="bi bi-bug"></i> Debug Mobile
+            </a>
         <a href="{{ route('biometric-devices.create') }}" class="btn btn-primary">
             <i class="bi bi-plus-circle"></i> Ajouter un Appareil
         </a>
+        </div>
     </div>
 
     <!-- Statistiques -->

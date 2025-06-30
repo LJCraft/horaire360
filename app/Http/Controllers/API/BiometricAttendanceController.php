@@ -141,7 +141,7 @@ class BiometricAttendanceController extends Controller
             'device_info' => $data['device_info']
         ];
         
-        $presence->meta_data = json_encode($metaData);
+        $presence->meta_data = $metaData;
         
         // Calculer les heures prévues et faites
         $employe = Employe::find($data['employee_id']);
@@ -268,7 +268,7 @@ class BiometricAttendanceController extends Controller
             }
         }
 
-        $metaData = json_decode($presence->meta_data ?? '{}', true);
+        $metaData = $presence->meta_data ?? [];
         $metaData['checkout'] = [
             'location' => $data['location'],
             'biometric_verification' => [
@@ -281,7 +281,7 @@ class BiometricAttendanceController extends Controller
         // Mettre à jour l'enregistrement de présence
         $presence->heure_depart = $time;
         $presence->depart_anticipe = $departAnticipe;
-        $presence->meta_data = json_encode($metaData);
+        $presence->meta_data = $metaData;
         $presence->save();
 
         return response()->json([

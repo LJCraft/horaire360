@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Synchronisation Mobile - Horaire360</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 200px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.success {
+            background-color: #28a745;
+        }
+        button.danger {
+            background-color: #dc3545;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Synchronisation Mobile - Horaire360</h1>
+    
+    <div class="container">
+        <h2>⚙️ Configuration</h2>
+        <div class="form-group">
+            <label for="baseUrl">URL de Base du Serveur :</label>
+            <input type="text" id="baseUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+        </div>
+        <div class="form-group">
+            <label for="authToken">Token d'Authentification (optionnel pour les tests) :</label>
+            <input type="text" id="authToken" placeholder="Bearer token (laissez vide pour les tests publics)">
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>🔗 Test de Connectivité</h2>
+            <p>Vérifiez que votre serveur répond correctement.</p>
+            <button onclick="testConnectivity()">Tester la Connectivité</button>
+            <div id="connectivityResult"></div>
+        </div>
+
+        <div class="container">
+            <h2>📱 Test de Données</h2>
+            <p>Testez le format de vos données avant la synchronisation réelle.</p>
+            <button onclick="testData()">Tester les Données</button>
+            <div id="dataTestResult"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Données de Test</h2>
+        <div class="form-group">
+            <label for="testData">Format JSON (modifiez selon vos besoins) :</label>
+            <textarea id="testData">{
+  "data": [
+    {
+      "employeeId": "1",
+      "employeeName": "Tchoutezo",
+      "timestamp": "2025-01-21T08:05:30.000Z",
+      "latitude": 3.8800975,
+      "longitude": 11.4979914,
+      "matchPercentage": 89.7822967518043,
+      "type": "entry"
+    },
+    {
+      "employeeId": "1",
+      "employeeName": "Tchoutezo",
+      "timestamp": "2025-01-21T17:30:15.000Z",
+      "latitude": 3.8800975,
+      "longitude": 11.4979914,
+      "matchPercentage": 92.1234567890123,
+      "type": "exit"
+    }
+  ],
+  "source_app": "mobile_facial_recognition",
+  "version": "1.0.0"
+}</textarea>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🚀 Synchronisation Réelle</h2>
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+            <strong>⚠️ Attention :</strong> Cette action va réellement insérer des données dans votre base de données !
+        </div>
+        <button class="success" onclick="realSync()">Synchroniser (Authentification Requise)</button>
+        <button class="danger" onclick="realSyncPublic()">Test Synchronisation (Public - Debug)</button>
+        <div id="syncResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Logs de Debug</h2>
+        <button onclick="clearLogs()">Effacer les Logs</button>
+        <div id="debugLogs" style="background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; margin-top: 10px; min-height: 200px; font-family: monospace; white-space: pre-wrap;"></div>
+    </div>
+
+    <script>
+        // Fonction pour ajouter des logs
+        function addLog(message, type = 'info') {
+            const logsContainer = document.getElementById('debugLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            }[type] || 'ℹ️';
+            
+            logsContainer.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // Fonction pour afficher les résultats
+        function showResult(containerId, data, isSuccess = true) {
+            const container = document.getElementById(containerId);
+            container.className = `result ${isSuccess ? 'success' : 'error'}`;
+            container.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        }
+
+        // Test de connectivité
+        async function testConnectivity() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            addLog('🔗 Test de connectivité en cours...', 'info');
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/sync/test-public`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addLog('✅ Connectivité réussie', 'success');
+                    showResult('connectivityResult', result, true);
+                } else {
+                    addLog('❌ Erreur de connectivité', 'error');
+                    showResult('connectivityResult', result, false);
+                }
+            } catch (error) {
+                addLog(`💥 Erreur réseau: ${error.message}`, 'error');
+                showResult('connectivityResult', `Erreur réseau: ${error.message}`, false);
+            }
+        }
+
+        // Test des données
+        async function testData() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const testDataRaw = document.getElementById('testData').value;
+            
+            addLog('📱 Test des données en cours...', 'info');
+            
+            try {
+                const testData = JSON.parse(testDataRaw);
+                addLog('✅ JSON valide', 'success');
+                
+                const response = await fetch(`${baseUrl}/api/sync/mobile/test-public`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addLog('✅ Test des données réussi', 'success');
+                    showResult('dataTestResult', result, true);
+                    
+                    if (result.mapping_test?.mapping_success) {
+                        addLog('✅ Mapping des données réussi', 'success');
+                    } else {
+                        addLog('⚠️ Problème de mapping détecté', 'warning');
+                    }
+                } else {
+                    addLog(`❌ Erreur lors du test: ${result.message}`, 'error');
+                    showResult('dataTestResult', result, false);
+                }
+            } catch (error) {
+                addLog(`💥 Erreur: ${error.message}`, 'error');
+                showResult('dataTestResult', `Erreur: ${error.message}`, false);
+            }
+        }
+
+        // Synchronisation réelle avec authentification
+        async function realSync() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const authToken = document.getElementById('authToken').value;
+            const testDataRaw = document.getElementById('testData').value;
+            
+            if (!authToken) {
+                addLog('❌ Token d\'authentification requis pour la synchronisation réelle', 'error');
+                showResult('syncResult', 'Token d\'authentification requis', false);
+                return;
+            }
+            
+            addLog('🚀 Synchronisation réelle en cours...', 'info');
+            
+            try {
+                const testData = JSON.parse(testDataRaw);
+                
+                const response = await fetch(`${baseUrl}/api/sync/mobile/sync-firebase`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    addLog(`✅ Synchronisation réussie: ${result.message}`, 'success');
+                    showResult('syncResult', result, true);
+                } else {
+                    addLog(`❌ Erreur de synchronisation: ${result.message}`, 'error');
+                    showResult('syncResult', result, false);
+                }
+            } catch (error) {
+                addLog(`💥 Erreur: ${error.message}`, 'error');
+                showResult('syncResult', `Erreur: ${error.message}`, false);
+            }
+        }
+
+        // Test de synchronisation publique (debug)
+        async function realSyncPublic() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const testDataRaw = document.getElementById('testData').value;
+            
+            addLog('🧪 Test de synchronisation publique en cours...', 'info');
+            
+            try {
+                const testData = JSON.parse(testDataRaw);
+                
+                const response = await fetch(`${baseUrl}/api/sync/biometric`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    addLog(`✅ Test de synchronisation réussi: ${result.message}`, 'success');
+                    showResult('syncResult', result, true);
+                } else {
+                    addLog(`❌ Erreur de test: ${result.message}`, 'error');
+                    showResult('syncResult', result, false);
+                }
+            } catch (error) {
+                addLog(`💥 Erreur: ${error.message}`, 'error');
+                showResult('syncResult', `Erreur: ${error.message}`, false);
+            }
+        }
+
+        // Effacer les logs
+        function clearLogs() {
+            document.getElementById('debugLogs').textContent = '';
+            addLog('🧹 Logs effacés', 'info');
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('🚀 Page de test chargée', 'info');
+            addLog('💡 Configurez l\'URL de base et testez la connectivité', 'info');
+            
+            // Détection automatique de l'URL
+            const currentUrl = window.location.origin;
+            if (currentUrl !== 'file://') {
+                document.getElementById('baseUrl').value = currentUrl;
+                addLog(`🔍 URL détectée automatiquement: ${currentUrl}`, 'info');
+            }
+        });
+    </script>
+</body>
+</html> 

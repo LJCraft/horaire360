@@ -35,7 +35,7 @@
         <tbody>
             @forelse($pointages as $pointage)
             @php
-                $metaData = json_decode($pointage->meta_data, true);
+                $metaData = $pointage->meta_data ?? [];
                 
                 // Extraire l'heure d'arrivée même si c'est un timestamp complet
                 $heureArrivee = $pointage->heure_arrivee;

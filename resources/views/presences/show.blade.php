@@ -272,3 +272,47 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+let formToSubmit = null;
+
+function confirmDelete(formId) {
+    // Stocker l'ID du formulaire à soumettre
+    formToSubmit = formId;
+    
+    // Afficher le modal de confirmation
+    const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+    modal.show();
+}
+
+// Gestionnaire pour le bouton de confirmation
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmButton = document.getElementById('confirmDeleteButton');
+    
+    if (confirmButton) {
+        confirmButton.addEventListener('click', function() {
+            if (formToSubmit) {
+                // Soumettre le formulaire
+                const form = document.getElementById(formToSubmit);
+                if (form) {
+                    form.submit();
+                } else {
+                    console.error('Formulaire non trouvé:', formToSubmit);
+                    alert('Erreur: Formulaire de suppression non trouvé. Veuillez actualiser la page.');
+                }
+                
+                // Fermer le modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                
+                // Réinitialiser
+                formToSubmit = null;
+            }
+        });
+    }
+});
+</script>
+@endpush

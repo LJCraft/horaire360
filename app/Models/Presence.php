@@ -37,8 +37,7 @@ class Presence extends Model
      */
     protected $casts = [
         'date' => 'date',
-        'heure_arrivee' => 'datetime:H:i',
-        'heure_depart' => 'datetime:H:i',
+
         'retard' => 'boolean',
         'depart_anticipe' => 'boolean',
         'meta_data' => 'json',
@@ -297,7 +296,7 @@ class Presence extends Model
      */
     public function getLocationArriveeAttribute()
     {
-        $metaData = json_decode($this->meta_data, true);
+        $metaData = $this->meta_data ?? [];
         return $metaData['location'] ?? null;
     }
     
@@ -306,7 +305,7 @@ class Presence extends Model
      */
     public function getLocationDepartAttribute()
     {
-        $metaData = json_decode($this->meta_data, true);
+        $metaData = $this->meta_data ?? [];
         return $metaData['checkout']['location'] ?? null;
     }
     
@@ -315,7 +314,7 @@ class Presence extends Model
      */
     public function estTerminalMobileAttribute()
     {
-        $metaData = json_decode($this->meta_data, true);
+        $metaData = $this->meta_data ?? [];
         return ($metaData['terminal_id'] ?? null) === 1;
     }
     

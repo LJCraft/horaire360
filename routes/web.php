@@ -110,6 +110,11 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
         Route::post('/{id}/test-connection', [App\Http\Controllers\BiometricDeviceController::class, 'testConnection'])->name('test-connection');
         Route::post('/{id}/disconnect', [App\Http\Controllers\BiometricDeviceController::class, 'disconnect'])->name('disconnect');
         
+        // Route pour la page de debug mobile
+        Route::get('/debug-mobile', function() {
+            return view('biometric-devices.debug');
+        })->name('debug-mobile');
+        
         // Route de test ultra-simple
         Route::get('/simple-test', function() {
             return '<h1>Test Simple Réussi</h1><p>Si vous voyez ceci, PHP fonctionne correctement.</p><p>Timestamp: ' . date('Y-m-d H:i:s') . '</p>';

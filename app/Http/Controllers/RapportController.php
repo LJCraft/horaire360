@@ -13,6 +13,7 @@ use Carbon\CarbonPeriod;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use App\Models\Service;
 use App\Models\Grade;
 
@@ -1781,7 +1782,8 @@ class RapportController extends Controller
                 })
                 // OU pointages avec source spécifique (même sans métadonnées)
                 ->orWhere('source_pointage', 'biometrique')
-                ->orWhere('source_pointage', 'synchronisation');
+                ->orWhere('source_pointage', 'synchronisation')
+                ->orWhere('source_pointage', 'apitface_mobile_production');
             })
             ->whereBetween('date', [$dateDebut->format('Y-m-d'), $dateFin->format('Y-m-d')]);
 
@@ -1985,7 +1987,7 @@ class RapportController extends Controller
                 $data[] = ['ID', 'Employé', 'Date', 'Heure', 'Type Pointage', 'Terminal', 'Ligne .dat'];
                 
                 foreach ($pointages as $pointage) {
-                    $metaData = json_decode($pointage->meta_data, true);
+                    $metaData = $pointage->meta_data ?? [];
                     $typePointage = isset($metaData['type_pointage']) ? 
                         ($metaData['type_pointage'] == 1 ? 'Entrée (1)' : 'Sortie (0)') : 'Non défini';
                     
@@ -2767,101 +2769,144 @@ class RapportController extends Controller
     }
 
     /**
-     * === NOUVELLE MÉTHODE : Synchronisation avec validation en temps réel ===
-     * Synchroniser tous les appareils connectés avec validation
+     * === NOUVELLE MÉTHODE : Synchronisation avec l'API mobile externe ===
+     * Synchroniser directement avec l'API mobile en production
      * 
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function synchronizeAllDevices(Request $request)
     {
+        $startTime = microtime(true);
+        
         try {
-            // Valider les options de synchronisation
-            $validated = $request->validate([
-                'skip_existing' => 'boolean',
-                'validate_production_data' => 'boolean',
-                'max_data_age_hours' => 'integer|min:1|max:168' // 1 heure à 1 semaine
+            Log::info('=== DÉBUT SYNCHRONISATION API MOBILE ===', [
+                'user_id' => auth()->id(),
+                'ip' => $request->ip(),
+                'timestamp' => now()->toISOString()
             ]);
 
-            // Vérifier la disponibilité du service de synchronisation
-            if (!class_exists(\App\Services\BiometricSynchronizationService::class)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Service de synchronisation non disponible',
-                    'error' => 'BiometricSynchronizationService manquant'
-                ], 500);
-            }
-
-            // Configurer les options de synchronisation avec des valeurs par défaut
-            $syncOptions = [
-                'skip_existing' => $validated['skip_existing'] ?? true,
-                'validate_production_data' => $validated['validate_production_data'] ?? true,
-                'max_data_age_hours' => $validated['max_data_age_hours'] ?? 48,
-                'user_id' => auth()->id(),
-                'client_ip' => $request->ip()
-            ];
-
-            // Appeler le service de synchronisation avec les options
-            $syncService = app(\App\Services\BiometricSynchronizationService::class);
-            $result = $syncService->synchronizeAllConnectedDevices($syncOptions);
-
-            // Vérifier si des appareils sont connectés
-            if (empty($result['devices_results'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Aucun appareil biométrique connecté trouvé',
-                    'devices_found' => 0,
-                    'recommendation' => 'Vérifiez la configuration et la connectivité des appareils'
-                ], 200);
-            }
-
-            // Compter les succès et échecs
-            $successCount = 0;
-            $errorCount = 0;
-            $devicesProcessed = [];
-
-            foreach ($result['devices_results'] as $deviceResult) {
-                if ($deviceResult['success']) {
-                    $successCount++;
-                } else {
-                    $errorCount++;
-                }
+            // URL de votre API mobile en production
+            $apiUrl = 'https://apitface.onrender.com/pointages?nameEntreprise=Pop';
+            
+            // Récupérer les données depuis votre API mobile (ignorer SSL en développement)
+            $response = Http::withoutVerifying()->timeout(30)->get($apiUrl);
+            
+            if (!$response->successful()) {
+                Log::error('Erreur lors de la récupération des données de l\'API mobile', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
                 
-                $devicesProcessed[] = [
-                    'device' => $deviceResult['device_name'] ?? 'Appareil inconnu',
-                    'status' => $deviceResult['success'] ? 'Réussi' : 'Échec',
-                    'records' => $deviceResult['processed_records'] ?? 0,
-                    'errors' => $deviceResult['errors'] ?? []
-                ];
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible de se connecter à l\'API mobile',
+                    'total_devices' => 1,
+                    'synchronized_devices' => 0,
+                    'total_records' => 0,
+                    'processed_records' => 0,
+                    'errors' => ['Erreur HTTP ' . $response->status()]
+                ]);
             }
 
-            // Construire la réponse
-            $responseData = [
-                'success' => $successCount > 0,
-                'message' => $this->buildSyncMessage($successCount, $errorCount, $result['processed_records']),
-                'devices_connected' => count($result['devices_results']),
-                'devices_success' => $successCount,
-                'devices_failed' => $errorCount,
-                'total_records' => $result['total_records'],
-                'processed_records' => $result['processed_records'],
-                'execution_time' => $result['execution_time'],
-                'devices_details' => $devicesProcessed,
-                'sync_session_id' => $result['sync_session_id'] ?? uniqid('sync_')
+            $apiData = $response->json();
+            
+            Log::info('Données reçues de l\'API mobile', [
+                'data_type' => gettype($apiData),
+                'data_count' => is_array($apiData) ? count($apiData) : 'N/A',
+                'sample_data' => is_array($apiData) && !empty($apiData) ? $apiData[0] ?? null : $apiData
+            ]);
+
+            // Traiter les données avec le contrôleur de synchronisation
+            $syncController = app(\App\Http\Controllers\Api\SynchronisationBiometriqueController::class);
+            
+            // Préparer les données au format attendu
+            // Extraire les pointages du wrapper de votre API
+            $pointages = [];
+            if (isset($apiData['pointages']) && is_array($apiData['pointages'])) {
+                $pointages = $apiData['pointages'];
+            } elseif (is_array($apiData)) {
+                $pointages = $apiData;
+            }
+            
+            $formattedData = [
+                'data' => $pointages,
+                'source_app' => 'apitface_mobile_production',
+                'version' => '1.0.0'
             ];
 
-            return response()->json($responseData);
+            // Créer une requête simulée pour le contrôleur
+            $syncRequest = new \Illuminate\Http\Request();
+            $syncRequest->merge($formattedData);
+            
+            // Appeler la synchronisation mobile
+            $syncResult = $syncController->synchroniserMobile($syncRequest);
+            $syncData = $syncResult->getData(true);
+
+            $executionTime = round((microtime(true) - $startTime), 2);
+
+            Log::info('Synchronisation API mobile terminée', [
+                'execution_time' => $executionTime,
+                'sync_result' => $syncData
+            ]);
+
+            // Adapter la réponse au format attendu par l'interface
+            if ($syncData['status'] === 'success') {
+                return response()->json([
+                    'success' => true,
+                    'message' => $syncData['message'],
+                    'total_devices' => 1,
+                    'synchronized_devices' => 1,
+                    'total_records' => $syncData['received'] ?? 0,
+                    'processed_records' => $syncData['inserted'] + $syncData['updated'],
+                    'skipped_records' => $syncData['ignored'] ?? 0,
+                    'invalid_records' => $syncData['errors'] ?? 0,
+                    'execution_time' => $executionTime,
+                    'devices_results' => [
+                        [
+                            'device_name' => 'API Mobile Production (apitface.onrender.com)',
+                            'success' => true,
+                            'total_records' => $syncData['received'] ?? 0,
+                            'processed_records' => $syncData['inserted'] + $syncData['updated'],
+                            'execution_time' => $executionTime,
+                            'errors' => []
+                        ]
+                    ],
+                    'sync_session_id' => $syncData['session_id'] ?? uniqid('api_sync_'),
+                    'warnings' => []
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $syncData['message'] ?? 'Erreur de synchronisation',
+                    'total_devices' => 1,
+                    'synchronized_devices' => 0,
+                    'total_records' => 0,
+                    'processed_records' => 0,
+                    'execution_time' => $executionTime,
+                    'errors' => [$syncData['error'] ?? 'Erreur inconnue']
+                ]);
+            }
 
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la synchronisation des appareils', [
+            $executionTime = round((microtime(true) - $startTime), 2);
+            
+            Log::error('Erreur fatale lors de la synchronisation API mobile', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'execution_time' => $executionTime
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur technique lors de la synchronisation',
-                'error' => $e->getMessage(),
-                'recommendation' => 'Vérifiez les logs système pour plus de détails'
+                'total_devices' => 1,
+                'synchronized_devices' => 0,
+                'total_records' => 0,
+                'processed_records' => 0,
+                'execution_time' => $executionTime,
+                'errors' => [$e->getMessage()],
+                'recommendation' => 'Vérifiez la connectivité avec l\'API mobile'
             ], 500);
         }
     }

@@ -446,13 +446,23 @@ class PresenceController extends Controller
     public function destroy(Presence $presence)
     {
         try {
+            // Suppression de la présence
+            $presence->delete();
+            
+            // Si c'est une requête AJAX, retourner une réponse JSON
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Pointage supprimé avec succès.',
+                    'pointage_id' => $presence->id
+                ]);
+            }
+            
+            // Pour les requêtes normales, maintenir le comportement existant
             // Récupérer les paramètres de la requête actuelle pour maintenir le contexte de pagination
             $currentPage = request()->get('page', 1);
             $perPage = 15; // Même valeur que dans la méthode index
             $searchFilters = request()->except(['_token', '_method']);
-            
-            // Suppression de la présence
-            $presence->delete();
             
             // Calculer la page correcte après suppression
             $redirectPage = $this->calculateCorrectPageAfterDeletion($searchFilters, $currentPage, $perPage);
@@ -464,6 +474,15 @@ class PresenceController extends Controller
                 ->with('success', 'Présence supprimée avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de la suppression de la présence : ' . $e->getMessage());
+            
+            // Si c'est une requête AJAX, retourner une erreur JSON
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Une erreur est survenue lors de la suppression de la présence.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
             
             return redirect()->back()
                 ->with('error', 'Une erreur est survenue lors de la suppression de la présence.');
@@ -876,7 +895,7 @@ class PresenceController extends Controller
                 ]
             ];
             
-            $presence->meta_data = json_encode($metaData);
+            $presence->meta_data = $metaData;
             $presence->save();
 
             // Calculer les retards basés sur le planning
@@ -902,7 +921,7 @@ class PresenceController extends Controller
             $presence->heure_depart = $heure;
             
             // Mettre à jour les métadonnées avec les informations de départ
-            $metaData = json_decode($presence->meta_data, true) ?? [];
+            $metaData = $presence->meta_data ?? [];
             $metaData['type_pointage'] = 0;  // Ajouter le type de pointage pour la sortie
             $metaData['checkout'] = [
                 'type' => 'biometric_dat_checkout',
@@ -919,7 +938,7 @@ class PresenceController extends Controller
                 ]
             ];
             
-            $presence->meta_data = json_encode($metaData);
+            $presence->meta_data = $metaData;
             
             // Calculer les départs anticipés basés sur le planning
             $timestamp = \Carbon\Carbon::parse($date . ' ' . $heure);
@@ -1159,7 +1178,7 @@ class PresenceController extends Controller
         }
 
         // Préparer les métadonnées biométriques
-        $metaData = json_decode($presence->meta_data ?? '{}', true);
+        $metaData = $presence->meta_data ?? [];
         
         // Gestion des formats de données flexibles
         $location = [];
@@ -1220,7 +1239,7 @@ class PresenceController extends Controller
         }
         
         // Enregistrer les métadonnées JSON
-        $presence->meta_data = json_encode($metaData);
+        $presence->meta_data = $metaData;
         
         try {
             $presence->save();
@@ -1304,7 +1323,7 @@ class PresenceController extends Controller
                     }
                     
                     // Enregistrer les informations sur le critère utilisé
-                    $metaData = json_decode($presence->meta_data ?? '{}', true);
+                    $metaData = $presence->meta_data ?? [];
                     $metaData['critere_applique'] = $critere ? [
                         'id' => $critere->id,
                         'niveau' => $critere->niveau,
@@ -1313,8 +1332,6 @@ class PresenceController extends Controller
                         'tolerance_apres' => $critere->tolerance_apres,
                         'source_pointage' => $critere->source_pointage
                     ] : 'default';
-                    $presence->meta_data = json_encode($metaData);
-                    
                 } else {
                     // Pas de planning pour ce jour ou jour de repos
                     $presence->retard = false;
@@ -1392,7 +1409,7 @@ class PresenceController extends Controller
                     }
                     
                     // Mettre à jour les métadonnées avec les informations du critère
-                    $metaData = json_decode($presence->meta_data ?? '{}', true);
+                    $metaData = $presence->meta_data ?? [];
                     if (!isset($metaData['critere_applique'])) {
                         $metaData['critere_applique'] = $critere ? [
                             'id' => $critere->id,
@@ -1402,7 +1419,7 @@ class PresenceController extends Controller
                             'tolerance_apres' => $critere->tolerance_apres,
                             'source_pointage' => $critere->source_pointage
                         ] : 'default';
-                        $presence->meta_data = json_encode($metaData);
+                        $presence->meta_data = $metaData;
                     }
                 }
             }
