@@ -393,7 +393,7 @@ use Illuminate\Support\Facades\Route;
             <div class="container">
                 <a class="navbar-brand d-flex align-items-center" href="{{ url('/dashboard') }}">
                     <img src="{{  asset('assets/icons/logo.svg')}}" alt="Horaire360" height="40" class="me-2">
-                    <span>Configuration</span>
+                    <span>Horaire360</span>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
                     <span class="navbar-toggler-icon"></span>
