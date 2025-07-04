@@ -253,7 +253,10 @@
                     <div class="mb-3">
                         <i class="bi bi-hdd-network text-success" style="font-size: 2rem;"></i>
                     </div>
-                    <p class="text-muted small mb-3">Synchroniser automatiquement tous les appareils biométriques connectés</p>
+                    <p class="text-muted small mb-3">
+                        <strong>Synchronisation Complète:</strong> Récupère <strong>TOUS les pointages existants</strong> 
+                        sur chaque appareil connecté et les traite automatiquement
+                    </p>
                     
                     <div class="mb-3">
                         <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="modal" data-bs-target="#syncInfoModal">
@@ -1318,7 +1321,15 @@
             <div class="border rounded p-3 bg-light">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="mb-0 text-primary">
-                        <i class="bi bi-clock me-2"></i>Synchronisation du ${new Date().toLocaleString('fr-FR')}
+                        <i class="bi bi-clock me-2"></i>Synchronisation du ${new Date().toLocaleString('fr-FR', {
+                            timeZone: 'Africa/Douala',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        })} (Heure locale GMT+1)
                     </h6>
                     <span class="badge bg-success">Réussie</span>
                 </div>

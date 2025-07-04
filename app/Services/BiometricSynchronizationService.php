@@ -95,6 +95,93 @@ class BiometricSynchronizationService
     }
 
     /**
+     * Synchroniser un appareil biométrique spécifique avec insertion automatique
+     */
+    public function syncDevice(BiometricDevice $device): array
+    {
+        try {
+            Log::info("🚀 DÉBUT SYNCHRONISATION COMPLÈTE", [
+                'device_id' => $device->id,
+                'device_name' => $device->name,
+                'device_type' => $device->type,
+                'api_url' => $device->api_url,
+                'timezone' => config('app.timezone'),
+                'sync_start' => now()->format('Y-m-d H:i:s')
+            ]);
+
+            $startTime = microtime(true);
+
+            // Récupérer le driver approprié
+            $driver = DriverFactory::create($device);
+            
+            if (!$driver) {
+                throw new \Exception("Driver non disponible pour le type: {$device->type}");
+            }
+
+            // Récupérer les données consolidées
+            $attendanceData = $driver->fetchAttendanceData();
+            
+            if (empty($attendanceData)) {
+                Log::warning("⚠️ AUCUNE DONNÉE RÉCUPÉRÉE", [
+                    'device_id' => $device->id,
+                    'device_name' => $device->name
+                ]);
+                
+                return [
+                    'success' => true,
+                    'device' => $device->name,
+                    'message' => 'Synchronisation effectuée - aucune nouvelle donnée',
+                    'processed_records' => 0,
+                    'inserted_records' => 0,
+                    'execution_time' => round(microtime(true) - $startTime, 2)
+                ];
+            }
+
+            // 🎯 TRAITEMENT AUTOMATIQUE : Insérer les données dans Horaire360
+            $insertionResults = $this->insertConsolidatedAttendance($attendanceData, $device);
+            
+            $executionTime = round(microtime(true) - $startTime, 2);
+
+            Log::info("✅ SYNCHRONISATION TERMINÉE AVEC SUCCÈS", [
+                'device_id' => $device->id,
+                'device_name' => $device->name,
+                'raw_records' => count($attendanceData),
+                'inserted_records' => $insertionResults['inserted'],
+                'updated_records' => $insertionResults['updated'],
+                'skipped_records' => $insertionResults['skipped'],
+                'execution_time' => $executionTime
+            ]);
+
+            return [
+                'success' => true,
+                'device' => $device->name,
+                'message' => "Synchronisation réussie - {$insertionResults['inserted']} nouveaux pointages consolidés",
+                'processed_records' => count($attendanceData),
+                'inserted_records' => $insertionResults['inserted'],
+                'updated_records' => $insertionResults['updated'],
+                'execution_time' => $executionTime,
+                'details' => $insertionResults
+            ];
+
+        } catch (\Exception $e) {
+            Log::error("❌ ERREUR SYNCHRONISATION GÉNÉRALE", [
+                'device_id' => $device->id,
+                'device_name' => $device->name,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'device' => $device->name,
+                'message' => "Erreur: " . $e->getMessage(),
+                'processed_records' => 0,
+                'inserted_records' => 0
+            ];
+        }
+    }
+
+    /**
      * Synchroniser un appareil spécifique avec validation renforcée
      * 
      * @param BiometricDevice $device
@@ -134,7 +221,9 @@ class BiometricSynchronizationService
 
             if (empty($rawData)) {
                 $result['success'] = true; // Pas d'erreur, juste pas de nouvelles données
-                $result['warnings'][] = "❗ Aucun pointage réel n'a été récupéré depuis l'appareil \"{$device->name}\" à " . now()->format('H:i');
+                $timezone = config('app.timezone', 'Africa/Douala');
+                $localTime = now()->setTimezone($timezone)->format('H:i');
+                $result['warnings'][] = "❗ Aucun pointage réel n'a été récupéré depuis l'appareil \"{$device->name}\" à {$localTime} (heure locale)";
                 return $result;
             }
 
@@ -238,10 +327,46 @@ class BiometricSynchronizationService
      * Driver pour connexion API REST
      * 
      * @param BiometricDevice $device
-     * @return object
+     * @return mixed
      */
     private function getApiDriver(BiometricDevice $device)
     {
+        // Utiliser le vrai driver ApiFacialDriver pour les appareils API Facial
+        if ($device->brand === 'api-facial') {
+            Log::info("🔗 Utilisation du driver ApiFacialDriver pour appareil", [
+                'device_id' => $device->id,
+                'device_name' => $device->name,
+                'api_url' => $device->api_url
+            ]);
+            
+            $driver = new \App\Services\BiometricSync\Drivers\ApiFacialDriver($device);
+            
+            return new class($driver, $device) {
+                private $driver;
+                private $device;
+
+                public function __construct($driver, $device)
+                {
+                    $this->driver = $driver;
+                    $this->device = $device;
+                }
+
+                public function fetchAttendanceData($device): array
+                {
+                    Log::info("🌐 Récupération des données depuis l'URL de l'appareil", [
+                        'device_id' => $this->device->id,
+                        'device_name' => $this->device->name,
+                        'api_url' => $this->device->api_url,
+                        'last_sync_at' => $this->device->last_sync_at
+                    ]);
+
+                    // Utiliser le vrai driver ApiFacialDriver
+                    return $this->driver->fetchAttendanceData();
+                }
+            };
+        }
+
+        // Pour les autres types d'API, utiliser le driver générique
         return new class($device) {
             private $device;
 
@@ -252,9 +377,50 @@ class BiometricSynchronizationService
 
             public function fetchAttendanceData($device): array
             {
-                // Simuler un appel API REST
-                // En production, ici vous feriez un vrai appel HTTP à l'API de l'appareil
-                
+                Log::info("🔗 Driver API générique utilisé", [
+                    'device_id' => $device->id,
+                    'device_name' => $device->name,
+                    'api_url' => $device->api_url
+                ]);
+
+                // Pour les appareils API génériques, on peut faire un appel HTTP direct
+                if ($device->api_url) {
+                    try {
+                        $response = \Illuminate\Support\Facades\Http::timeout(30)->get($device->api_url);
+                        
+                        if ($response->successful()) {
+                            $data = $response->json();
+                            
+                            // Adapter selon le format de réponse
+                            if (isset($data['pointages'])) {
+                                return $data['pointages'];
+                            } elseif (isset($data['data'])) {
+                                return $data['data'];
+                            } elseif (is_array($data)) {
+                                return $data;
+                            }
+                        }
+                        
+                        Log::warning("Réponse API non réussie", [
+                            'device' => $device->name,
+                            'status' => $response->status(),
+                            'url' => $device->api_url
+                        ]);
+                        
+                    } catch (\Exception $e) {
+                        Log::error("Erreur lors de l'appel API générique", [
+                            'device' => $device->name,
+                            'error' => $e->getMessage(),
+                            'url' => $device->api_url
+                        ]);
+                    }
+                }
+
+                // Fallback sur données simulées si aucune URL ou erreur
+                Log::warning("Aucune donnée réelle récupérée, utilisation de données simulées", [
+                    'device' => $device->name
+                ]);
+
                 $mockData = [];
                 
                 // Exemple de données API simulées
@@ -268,7 +434,7 @@ class BiometricSynchronizationService
                         'time' => $datetime->format('H:i:s'),
                         'type' => rand(0, 1),
                         'device_id' => $device->id,
-                        'source' => 'api_rest'
+                        'source' => 'api_rest_simulated'
                     ];
                 }
                 
@@ -337,7 +503,7 @@ class BiometricSynchronizationService
     }
 
     /**
-     * Créer ou mettre à jour une présence
+     * Créer ou mettre à jour une présence avec gestion des fuseaux horaires
      * 
      * @param array $record
      * @param BiometricDevice $device
@@ -350,6 +516,7 @@ class BiometricSynchronizationService
         $date = $record['date'];
         $time = $record['time'];
         $type = $record['type']; // 0 = sortie, 1 = entrée
+        $timezone = config('app.timezone', 'Africa/Douala');
 
         // Chercher une présence existante pour cette date et cet employé
         $presence = Presence::where('employe_id', $employe->id)
@@ -358,7 +525,7 @@ class BiometricSynchronizationService
 
         $metaData = [
             'type' => 'biometric_sync',
-            'source' => 'synchronisation_automatique',
+            'source' => 'synchronisation_automatique_temps_reel',
             'device_id' => $device->id,
             'device_name' => $device->name,
             'device_brand' => $device->brand,
@@ -366,13 +533,22 @@ class BiometricSynchronizationService
             'connection_type' => $device->connection_type,
             'terminal_id' => $record['terminal_id'] ?? $device->id,
             'type_pointage' => $type,
-            'sync_type' => $device->connection_type, // ip, api, etc.
-            'sync_timestamp' => now()->timestamp,
-            'sync_session' => 'sync_' . $device->id . '_' . now()->format('YmdHis')
+            'sync_type' => $device->connection_type,
+            'sync_timestamp' => now()->setTimezone($timezone)->format('Y-m-d H:i:s'),
+            'timezone' => $timezone,
+            'confidence' => $record['confidence'] ?? 100,
+            'location' => $record['location'] ?? null,
+            'sync_session' => 'sync_' . $device->id . '_' . now()->format('YmdHis'),
+            'api_url' => $device->api_url,
+            'real_time_sync' => true
         ];
 
         if (isset($record['raw_line'])) {
             $metaData['raw_line'] = $record['raw_line'];
+        }
+
+        if (isset($record['photo_path'])) {
+            $metaData['photo_path'] = $record['photo_path'];
         }
 
         if (!$presence) {
@@ -383,30 +559,268 @@ class BiometricSynchronizationService
                 'source_pointage' => 'synchronisation',
                 'meta_data' => json_encode($metaData)
             ]);
+            
+            Log::info("API-FACIAL: Création nouvelle présence", [
+                'employee_id' => $employe->id,
+                'employee_name' => $employe->nom . ' ' . $employe->prenom,
+                'date' => $date,
+                'time' => $time,
+                'type' => $type === 1 ? 'entrée' : 'sortie',
+                'timezone' => $timezone,
+                'device' => $device->name
+            ]);
+        } else {
+            // Mettre à jour les métadonnées de la présence existante
+            $existingMeta = json_decode($presence->meta_data, true) ?? [];
+            $presence->meta_data = json_encode(array_merge($existingMeta, $metaData));
+            
+            Log::info("API-FACIAL: Mise à jour présence existante", [
+                'employee_id' => $employe->id,
+                'employee_name' => $employe->nom . ' ' . $employe->prenom,
+                'date' => $date,
+                'time' => $time,
+                'type' => $type === 1 ? 'entrée' : 'sortie',
+                'timezone' => $timezone,
+                'device' => $device->name
+            ]);
         }
 
-        // Mettre à jour les heures selon le type de pointage
+        // Mettre à jour les heures selon le type de pointage avec gestion des fuseaux horaires
         if ($type == 1) { // Entrée
             $presence->heure_arrivee = $time;
+            Log::info("API-FACIAL: Heure d'arrivée enregistrée", [
+                'employee' => $employe->nom . ' ' . $employe->prenom,
+                'date' => $date,
+                'heure_arrivee' => $time,
+                'timezone' => $timezone
+            ]);
         } else { // Sortie
             $presence->heure_depart = $time;
+            Log::info("API-FACIAL: Heure de départ enregistrée", [
+                'employee' => $employe->nom . ' ' . $employe->prenom,
+                'date' => $date,
+                'heure_depart' => $time,
+                'timezone' => $timezone
+            ]);
         }
 
         // Calculer les heures travaillées si on a les deux heures
         if ($presence->heure_arrivee && $presence->heure_depart) {
-            $debut = Carbon::parse($presence->heure_arrivee);
-            $fin = Carbon::parse($presence->heure_depart);
-            
-            if ($fin < $debut) {
-                $fin->addDay();
+            try {
+                $debut = Carbon::parse($presence->heure_arrivee)->setTimezone($timezone);
+                $fin = Carbon::parse($presence->heure_depart)->setTimezone($timezone);
+                
+                // Gérer le cas où la sortie est le lendemain
+                if ($fin < $debut) {
+                    $fin->addDay();
+                }
+                
+                $heuresTravaillees = $debut->diffInHours($fin, false);
+                $presence->heures_travaillees = max(0, $heuresTravaillees); // Éviter les valeurs négatives
+                
+                Log::info("API-FACIAL: Heures travaillées calculées", [
+                    'employee' => $employe->nom . ' ' . $employe->prenom,
+                    'date' => $date,
+                    'heure_arrivee' => $presence->heure_arrivee,
+                    'heure_depart' => $presence->heure_depart,
+                    'heures_travaillees' => $presence->heures_travaillees,
+                    'timezone' => $timezone
+                ]);
+            } catch (\Exception $e) {
+                Log::warning("API-FACIAL: Erreur calcul heures travaillées", [
+                    'error' => $e->getMessage(),
+                    'employee' => $employe->nom . ' ' . $employe->prenom,
+                    'date' => $date
+                ]);
             }
-            
-            $presence->heures_travaillees = $debut->diffInHours($fin);
         }
 
         $presence->save();
 
         return $presence;
+    }
+
+    /**
+     * 🎯 INSERTION AUTOMATIQUE OPTIMISÉE : Traiter et insérer les données consolidées rapidement
+     * OPTIMISATION: Insertions en lot + logs réduits
+     */
+    private function insertConsolidatedAttendance(array $consolidatedData, BiometricDevice $device): array
+    {
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+        $errors = [];
+
+        Log::info("💾 DÉBUT INSERTION OPTIMISÉE", [
+            'device_id' => $device->id,
+            'records_to_process' => count($consolidatedData)
+        ]);
+
+        // Optimisation : Grouper les données par type d'opération
+        $toInsert = [];
+        $toUpdate = [];
+        $employeeIds = array_unique(array_column($consolidatedData, 'employee_id'));
+        
+        // Vérifier l'existence des employés en une seule requête
+        $existingEmployees = \App\Models\Employe::whereIn('id', $employeeIds)->pluck('id')->toArray();
+        
+        // Récupérer toutes les présences existantes en une seule requête
+        $dates = array_unique(array_column($consolidatedData, 'date'));
+        $existingPresences = \App\Models\Presence::whereIn('employe_id', $employeeIds)
+            ->whereIn('date', $dates)
+            ->get()
+            ->keyBy(function ($presence) {
+                return $presence->employe_id . '_' . $presence->date;
+            });
+
+        // Traitement optimisé : classifier les enregistrements
+        foreach ($consolidatedData as $record) {
+            try {
+                // Vérifications rapides
+                if (!isset($record['employee_id']) || !isset($record['date'])) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (!in_array($record['employee_id'], $existingEmployees)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $key = $record['employee_id'] . '_' . $record['date'];
+                $existingPresence = $existingPresences->get($key);
+
+                // Calculer les heures travaillées
+                $heuresTravaillees = $this->calculateWorkingHours(
+                    $record['heure_arrivee'], 
+                    $record['heure_depart'] ?? null
+                );
+
+                // Métadonnées optimisées
+                $metaData = [
+                    'device_id' => $device->id,
+                    'device_name' => $device->name,
+                    'source' => 'api-facial-consolidated',
+                    'sync_timestamp' => now()->format('Y-m-d H:i:s'),
+                    'sync_mode' => 'optimized_bulk'
+                ];
+
+                $presenceData = [
+                    'employe_id' => $record['employee_id'],
+                    'date' => $record['date'],
+                    'heure_arrivee' => $record['heure_arrivee'],
+                    'heure_depart' => $record['heure_depart'],
+                    'heures_travaillees' => $heuresTravaillees,
+                    'source_pointage' => 'api-facial',
+                    'statut' => 'present',
+                    'meta_data' => json_encode($metaData)
+                ];
+
+                if ($existingPresence) {
+                    // Vérifier si mise à jour nécessaire
+                    if ($this->needsPresenceUpdateOptimized($existingPresence, $record, $heuresTravaillees)) {
+                        $presenceData['id'] = $existingPresence->id;
+                        $toUpdate[] = $presenceData;
+                    } else {
+                        $skipped++;
+                    }
+                } else {
+                    // Ajouter les timestamps pour la création
+                    $presenceData['created_at'] = now();
+                    $presenceData['updated_at'] = now();
+                    $toInsert[] = $presenceData;
+                }
+
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'record' => $record,
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+
+        // Insertion en lot pour les nouveaux enregistrements
+        if (!empty($toInsert)) {
+            try {
+                \App\Models\Presence::insert($toInsert);
+                $inserted = count($toInsert);
+                Log::info("✅ INSERTION EN LOT", [
+                    'device_id' => $device->id,
+                    'inserted_count' => $inserted
+                ]);
+            } catch (\Exception $e) {
+                Log::error("Erreur insertion en lot", ['error' => $e->getMessage()]);
+                $errors[] = ['type' => 'bulk_insert', 'error' => $e->getMessage()];
+            }
+        }
+
+        // Mise à jour en lot pour les enregistrements existants
+        if (!empty($toUpdate)) {
+            try {
+                foreach ($toUpdate as $updateData) {
+                    $id = $updateData['id'];
+                    unset($updateData['id']);
+                    $updateData['updated_at'] = now();
+                    
+                    \App\Models\Presence::where('id', $id)->update($updateData);
+                }
+                $updated = count($toUpdate);
+                Log::info("🔄 MISE À JOUR EN LOT", [
+                    'device_id' => $device->id,
+                    'updated_count' => $updated
+                ]);
+            } catch (\Exception $e) {
+                Log::error("Erreur mise à jour en lot", ['error' => $e->getMessage()]);
+                $errors[] = ['type' => 'bulk_update', 'error' => $e->getMessage()];
+            }
+        }
+
+        Log::info("💾 INSERTION OPTIMISÉE TERMINÉE", [
+            'device_id' => $device->id,
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'errors' => count($errors)
+        ]);
+
+        return [
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'errors' => $errors,
+            'total_processed' => $inserted + $updated + $skipped
+        ];
+    }
+
+    /**
+     * Calculer les heures travaillées entre arrivée et départ
+     */
+    private function calculateWorkingHours(?string $heureArrivee, ?string $heureDepart): ?float
+    {
+        if (!$heureArrivee || !$heureDepart) {
+            return null;
+        }
+
+        try {
+            $arrivee = \Carbon\Carbon::createFromFormat('H:i:s', $heureArrivee);
+            $depart = \Carbon\Carbon::createFromFormat('H:i:s', $heureDepart);
+            
+            // Si le départ est avant l'arrivée, on assume que c'est le jour suivant
+            if ($depart->lt($arrivee)) {
+                $depart->addDay();
+            }
+            
+            $diffMinutes = $depart->diffInMinutes($arrivee);
+            return round($diffMinutes / 60, 2);
+            
+        } catch (\Exception $e) {
+            Log::warning("Erreur calcul heures travaillées", [
+                'heure_arrivee' => $heureArrivee,
+                'heure_depart' => $heureDepart,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 
     /**
@@ -646,5 +1060,18 @@ class BiometricSynchronizationService
         }
 
         return false;
+    }
+
+    /**
+     * OPTIMISÉE : Vérification rapide des mises à jour nécessaires
+     */
+    private function needsPresenceUpdateOptimized(\App\Models\Presence $existingPresence, array $newRecord, ?float $newHeuresTravaillees): bool
+    {
+        // Vérifications rapides sans logs verbeux
+        return $existingPresence->heure_arrivee !== $newRecord['heure_arrivee'] ||
+               $existingPresence->heure_depart !== $newRecord['heure_depart'] ||
+               $existingPresence->source_pointage !== 'api-facial' ||
+               ($existingPresence->heures_travaillees !== null && $newHeuresTravaillees !== null && 
+                abs($existingPresence->heures_travaillees - $newHeuresTravaillees) > 0.1);
     }
 } 

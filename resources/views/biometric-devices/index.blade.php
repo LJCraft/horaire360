@@ -145,6 +145,9 @@
                                         @endif
                                     </td>
                                     <td>
+                                        <a href="{{ route('biometric-devices.edit', $device->id) }}" class="btn btn-sm btn-success" title="Modifier cet appareil">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
                                         <button class="btn btn-sm btn-primary btn-test-connection" data-device-id="{{ $device->id }}" title="Tester la connexion">
                                             <i class="bi bi-wifi"></i>
                                         </button>

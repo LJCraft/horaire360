@@ -106,6 +106,8 @@ Route::get('/presences/download-dat-template', [PresenceController::class, 'down
         Route::get('/', [App\Http\Controllers\BiometricDeviceController::class, 'index'])->name('index');
         Route::get('/create', [App\Http\Controllers\BiometricDeviceController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\BiometricDeviceController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [App\Http\Controllers\BiometricDeviceController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\BiometricDeviceController::class, 'update'])->name('update');
         Route::delete('/{id}', [App\Http\Controllers\BiometricDeviceController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/test-connection', [App\Http\Controllers\BiometricDeviceController::class, 'testConnection'])->name('test-connection');
         Route::post('/{id}/disconnect', [App\Http\Controllers\BiometricDeviceController::class, 'disconnect'])->name('disconnect');
