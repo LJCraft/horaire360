@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name'); // Nom de l'appareil
             $table->string('brand'); // Marque (suprema, zkteco, hikvision, anviz)
             $table->string('model')->nullable(); // Modèle spécifique
+            $table->string('device_id')->nullable(); // ID unique de l'appareil
             $table->enum('connection_type', ['ip', 'api']); // Type de connexion
             $table->boolean('active')->default(true); // Appareil actif
             

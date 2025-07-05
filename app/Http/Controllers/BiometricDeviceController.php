@@ -66,6 +66,7 @@ class BiometricDeviceController extends Controller
                 'name' => 'required|string|max:255',
                 'brand' => 'required|string',
                 'model' => 'nullable|string|max:255',
+                'device_id' => 'required|string|max:255',
                 'connection_type' => 'required|in:ip,api',
                 'sync_interval' => 'nullable|integer|min:60|max:86400',
                 'active' => 'nullable|boolean',
@@ -85,6 +86,8 @@ class BiometricDeviceController extends Controller
                 if ($request->connection_type === 'ip') {
                     $rules['ip_address'] = 'required|ip';
                     $rules['port'] = 'required|integer|between:1,65535';
+                    $rules['username'] = 'nullable|string|max:255';
+                    $rules['password'] = 'nullable|string|max:255';
                 } elseif ($request->connection_type === 'api') {
                     $rules['api_url'] = 'required|url';
                 }
@@ -103,6 +106,8 @@ class BiometricDeviceController extends Controller
                 $password = $validated['api_facial_format'] ?? 'json'; // Stocker le format dans password
             } else {
                 $apiUrl = $validated['api_url'] ?? null;
+                $username = $validated['username'] ?? null;
+                $password = $validated['password'] ?? null;
             }
             
             // Créer l'appareil biométrique
@@ -110,6 +115,7 @@ class BiometricDeviceController extends Controller
                 'name' => $validated['name'],
                 'brand' => $validated['brand'],
                 'model' => $validated['model'] ?? null,
+                'device_id' => $validated['device_id'],
                 'connection_type' => $validated['connection_type'],
                 'ip_address' => $validated['ip_address'] ?? null,
                 'port' => $validated['port'] ?? null,
@@ -178,6 +184,7 @@ class BiometricDeviceController extends Controller
                 'name' => 'required|string|max:255',
                 'brand' => 'required|string',
                 'model' => 'nullable|string|max:255',
+                'device_id' => 'required|string|max:255',
                 'connection_type' => 'required|in:ip,api',
                 'sync_interval' => 'nullable|integer|min:60|max:86400',
                 'active' => 'nullable|boolean',
@@ -197,6 +204,8 @@ class BiometricDeviceController extends Controller
                 if ($request->connection_type === 'ip') {
                     $rules['ip_address'] = 'required|ip';
                     $rules['port'] = 'required|integer|between:1,65535';
+                    $rules['username'] = 'nullable|string|max:255';
+                    $rules['password'] = 'nullable|string|max:255';
                 } elseif ($request->connection_type === 'api') {
                     $rules['api_url'] = 'required|url';
                 }
@@ -215,6 +224,8 @@ class BiometricDeviceController extends Controller
                 $password = $validated['api_facial_format'] ?? 'json'; // Stocker le format dans password
             } else {
                 $apiUrl = $validated['api_url'] ?? null;
+                $username = $validated['username'] ?? null;
+                $password = $validated['password'] ?? null;
             }
             
             // Mettre à jour l'appareil biométrique
@@ -222,6 +233,7 @@ class BiometricDeviceController extends Controller
                 'name' => $validated['name'],
                 'brand' => $validated['brand'],
                 'model' => $validated['model'] ?? null,
+                'device_id' => $validated['device_id'],
                 'connection_type' => $validated['connection_type'],
                 'ip_address' => $validated['ip_address'] ?? null,
                 'port' => $validated['port'] ?? null,

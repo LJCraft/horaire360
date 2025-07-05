@@ -216,7 +216,7 @@ class BiometricSynchronizationService
             }
 
             // Récupérer les données de l'appareil
-            $rawData = $driver->fetchAttendanceData($device);
+            $rawData = $driver->fetchAttendanceData();
             $result['total_records'] = count($rawData);
 
             if (empty($rawData)) {
@@ -279,168 +279,92 @@ class BiometricSynchronizationService
 
     /**
      * Driver pour connexion IP/TCP
-     * 
-     * @param BiometricDevice $device
-     * @return object
      */
     private function getIpDriver(BiometricDevice $device)
     {
-        return new class($device) {
-            private $device;
-
-            public function __construct($device)
-            {
-                $this->device = $device;
-            }
-
-            public function fetchAttendanceData($device): array
-            {
-                // Simuler la récupération des données via TCP/IP
-                // En production, ici vous utiliseriez les vraies APIs des appareils
-                
-                $mockData = [];
-                
-                // Exemple de données simulées (format proche du .dat)
-                for ($i = 0; $i < rand(5, 15); $i++) {
-                    $employeId = rand(1, 50);
-                    $date = Carbon::now()->subDays(rand(0, 7))->format('Y-m-d');
-                    $time = Carbon::now()->subHours(rand(1, 12))->format('H:i:s');
-                    $type = rand(0, 1); // 0 = sortie, 1 = entrée
-                    
-                    $mockData[] = [
-                        'employee_id' => $employeId,
-                        'date' => $date,
-                        'time' => $time,
-                        'type' => $type,
-                        'terminal_id' => $device->id, // Utiliser l'ID de l'appareil
-                        'device_id' => $device->id,
-                        'raw_line' => "{$employeId}  {$date}  {$time}  {$type}  {$device->id}"
-                    ];
-                }
-                
-                return $mockData;
-            }
-        };
+        // Utiliser le vrai driver selon la marque
+        switch ($device->brand) {
+            case 'zkteco':
+                return new \App\Services\BiometricSync\Drivers\ZKTecoDriver($device);
+            case 'hikvision':
+                return new \App\Services\BiometricSync\Drivers\HikvisionDriver($device);
+            case 'anviz':
+                return new \App\Services\BiometricSync\Drivers\AnvizDriver($device);
+            case 'suprema':
+                return new \App\Services\BiometricSync\Drivers\SupremaDriver($device);
+            default:
+                return new \App\Services\BiometricSync\Drivers\GenericIPDriver($device);
+        }
     }
 
     /**
      * Driver pour connexion API REST
-     * 
-     * @param BiometricDevice $device
-     * @return mixed
      */
     private function getApiDriver(BiometricDevice $device)
     {
-        // Utiliser le vrai driver ApiFacialDriver pour les appareils API Facial
-        if ($device->brand === 'api-facial') {
-            Log::info("🔗 Utilisation du driver ApiFacialDriver pour appareil", [
-                'device_id' => $device->id,
-                'device_name' => $device->name,
-                'api_url' => $device->api_url
-            ]);
-            
-            $driver = new \App\Services\BiometricSync\Drivers\ApiFacialDriver($device);
-            
-            return new class($driver, $device) {
-                private $driver;
-                private $device;
+        // Utiliser le vrai driver selon la marque
+        switch ($device->brand) {
+            case 'api-facial':
+                return new \App\Services\BiometricSync\Drivers\ApiFacialDriver($device);
+            default:
+                // Pour les autres API, créer un driver générique avec testConnection
+                return new class($device) {
+                    private $device;
 
-                public function __construct($driver, $device)
-                {
-                    $this->driver = $driver;
-                    $this->device = $device;
-                }
-
-                public function fetchAttendanceData($device): array
-                {
-                    Log::info("🌐 Récupération des données depuis l'URL de l'appareil", [
-                        'device_id' => $this->device->id,
-                        'device_name' => $this->device->name,
-                        'api_url' => $this->device->api_url,
-                        'last_sync_at' => $this->device->last_sync_at
-                    ]);
-
-                    // Utiliser le vrai driver ApiFacialDriver
-                    return $this->driver->fetchAttendanceData();
-                }
-            };
-        }
-
-        // Pour les autres types d'API, utiliser le driver générique
-        return new class($device) {
-            private $device;
-
-            public function __construct($device)
-            {
-                $this->device = $device;
-            }
-
-            public function fetchAttendanceData($device): array
-            {
-                Log::info("🔗 Driver API générique utilisé", [
-                    'device_id' => $device->id,
-                    'device_name' => $device->name,
-                    'api_url' => $device->api_url
-                ]);
-
-                // Pour les appareils API génériques, on peut faire un appel HTTP direct
-                if ($device->api_url) {
-                    try {
-                        $response = \Illuminate\Support\Facades\Http::timeout(30)->get($device->api_url);
-                        
-                        if ($response->successful()) {
-                            $data = $response->json();
-                            
-                            // Adapter selon le format de réponse
-                            if (isset($data['pointages'])) {
-                                return $data['pointages'];
-                            } elseif (isset($data['data'])) {
-                                return $data['data'];
-                            } elseif (is_array($data)) {
-                                return $data;
-                            }
-                        }
-                        
-                        Log::warning("Réponse API non réussie", [
-                            'device' => $device->name,
-                            'status' => $response->status(),
-                            'url' => $device->api_url
-                        ]);
-                        
-                    } catch (\Exception $e) {
-                        Log::error("Erreur lors de l'appel API générique", [
-                            'device' => $device->name,
-                            'error' => $e->getMessage(),
-                            'url' => $device->api_url
-                        ]);
+                    public function __construct($device)
+                    {
+                        $this->device = $device;
                     }
-                }
 
-                // Fallback sur données simulées si aucune URL ou erreur
-                Log::warning("Aucune donnée réelle récupérée, utilisation de données simulées", [
-                    'device' => $device->name
-                ]);
+                    public function testConnection(): bool
+                    {
+                        if (!$this->device->api_url) {
+                            return false;
+                        }
 
-                $mockData = [];
-                
-                // Exemple de données API simulées
-                for ($i = 0; $i < rand(3, 10); $i++) {
-                    $employeId = rand(1, 50);
-                    $datetime = Carbon::now()->subHours(rand(1, 48));
-                    
-                    $mockData[] = [
-                        'employee_id' => $employeId,
-                        'date' => $datetime->format('Y-m-d'),
-                        'time' => $datetime->format('H:i:s'),
-                        'type' => rand(0, 1),
-                        'device_id' => $device->id,
-                        'source' => 'api_rest_simulated'
-                    ];
-                }
-                
-                return $mockData;
-            }
-        };
+                        try {
+                            $response = \Illuminate\Support\Facades\Http::timeout(10)->get($this->device->api_url);
+                            return $response->successful();
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error("Test de connexion API échoué", [
+                                'device' => $this->device->name,
+                                'error' => $e->getMessage()
+                            ]);
+                            return false;
+                        }
+                    }
+
+                    public function fetchAttendanceData(): array
+                    {
+                        if (!$this->device->api_url) {
+                            return [];
+                        }
+
+                        try {
+                            $response = \Illuminate\Support\Facades\Http::timeout(30)->get($this->device->api_url);
+                            
+                            if ($response->successful()) {
+                                $data = $response->json();
+                                
+                                if (isset($data['pointages'])) {
+                                    return $data['pointages'];
+                                } elseif (isset($data['data'])) {
+                                    return $data['data'];
+                                } elseif (is_array($data)) {
+                                    return $data;
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error("Erreur lors de la récupération des données API", [
+                                'device' => $this->device->name,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+
+                        return [];
+                    }
+                };
+        }
     }
 
     /**
@@ -900,44 +824,63 @@ class BiometricSynchronizationService
      */
     private function getValidConnectedDevices(array $options = []): Collection
     {
-        $validateProduction = $options['validate_production_data'] ?? true;
-        
-        $query = BiometricDevice::where('active', true)
-            ->where('connection_status', 'connected');
-
-        if ($validateProduction) {
-            // 🚫 Rejeter les appareils de test ou génériques non validés
-            $query->where(function($q) {
-                $q->where('brand', '!=', 'generic')
-                  ->orWhere(function($subq) {
-                      // Autoriser les appareils génériques seulement s'ils ont été testés récemment
-                      $subq->where('brand', 'generic')
-                           ->where('last_connection_test_at', '>=', now()->subHours(24));
-                  });
+        $query = BiometricDevice::query()
+            ->where('active', true)
+            ->whereNotNull('device_id') // S'assurer que l'ID de l'appareil est configuré
+            ->where(function ($query) {
+                $query->where('connection_type', 'ip')
+                    ->orWhere('connection_type', 'api');
             });
 
-            // 🚫 Rejeter les appareils avec des noms suspects
-            $query->where(function($q) {
-                $suspiciousNames = ['test', 'demo', 'simulated', 'mock', 'fake'];
-                foreach ($suspiciousNames as $name) {
-                    $q->where('name', 'not like', "%{$name}%");
-                }
-            });
-
-            // ✅ Vérifier que la dernière connexion est récente (max 48h)
-            $query->where('last_connection_test_at', '>=', now()->subHours(48));
+        // Filtrer par marque si spécifié
+        if (!empty($options['brand'])) {
+            $query->where('brand', $options['brand']);
         }
 
+        // Récupérer les appareils
         $devices = $query->get();
 
-        Log::info("🔍 Filtrage des appareils", [
-            'total_active' => BiometricDevice::where('active', true)->count(),
-            'total_connected' => BiometricDevice::where('active', true)->where('connection_status', 'connected')->count(),
-            'valid_after_filtering' => $devices->count(),
-            'validation_enabled' => $validateProduction
-        ]);
+        // Vérifier la connexion de chaque appareil
+        return $devices->filter(function ($device) {
+            try {
+                $driver = $this->getDriver($device);
+                if (!$driver) {
+                    Log::warning("Driver non disponible pour l'appareil {$device->name}");
+                    return false;
+                }
 
-        return $devices;
+                // Tester la connexion avec vérification de l'ID
+                $connectionResult = $driver->testConnection($device);
+                $isConnected = $connectionResult['success'] ?? false;
+                
+                if ($isConnected) {
+                    $device->update([
+                        'connection_status' => 'connected',
+                        'last_connection_test_at' => now()
+                    ]);
+                    return true;
+                } else {
+                    $device->update([
+                        'connection_status' => 'disconnected',
+                        'last_connection_test_at' => now(),
+                        'last_error' => 'Échec de la connexion ou ID non correspondant'
+                    ]);
+                    return false;
+                }
+            } catch (\Exception $e) {
+                Log::error("Erreur lors du test de connexion de l'appareil {$device->name}", [
+                    'device_id' => $device->id,
+                    'error' => $e->getMessage()
+                ]);
+                
+                $device->update([
+                    'connection_status' => 'error',
+                    'last_connection_test_at' => now(),
+                    'last_error' => $e->getMessage()
+                ]);
+                return false;
+            }
+        });
     }
 
     /**

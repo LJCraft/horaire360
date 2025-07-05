@@ -86,6 +86,24 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
+                                    <label for="device_id" class="form-label">ID de l'appareil <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control @error('device_id') is-invalid @enderror" 
+                                           id="device_id" name="device_id" 
+                                           value="{{ old('device_id', $device->device_id) }}" required
+                                           placeholder="1">
+                                    <div class="form-text">
+                                        L'ID configuré sur l'appareil (doit correspondre exactement)
+                                    </div>
+                                    @error('device_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
                                     <label for="connection_type" class="form-label">Type de connexion <span class="text-danger">*</span></label>
                                     <select class="form-select" id="connection_type" name="connection_type" required>
                                         <option value="">Sélectionnez le type</option>
@@ -104,13 +122,37 @@
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="ip_address" class="form-label">Adresse IP</label>
-                                        <input type="text" class="form-control" id="ip_address" name="ip_address" value="{{ old('ip_address', $device->ip_address) }}" placeholder="192.168.1.100">
+                                        <input type="text" class="form-control" id="ip_address" name="ip_address" 
+                                               value="{{ old('ip_address', $device->ip_address) }}" placeholder="192.168.1.100">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="port" class="form-label">Port</label>
-                                        <input type="number" class="form-control" id="port" name="port" value="{{ old('port', $device->port ?? 4370) }}">
+                                        <input type="number" class="form-control" id="port" name="port" 
+                                               value="{{ old('port', $device->port) }}" placeholder="4370">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="username" class="form-label">Nom d'utilisateur</label>
+                                        <input type="text" class="form-control" id="username" name="username" 
+                                               value="{{ old('username', $device->username) }}" placeholder="admin">
+                                        <div class="form-text">
+                                            Nom d'utilisateur pour l'authentification (optionnel)
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="password" class="form-label">Mot de passe</label>
+                                        <input type="password" class="form-control" id="password" name="password" 
+                                               placeholder="Mot de passe de l'appareil">
+                                        <div class="form-text">
+                                            Requis pour l'authentification sur l'appareil ZKTeco
+                                        </div>
                                     </div>
                                 </div>
                             </div>

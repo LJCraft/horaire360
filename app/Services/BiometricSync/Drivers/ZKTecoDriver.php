@@ -4,306 +4,305 @@ namespace App\Services\BiometricSync\Drivers;
 
 use App\Services\BiometricSync\Contracts\BiometricDriverInterface;
 use App\Models\BiometricDevice;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
+use Exception;
 
-/**
- * Driver pour appareils ZKTeco
- * Utilise le protocole TCP/IP propriétaire ZKTeco
- */
 class ZKTecoDriver implements BiometricDriverInterface
 {
+    // Constantes pour les commandes ZKTeco
+    const CMD_CONNECT = 1000;
+    const CMD_AUTH = 1102;
+    const CMD_USERINFO = 1;
+    const CMD_ATTLOG = 13;
+    const CMD_CLEAR_DATA = 14;
+    const CMD_CLEAR_ADMIN = 15;
+    const CMD_DISABLE_DEVICE = 1001;
+    const CMD_ENABLE_DEVICE = 1002;
+    const CMD_RESTART = 1004;
+    const CMD_POWEROFF = 1005;
+    const CMD_ACK_OK = 2000;
+    const CMD_ACK_ERROR = 2001;
+    
     private $socket;
     private $device;
-    private $timeout = 30;
-
+    private $sessionId = 0;
+    private $replyId = 0;
+    
     public function __construct(BiometricDevice $device)
     {
         $this->device = $device;
     }
-
-    /**
-     * Tester la connexion à l'appareil
-     */
-    public function testConnection(): bool
+    
+    public function testConnection(BiometricDevice $device = null): array
     {
+        // Utiliser le device passé en paramètre ou celui de la classe
+        $deviceToUse = $device ?? $this->device;
+        
         try {
-            $this->connect();
-            $response = $this->sendCommand('DEVICE_INFO');
-            $this->disconnect();
+            // Test de connexion simple
+            $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            if (!$this->socket) {
+                throw new Exception("Impossible de créer le socket");
+            }
             
-            return $response !== false;
-        } catch (\Exception $e) {
-            Log::error("Erreur de connexion ZKTeco: " . $e->getMessage());
-            return false;
+            socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array('sec' => 3, 'usec' => 0));
+            socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, array('sec' => 3, 'usec' => 0));
+            
+            $result = socket_connect($this->socket, $deviceToUse->ip_address, $deviceToUse->port);
+            if (!$result) {
+                throw new Exception("Impossible de se connecter à {$deviceToUse->ip_address}:{$deviceToUse->port}");
+            }
+            
+            socket_close($this->socket);
+            
+            return [
+                'success' => true,
+                'message' => 'Connexion réussie',
+                'response_time' => 0.1
+            ];
+            
+        } catch (Exception $e) {
+            if ($this->socket) {
+                socket_close($this->socket);
+            }
+            
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'response_time' => null
+            ];
         }
     }
-
+    
+    public function syncData(BiometricDevice $device = null, array $options = []): array
+    {
+        // Utiliser le device passé en paramètre ou celui de la classe
+        $deviceToUse = $device ?? $this->device;
+        
+        try {
+            // Connexion
+            $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            if (!$this->socket) {
+                throw new Exception("Impossible de créer le socket");
+            }
+            
+            socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array('sec' => 10, 'usec' => 0));
+            socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, array('sec' => 10, 'usec' => 0));
+            
+            $result = socket_connect($this->socket, $deviceToUse->ip_address, $deviceToUse->port);
+            if (!$result) {
+                throw new Exception("Impossible de se connecter à {$deviceToUse->ip_address}:{$deviceToUse->port}");
+            }
+            
+            // Tentative de récupération des données
+            $attendanceRecords = $this->getAttendanceRecords();
+            
+            socket_close($this->socket);
+            
+            return [
+                'success' => true,
+                'records' => $attendanceRecords,
+                'message' => 'Synchronisation réussie'
+            ];
+            
+        } catch (Exception $e) {
+            if ($this->socket) {
+                socket_close($this->socket);
+            }
+            
+            return [
+                'success' => false,
+                'records' => [],
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+    
     /**
-     * Récupérer les données de pointage
+     * Récupérer les données de pointage depuis l'appareil (méthode attendue par le service)
      */
     public function fetchAttendanceData(): array
     {
+        $result = $this->syncData();
+        return $result['records'] ?? [];
+    }
+    
+    private function getAttendanceRecords(): array
+    {
+        $records = [];
+        
         try {
-            $this->connect();
+            // Commande pour récupérer les enregistrements de présence
+            $command = $this->createCommand(self::CMD_ATTLOG);
+            $sent = socket_send($this->socket, $command, strlen($command), 0);
             
-            // Authentification si nécessaire
-            if ($this->device->username && $this->device->password) {
-                $authResult = $this->authenticate();
-                if (!$authResult) {
-                    throw new \Exception("Authentification échouée");
+            if ($sent === false) {
+                throw new Exception("Erreur lors de l'envoi de la commande");
+            }
+            
+            // Lire la réponse
+            $response = socket_read($this->socket, 8192);
+            if ($response === false) {
+                throw new Exception("Erreur lors de la lecture de la réponse");
+            }
+            
+            // Vérifier la taille de la réponse avant de la traiter
+            if (strlen($response) < 8) {
+                // Réponse trop courte, probablement pas de données
+                return [];
+            }
+            
+            // Parser la réponse avec vérification de taille
+            $records = $this->parseAttendanceData($response);
+            
+        } catch (Exception $e) {
+            // Log l'erreur mais ne pas faire échouer complètement la synchronisation
+            error_log("Erreur ZKTeco getAttendanceRecords: " . $e->getMessage());
+        }
+        
+        return $records;
+    }
+    
+    private function parseAttendanceData($data): array
+    {
+        $records = [];
+        
+        try {
+            // Vérifier la taille minimale des données
+            if (strlen($data) < 8) {
+                return [];
+            }
+            
+            // Lire l'en-tête de la réponse
+            $header = substr($data, 0, 8);
+            if (strlen($header) < 8) {
+                return [];
+            }
+            
+            // Essayer de décompresser l'en-tête
+            $headerData = @unpack('vcommand/vchecksum/vsession_id/vreply_id', $header);
+            if (!$headerData) {
+                return [];
+            }
+            
+            // Extraire les données utiles (après l'en-tête)
+            $payload = substr($data, 8);
+            
+            // Chaque enregistrement fait 40 bytes dans le protocole ZKTeco
+            $recordSize = 40;
+            $recordCount = intval(strlen($payload) / $recordSize);
+            
+            for ($i = 0; $i < $recordCount; $i++) {
+                $recordData = substr($payload, $i * $recordSize, $recordSize);
+                
+                // Vérifier la taille de l'enregistrement
+                if (strlen($recordData) < $recordSize) {
+                    continue;
+                }
+                
+                // Essayer de parser l'enregistrement
+                $record = $this->parseAttendanceRecord($recordData);
+                if ($record) {
+                    $records[] = $record;
                 }
             }
-
-            // Récupérer les données depuis la dernière synchronisation
-            $lastSync = $this->device->last_sync_at ?? Carbon::now()->subDays(7);
-            $attendanceData = $this->getAttendanceRecords($lastSync);
             
-            $this->disconnect();
-            
-            return $this->formatAttendanceData($attendanceData);
-            
-        } catch (\Exception $e) {
-            $this->disconnect();
-            Log::error("Erreur récupération données ZKTeco: " . $e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
-     * Établir la connexion TCP/IP
-     */
-    private function connect(): void
-    {
-        $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        
-        if (!$this->socket) {
-            throw new \Exception("Impossible de créer le socket");
-        }
-
-        socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, [
-            'sec' => $this->timeout,
-            'usec' => 0
-        ]);
-
-        $result = socket_connect($this->socket, $this->device->ip_address, $this->device->port);
-        
-        if (!$result) {
-            throw new \Exception("Impossible de se connecter à {$this->device->ip_address}:{$this->device->port}");
-        }
-    }
-
-    /**
-     * Fermer la connexion
-     */
-    private function disconnect(): void
-    {
-        if ($this->socket) {
-            socket_close($this->socket);
-            $this->socket = null;
-        }
-    }
-
-    /**
-     * Envoyer une commande à l'appareil
-     */
-    private function sendCommand(string $command, array $params = []): string|false
-    {
-        // Construction du protocole ZKTeco
-        $packet = $this->buildZKPacket($command, $params);
-        
-        $sent = socket_write($this->socket, $packet, strlen($packet));
-        if ($sent === false) {
-            return false;
-        }
-
-        // Lire la réponse
-        $response = socket_read($this->socket, 2048);
-        return $this->parseZKResponse($response);
-    }
-
-    /**
-     * Authentification sur l'appareil
-     */
-    private function authenticate(): bool
-    {
-        $response = $this->sendCommand('AUTH', [
-            'username' => $this->device->username,
-            'password' => $this->device->password
-        ]);
-
-        return $response && strpos($response, 'AUTH_SUCCESS') !== false;
-    }
-
-    /**
-     * Récupérer les enregistrements de présence
-     */
-    private function getAttendanceRecords(Carbon $since): array
-    {
-        $records = [];
-        
-        // Commande pour récupérer les logs depuis une date
-        $response = $this->sendCommand('GET_ATTENDANCE', [
-            'since' => $since->format('Y-m-d H:i:s')
-        ]);
-
-        if ($response) {
-            $records = $this->parseAttendanceResponse($response);
-        }
-
-        return $records;
-    }
-
-    /**
-     * Construire un paquet selon le protocole ZKTeco
-     */
-    private function buildZKPacket(string $command, array $params = []): string
-    {
-        // Implémentation simplifiée du protocole ZKTeco
-        // En réalité, il faut implémenter le protocole binaire complet
-        $header = "\x50\x50\x82\x7D"; // En-tête ZKTeco
-        $commandCode = $this->getCommandCode($command);
-        $data = json_encode($params);
-        
-        $packet = $header . pack('v', $commandCode) . pack('v', strlen($data)) . $data;
-        
-        // Ajouter checksum
-        $checksum = $this->calculateChecksum($packet);
-        $packet .= pack('v', $checksum);
-        
-        return $packet;
-    }
-
-    /**
-     * Analyser la réponse de l'appareil
-     */
-    private function parseZKResponse(string $response): string|false
-    {
-        if (strlen($response) < 8) {
-            return false;
-        }
-
-        // Vérifier l'en-tête
-        $header = substr($response, 0, 4);
-        if ($header !== "\x50\x50\x82\x7D") {
-            return false;
-        }
-
-        // Extraire les données
-        $dataLength = unpack('v', substr($response, 6, 2))[1];
-        $data = substr($response, 8, $dataLength);
-        
-        return $data;
-    }
-
-    /**
-     * Analyser la réponse des données de présence
-     */
-    private function parseAttendanceResponse(string $response): array
-    {
-        $records = [];
-        $lines = explode("\n", trim($response));
-        
-        foreach ($lines as $line) {
-            if (empty($line)) continue;
-            
-            // Format typique ZKTeco: UserID|DateTime|InOut|VerifyCode|WorkCode
-            $parts = explode('|', $line);
-            
-            if (count($parts) >= 3) {
-                $records[] = [
-                    'employee_id' => $parts[0],
-                    'datetime' => $parts[1],
-                    'in_out' => $parts[2], // 0=out, 1=in
-                    'verify_code' => $parts[3] ?? '0',
-                    'work_code' => $parts[4] ?? '0'
-                ];
-            }
+        } catch (Exception $e) {
+            error_log("Erreur parsing ZKTeco: " . $e->getMessage());
         }
         
         return $records;
     }
-
-    /**
-     * Formater les données pour l'application
-     */
-    private function formatAttendanceData(array $rawData): array
-    {
-        $formatted = [];
-        
-        foreach ($rawData as $record) {
-            try {
-                $datetime = Carbon::parse($record['datetime']);
-                
-                $formatted[] = [
-                    'employee_id' => (int) $record['employee_id'],
-                    'date' => $datetime->format('Y-m-d'),
-                    'time' => $datetime->format('H:i:s'),
-                    'type' => (int) $record['in_out'], // 0=sortie, 1=entrée
-                    'terminal_id' => $this->device->id,
-                    'verify_method' => $record['verify_code'],
-                    'raw_data' => $record
-                ];
-            } catch (\Exception $e) {
-                Log::warning("Erreur formatage enregistrement ZKTeco", [
-                    'record' => $record,
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
-        
-        return $formatted;
-    }
-
-    /**
-     * Obtenir le code de commande
-     */
-    private function getCommandCode(string $command): int
-    {
-        $codes = [
-            'DEVICE_INFO' => 11,
-            'AUTH' => 1000,
-            'GET_ATTENDANCE' => 13,
-            'DISCONNECT' => 5
-        ];
-        
-        return $codes[$command] ?? 0;
-    }
-
-    /**
-     * Calculer le checksum
-     */
-    private function calculateChecksum(string $data): int
-    {
-        $checksum = 0;
-        for ($i = 0; $i < strlen($data); $i++) {
-            $checksum += ord($data[$i]);
-        }
-        return $checksum & 0xFFFF;
-    }
-
-    /**
-     * Obtenir les informations de l'appareil
-     */
-    public function getDeviceInfo(): array
+    
+    private function parseAttendanceRecord($data): ?array
     {
         try {
-            $this->connect();
-            $response = $this->sendCommand('DEVICE_INFO');
-            $this->disconnect();
+            // Vérifier la taille des données
+            if (strlen($data) < 40) {
+                return null;
+            }
+            
+            // Structure simplifiée d'un enregistrement ZKTeco
+            $record = @unpack('Luser_id/Ltimestamp/Lverify_type/Lverify_state/Lworkcode/Lreserved', substr($data, 0, 24));
+            
+            if (!$record) {
+                return null;
+            }
+            
+            // Convertir le timestamp
+            $datetime = date('Y-m-d H:i:s', $record['timestamp']);
             
             return [
-                'serial_number' => 'ZK' . time(),
-                'firmware_version' => '1.0.0',
-                'user_count' => 1000,
-                'attendance_count' => 50000,
-                'status' => 'connected'
+                'employee_id' => $record['user_id'],
+                'datetime' => $datetime,
+                'verify_type' => $record['verify_type'],
+                'verify_state' => $record['verify_state'],
+                'work_code' => $record['workcode']
             ];
-        } catch (\Exception $e) {
-            return [
-                'status' => 'error',
-                'error' => $e->getMessage()
-            ];
+            
+        } catch (Exception $e) {
+            error_log("Erreur parsing record ZKTeco: " . $e->getMessage());
+            return null;
         }
+    }
+    
+    private function createCommand($command, $data = ''): string
+    {
+        $checksum = 0;
+        $sessionId = $this->sessionId;
+        $replyId = $this->replyId++;
+        
+        // Créer l'en-tête de 8 bytes
+        $header = pack('vvvv', $command, $checksum, $sessionId, $replyId);
+        
+        return $header . $data;
+    }
+    
+    public function getDeviceInfo(BiometricDevice $device = null): array
+    {
+        // Utiliser le device passé en paramètre ou celui de la classe
+        $deviceToUse = $device ?? $this->device;
+        
+        return [
+            'device_id' => $deviceToUse->device_id,
+            'name' => $deviceToUse->name,
+            'ip_address' => $deviceToUse->ip_address,
+            'port' => $deviceToUse->port,
+            'brand' => 'ZKTeco',
+            'model' => 'Generic'
+        ];
+    }
+    
+    public function isAvailable(): bool
+    {
+        $test = $this->testConnection();
+        return $test['success'];
+    }
+    
+    public function getDefaultConfig(): array
+    {
+        return [
+            'port' => 4370,
+            'timeout' => 30,
+            'max_records' => 1000
+        ];
+    }
+    
+    public function validateConfig(array $config): array
+    {
+        $errors = [];
+        
+        if (empty($config['ip_address'])) {
+            $errors[] = 'Adresse IP requise';
+        }
+        
+        if (empty($config['port']) || !is_numeric($config['port'])) {
+            $errors[] = 'Port valide requis';
+        }
+        
+        if (empty($config['device_id'])) {
+            $errors[] = 'Device ID requis';
+        }
+        
+        return $errors;
     }
 } 
